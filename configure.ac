@@ -1439,6 +1439,7 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile 
            src/tl/Makefile
            src/tl/hlt/Makefile
+           src/tl/gfn/Makefile
            src/tl/manip/Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile

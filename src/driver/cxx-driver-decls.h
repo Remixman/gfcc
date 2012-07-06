@@ -394,6 +394,9 @@ typedef struct compilation_configuration_tag
 
     // Enable HLT
     char enable_hlt;
+    
+    // Enable gfn
+    char enable_gfn;
 
     // Enable C++1x
     char enable_cxx1x;

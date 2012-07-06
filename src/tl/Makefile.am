@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt manip @TL_EXTENSIONS@ 
+SUBDIRS = . hlt gfn manip @TL_EXTENSIONS@ 
 
 END=
 
@@ -36,6 +36,7 @@ DIST_SUBDIRS=omp \
              examples \
              testing \
              hlt \
+             gfn \
              ss_valgrind \
              manip \
              $(END)

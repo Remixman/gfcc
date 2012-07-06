@@ -24,36 +24,39 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../../Makefile.phases
+lib_LTLIBRARIES = libtl-gfn.la 
+phases_LTLIBRARIES = libtl-gfn-pragma.la
 
-phases_LTLIBRARIES = libtlomp-core.la
-
-libtlomp_core_la_CFLAGS = $(tl_cflags)
-libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt $(srcdir)/../../gfn
-
-libtlomp_core_la_LDFLAGS = $(tl_ldflags)
-libtlomp_core_la_LIBADD = $(tl_libadd) ../../hlt/libtl-hlt.la ../../hlt/libtl-gfn.la
+include ../Makefile.phases
 
 END=
+ 
+COMMON_CFLAGS=-DLIBGFN_DLL_EXPORT -I $(srcdir)/../omp/core
 
-EXTRA_DIST =
+libtl_gfn_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS) 
+libtl_gfn_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
+libtl_gfn_la_LIBADD=$(tl_libadd) 
+libtl_gfn_la_LDFLAGS=$(tl_ldflags)
 
-EXTRA_DIST += tl-omp-constructs.def
+libtl_gfn_la_SOURCES = \
+      gfn-kernel_core.hpp \
+      gfn-kernel_core.cpp \
+      gfn-transform.hpp \
+      gfn-transform.cpp \
+      gfn-exception.hpp \
+      gfn-exception.cpp \
+      gfn-atomic.hpp \
+      gfn-atomic.cpp \
+      gfn-parallel_for.hpp \
+      gfn-parallel_for.cpp \
+     $(END)
 
-libtlomp_core_la_SOURCES = \
-   tl-omp-core.hpp \
-   tl-omp-core.cpp \
-   tl-omp.cpp \
-   tl-omp.hpp \
-   tl-omp-udr.hpp \
-   tl-omp-udr.cpp \
-   tl-omp-udr_2.hpp \
-   tl-omp-udr_2.cpp \
-   tl-omp-deps.hpp \
-   tl-omp-deps.cpp \
-   tl-omp-tasks.hpp \
-   tl-omp-tasks.cpp \
-   tl-omp-target.hpp \
-   tl-omp-target.cpp \
-   tl-omp-collapse.cpp \
-   $(END)
+libtl_gfn_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
+libtl_gfn_pragma_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
+libtl_gfn_pragma_la_LIBADD=$(tl_libadd) libtl-gfn.la
+libtl_gfn_pragma_la_LDFLAGS=$(tl_ldflags) 
+
+libtl_gfn_pragma_la_SOURCES = \
+      gfn-pragma.cpp \
+      gfn-pragma.hpp \
+      $(END)

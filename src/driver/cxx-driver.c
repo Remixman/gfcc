@@ -178,6 +178,7 @@
 "  --cuda                   Enables experimental support for CUDA\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
+"  --gfn                    Enable Griffon directive '#pragma gfn'\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
@@ -291,6 +292,7 @@ typedef enum
     OPTION_ENABLE_UPC,
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_HLT,
+    OPTION_ENABLE_GFN,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_ALWAYS_PREPROCESS,
@@ -348,6 +350,7 @@ struct command_line_long_options command_line_long_options[] =
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
+    {"gfn", CLP_NO_ARGUMENT, OPTION_ENABLE_GFN},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
@@ -803,6 +806,26 @@ int parse_arguments(int argc, const char* argv[],
                         if (!found)
                         {
                             internal_error("'hlt' implicit flag was not properly registered", 0);
+                        }
+                        break;
+                    }
+                case OPTION_ENABLE_GFN : 
+                    {
+                        CURRENT_CONFIGURATION->enable_gfn = 1;
+                        // If 'gfn' is in the parameter flags, set it to false, otherwise add it as false
+                        int i;
+                        char found = 0;
+                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+                        {
+                            if (strcmp(compilation_process.parameter_flags[i]->name, "gfn") == 0)
+                            {
+                                found = 1;
+                                compilation_process.parameter_flags[i]->value = 1;
+                            }
+                        }
+                        if (!found)
+                        {
+                            internal_error("'gfn' implicit flag was not properly registered", 0);
                         }
                         break;
                     }
@@ -2102,6 +2125,17 @@ static void initialize_default_values(void)
     P_LIST_ADD(compilation_process.parameter_flags, 
             compilation_process.num_parameter_flags,
             new_parameter_flag);
+    
+    // Add gfn as an implicit flag
+    new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+    
+    new_parameter_flag->name = uniquestr("gfn");
+    // This is redundant because of calloc, but make it explicit here anyway
+    new_parameter_flag->value = 0;
+    
+    P_LIST_ADD(compilation_process.parameter_flags, 
+            compilation_process.num_parameter_flags,
+            new_parameter_flag);
 
     //num args linker command  = 0
     CURRENT_CONFIGURATION->num_args_linker_command = 0;
@@ -2317,6 +2351,7 @@ static void commit_configuration(void)
 
 static void register_upc_pragmae(void);
 static void enable_hlt_phase(void);
+static void enable_gfn_phase(void);
 
 static void finalize_committed_configuration(void)
 {
@@ -2344,6 +2379,12 @@ static void finalize_committed_configuration(void)
     {
         enable_hlt_phase();
     }
+    
+    // GFN additional support
+    if (CURRENT_CONFIGURATION->enable_gfn)
+    {
+        enable_gfn_phase();
+    }
 }
 
 static void enable_hlt_phase(void)
@@ -2366,6 +2407,23 @@ static void enable_hlt_phase(void)
     /*P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
             CURRENT_CONFIGURATION->num_compiler_phases, 
             library_name);*/
+}
+
+static void enable_gfn_phase(void)
+{
+    // Register '#pragma gfn'
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "gfn");
+    
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM_GFN");
+    
+    // When loading the compiler phase a proper extension will be added
+    const char* library_name = "libtl-gfn-pragma";
+        compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+        cl->func = compiler_phase_loader;
+        cl->data = (void*)uniquestr(library_name);
+    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->phase_loader, 
+            CURRENT_CONFIGURATION->num_compiler_phases,
+			cl);
 }
 
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
