@@ -137,9 +137,6 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source new_param_list;
     std::string kernel_name = get_new_kernel_name();
     
-    // XXX: find use and def variable
-    find_use_and_def_list(loop_body);
-    
     // declare thread id variable
     TL::Source thread_id_decl = do_thread_id_declaration();
     TL::Source loop_index_decl = do_loop_index_declaration(induction_var.get_symbol(),
@@ -176,10 +173,10 @@ TL::Source ParallelFor::do_parallel_for()
         if (it->prettyprint() != induction_var.prettyprint() &&
             !contain(private_list, data_ref))
         {
-            formal_param_list.push_back(it->prettyprint());
+            formal_param_list.push_back(GFN_DEVICE_PREFIX + (it->prettyprint()));
             kernel_param.append_with_separator(
                 get_declaration(_construct, data_ref), ",");
-                
+
             // XXX: declare device variable
             if (!is_already_declare(_for_stmt.get_scope(), it->prettyprint()))
             {
@@ -192,6 +189,38 @@ TL::Source ParallelFor::do_parallel_for()
     }
     formal_param_list.push_back(upper_bound.prettyprint());
     kernel_param.append_with_separator("int " GFN_UPPER_BOUND, ",");
+
+    // XXX: memcpy host to device
+    for (ObjectList<DataReference>::iterator it = _kernel_info->_use_list.begin();
+         it != _kernel_info->_use_list.end();
+         ++it)
+    {
+        if (!contain(private_list, *it))
+        {
+            std::string var_name = it->get_base_symbol().get_name();
+            std::string size = _kernel_info->_dim_size_list[var_name]._dim1_size;
+                /* + " * " + _kernel_info->_dim_size_list[var_name]._dim2_size */
+
+            memcpy_h2d
+                << do_gfn_memcpy_h2d(var_name, size);
+        }
+    }
+
+    // XXX: memcpy device to host
+    for (ObjectList<DataReference>::iterator it = _kernel_info->_def_list.begin();
+         it != _kernel_info->_def_list.end();
+         ++it)
+    {
+        if (!contain(private_list, *it))
+        {
+            std::string var_name = it->get_base_symbol().get_name();
+            std::string size = _kernel_info->_dim_size_list[var_name]._dim1_size;
+                /* + " * " + _kernel_info->_dim_size_list[var_name]._dim2_size */
+
+            memcpy_d2h
+                << do_gfn_memcpy_d2h(var_name, size);
+        }
+    }
 
     // XXX: declare private variable
     private_var_decl
@@ -285,61 +314,6 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
     }
 }
 #endif
-void ParallelFor::find_use_and_def_list(TL::Statement compound_stmt)
-{
-    
-
-    if (!compound_stmt.is_compound_statement())
-    {
-        std::cerr 
-            << "Error at gfn-parallel_for.cpp:find_use_and_def_list\n"; find_use_and_def_list
-    }
-  
-    ObjectList<Statement> statements = compound_stmt.get_inner_statements();
-  
-    /* FIXME: if def before use eg.
-     * A[i] = 6;
-     * B[i] = A[i];
-     * A is def but also use;
-     */
-    for (ObjectList<Statement>::iterator it = statements.begin();
-         it != statements.end();
-         it++)
-    {
-        Expression expression = it->get_expression();
-        if (it->is_compound_statement())
-        {
-            find_use_and_def_list(*it);
-        }
-        else if (expression.is_assignment() || expression.is_operation_assignment())
-        {
-            DataReference def_var_ref(expression.get_first_operand());
-            if (!contain(_def_list, def_var_ref))
-            {
-                _def_list.push_back(def_var_ref);
-            }
-        }
-        else
-        {
-            /* if pass to function we don't know use or def
-             * add to both list.
-             */
-            // XXX: get all variable in statement
-            ObjectList<IdExpression> stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
-            for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
-                 iit != stmt_var_list.end();
-                 iit++)
-            {
-                DataReference data_ref(iit->get_expression());
-                if (!contain(_use_list, data_ref))
-                {
-                    _use_list.push_back(data_ref);
-                }
-            }
-            
-        }
-    }
-}
 
 TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
                                                   TL::Expression loop_increment,
@@ -387,7 +361,7 @@ TL::Source ParallelFor::do_gfn_malloc(std::string &identifier,
     TL::Source malloc_call;
     malloc_call
         << "_gfn_malloc("
-        << identifier
+        << GFN_DEVICE_PREFIX << identifier
         << ","
         << malloc_size
         << ");";
@@ -395,41 +369,47 @@ TL::Source ParallelFor::do_gfn_malloc(std::string &identifier,
     return malloc_call;
 }
 
-TL::Source ParallelFor::do_gfn_mfree(std::string &identifier);
-TL::Source ParallelFor::do_gfn_memcpy(std::string &identifier,
-                                      TL::Source &copy_size,
-                                      CUDA_MEMCPY_KIND memcpy_kind);
+// TODO: potential_malloc
 
-TL::Source ParallelFor::do_cuda_malloc(std::string &identifier, Source &malloc_size)
+// TODO: if variable's declaration is in function (not function args)
+TL::Source ParallelFor::do_gfn_mfree(std::string &identifier)
 {
-    TL::Source malloc_call;
-    malloc_call
-        << "cudaMalloc((void**)&"
-        << identifier
-        << ","
-        << malloc_size
+    TL::Source potential_mfree;
+    potential_mfree
+        << "_gfn_potential_mfree("
+        << GFN_DEVICE_PREFIX << identifier
         << ");";
 
-    return malloc_call;
+    return potential_mfree;
 }
 
-TL::Source ParallelFor::do_cuda_free(std::string &identifier)
+TL::Source ParallelFor::do_gfn_memcpy_h2d(std::string &identifier,
+                                          std::string &copy_size)
 {
-    TL::Source free_call;
-    free_call
-        << "cudaFree( " << identifier << " );";
-
-    return free_call;
-}
-
-TL::Source ParallelFor::do_cuda_memcpy(std::string &identifier, Source &malloc_size, 
-                           CUDA_MEMCPY_KIND memcpy_kind)
-{
-    // TODO: add src_iden, desc_iden
     TL::Source memcpy_call;
     memcpy_call
-        << "cudaMemcpy( &" << identifier << " );";
+        << "_gfn_memcpy_h2d("
+        << identifier
+        << ","
+        << GFN_DEVICE_PREFIX << identifier
+        << ","
+        << copy_size
+        << ");";
+    return memcpy_call;
+}
 
+TL::Source ParallelFor::do_gfn_memcpy_d2h(std::string &identifier,
+                                          std::string &copy_size)
+{
+    TL::Source memcpy_call;
+    memcpy_call
+        << "_gfn_memcpy_d2h("
+        << GFN_DEVICE_PREFIX << identifier
+        << ","
+        << identifier
+        << ","
+        << copy_size
+        << ");";
     return memcpy_call;
 }
 

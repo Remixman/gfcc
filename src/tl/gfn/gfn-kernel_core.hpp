@@ -46,6 +46,15 @@ namespace TL
         //! \addtogroup GFN Griffon
         //! @{
 
+        struct LIBGFN_CLASS DimSize
+        {
+            DimSize() { _dim1_size = _dim2_size = _dim3_size = "1"; }
+
+            std::string _dim1_size;
+            std::string _dim2_size;
+            std::string _dim3_size;
+        };
+
         //! GFN Kernel Infomation
         /*!
           .........
@@ -57,18 +66,15 @@ namespace TL
                 ObjectList<std::string> _wait_for;
                 ObjectList<std::string> _all_var;
                 
-                ObjectList<TL::DataReference> _private_list;
+                ObjectList<DataReference> _private_list;
 
                 ObjectList<std::string> _shared_var;
                 
-                ObjectList<TL::DataReference> _use_list;
-                ObjectList<TL::DataReference> _def_list;
-                
                 GFN_ACCURATE _accurate;
                 
-                TL::Source _thread_num;
-                TL::Source _block_num;
-                TL::Source _thread_per_block;
+                Source _thread_num;
+                Source _block_num;
+                Source _thread_per_block;
 
             public:
                 //operator Source();
@@ -80,18 +86,27 @@ namespace TL
                 
                 void set_kernel_name(std::string &name);
                 std::string get_kernel_name();
-                void set_thread_num(TL::Source thread_num);
-                TL::Source get_thread_num();
+                void set_thread_num(Source thread_num);
+                Source get_thread_num();
                 void set_wait_for(ObjectList<std::string> &wait_for);
                 ObjectList<std::string> get_wait_for();
 
-                void set_private_list(ObjectList<TL::DataReference> &private_list);
-                ObjectList<TL::DataReference> get_private_list();
+                void set_private_list(ObjectList<DataReference> &private_list);
+                ObjectList<DataReference> get_private_list();
 
                 void set_accurate(GFN_ACCURATE accurate);
                 GFN_ACCURATE get_accurate();
+
+                int get_use_list_index(std::string var);
+                int get_def_list_index(std::string var);
+                void push_to_use_list(DataReference &data_ref);
+                void push_to_def_list(DataReference &data_ref);
                 
                 static std::map< std::string, KernelInfo > _kernel_map;
+
+                ObjectList<DataReference> _use_list;
+                ObjectList<DataReference> _def_list;
+                std::map< std::string, DimSize > _dim_size_list;
         };
         //! @}
     }

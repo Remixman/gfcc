@@ -71,7 +71,6 @@ namespace TL
                                         Expression &step);
 
                 void extract_define_device_function(AST_t gpu_function);
-                void find_use_and_def_list(Statement compound_stmt);
                 
                 Source do_loop_index_declaration(Symbol loop_index,
                                                  Expression loop_increment,
@@ -80,9 +79,10 @@ namespace TL
 
                 Source do_gfn_malloc(std::string &identifier, Source &malloc_size);
                 Source do_gfn_mfree(std::string &identifier);
-                Source do_gfn_memcpy(std::string &identifier,
-                                     Source &copy_size,
-                                     CUDA_MEMCPY_KIND memcpy_kind);
+                Source do_gfn_memcpy_h2d(std::string &identifier,
+                                         std::string &copy_size);
+                Source do_gfn_memcpy_d2h(std::string &identifier,
+                                         std::string &copy_size);
 
                 Source do_cuda_malloc(std::string &identifier, Source &malloc_size);
                 Source do_cuda_free(std::string &identifier);

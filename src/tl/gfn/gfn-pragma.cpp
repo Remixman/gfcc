@@ -44,6 +44,12 @@ GFNPragmaPhase::GFNPragmaPhase()
     set_phase_description("This phase implements griffon transformations "
             "available through the usage of #pragma gfn");
     
+    register_construct("init");
+    on_directive_post["init"].connect(functor(&GFNPragmaPhase::init, *this));
+
+    register_construct("finalize");
+    on_directive_post["finalize"].connect(functor(&GFNPragmaPhase::finalize, *this));
+
     register_construct("parallel_for");
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
     // XXX: on_directive_pre ???
@@ -113,6 +119,30 @@ void GFNPragmaPhase::run(TL::DTO& dto)
     }
 }
 
+void GFNPragmaPhase::init(PragmaCustomConstruct construct)
+{
+    Source result;
+
+    result << "_gfn_mpi_init();";
+
+    AST_t mpi_init_tree = result.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(mpi_init_tree);
+}
+
+void GFNPragmaPhase::finalize(PragmaCustomConstruct construct)
+{
+    Source result;
+
+    result << "_gfn_mpi_finalize();";
+
+    AST_t mpi_final_tree = result.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(mpi_final_tree);
+}
+
 static void parallel_for_fun(TL::PragmaCustomConstruct construct, 
                              TL::ForStatement for_stmt, 
                              KernelInfo *kernel_info)
@@ -137,101 +167,20 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     {
         throw GFNException(construct, "not found for statement followed #pragma gfn parallel_for");
     }*/
-    
+
     ObjectList<IdExpression> symbol_list = for_body.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
-    
-    TL::PragmaCustomClause kernelname_clause = construct.get_clause("kernelname");
-    if (kernelname_clause.is_defined())
-    {
-        //std::cout << "In kernel name clause\n";
-        ObjectList<std::string> kernel_name_list = kernelname_clause.get_arguments();
-        
-        if (kernel_name_list.size() != 1)
-        {
-            throw GFNException(construct, "kernelname only accepts one name");
-        }
-        kernel_info->set_kernel_name(kernel_name_list[0]);
-    }
-    
-    TL::PragmaCustomClause waitfor_clause = construct.get_clause("waitfor");
-    if (waitfor_clause.is_defined())
-    {
-        ObjectList<std::string> kernel_name_list = waitfor_clause.get_arguments();
-        kernel_info->set_wait_for(kernel_name_list);
-    }
-    
-    TL::PragmaCustomClause private_clause = construct.get_clause("private");
-    if (private_clause.is_defined())
-    {
-        //ObjectList<std::string> identifier_list = private_clause.get_arguments();
-        ObjectList<Expression> identifier_list = private_clause.get_expression_list();
-        ObjectList<DataReference> private_name_list;
 
-        for (ObjectList<Expression>::iterator it = identifier_list.begin();
-             it != identifier_list.end();
-             it++)
-        {
-            // FIXME: scope of variable. it is able to have two or more variables 
-            // that has the same name
-            
-            Type var_type = it->get_type();
-	    
-            bool found = false;
-            for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
-                 sit != symbol_list.end();
-                 sit++)
-            {
-                if (sit->get_symbol().get_name() == it->prettyprint())
-                {   
-                    found = true;
-                    DataReference data_ref(*it);
-                    
-                    if (0 /*!data_ref.is_valid(warning)*/)
-                    {
-                        /*std::cerr << warning;
-                        std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
-                            << "' is not a valid name for private variables" << std::endl;*/
-                    }
-                    else
-                    {
-                        private_name_list.push_back(data_ref);
-                    }
-                    break;
-                }
-            }
-            if (!found)
-            {
-                // Remove from list
-                std::cerr << it->prettyprint() << " is not variable.\n";
-            }
-        }
+    // XXX: find use and def variable
+    Statement loop_body = for_statement.get_loop_body();
+    find_use_and_def_list(loop_body, kernel_info);
 
-        kernel_info->set_private_list(private_name_list);
-    }
-    
-    TL::PragmaCustomClause accurate_clause = construct.get_clause("accurate");
-    if (accurate_clause.is_defined())
-    {
-        ObjectList<std::string> accurate_arg = private_clause.get_arguments();
-        
-        if (accurate_arg.size() != 1)
-        {
-            std::cerr << "" << std::endl;
-        }
-        
-        accurate_arg[0];
-    }
-    
-    TL::PragmaCustomClause reduction_clause = construct.get_clause("reduction");
-    if (reduction_clause.is_defined())
-    {
-        // DO SOMETHING
-        //ObjectList<OpenMP::ReductionSymbol> reduction_references;
-
-        //ObjectList<ObjectList<std::string> > clause_arguments = reduction_clause.get_arguments_unflattened();
-    }
-    
-    
+    // get data from clauses
+    get_kernelname_clause(construct, kernel_info);
+    get_waitfor_clause(construct, kernel_info);
+    get_private_clause(construct, kernel_info, symbol_list);
+    get_accurate_clause(construct, kernel_info);
+    get_reduction_clause(construct, kernel_info);
+    get_size_clause(construct, kernel_info);
     
     parallel_for_fun(construct, for_statement, kernel_info);
 
@@ -293,6 +242,254 @@ void GFNPragmaPhase::atomic(PragmaCustomConstruct construct)
     atomic_fun(statement);
     
     construct.get_ast().replace(statement.get_ast());
+}
+
+void GFNPragmaPhase::get_kernelname_clause(PragmaCustomConstruct construct,
+                                           KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause kernelname_clause = construct.get_clause("kernelname");
+    if (kernelname_clause.is_defined())
+    {
+        ObjectList<std::string> kernel_name_list = kernelname_clause.get_arguments();
+
+        if (kernel_name_list.size() != 1)
+        {
+            throw GFNException(construct, "kernelname only accepts one name");
+        }
+        kernel_info->set_kernel_name(kernel_name_list[0]);
+    }
+}
+
+void GFNPragmaPhase::get_waitfor_clause(PragmaCustomConstruct construct,
+                                        KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause waitfor_clause = construct.get_clause("waitfor");
+    if (waitfor_clause.is_defined())
+    {
+        ObjectList<std::string> kernel_name_list = waitfor_clause.get_arguments();
+        kernel_info->set_wait_for(kernel_name_list);
+    }
+}
+
+void GFNPragmaPhase::get_private_clause(PragmaCustomConstruct construct,
+                                        KernelInfo *kernel_info,
+                                        ObjectList<IdExpression> &symbol_list)
+{
+    TL::PragmaCustomClause private_clause = construct.get_clause("private");
+    if (private_clause.is_defined())
+    {
+
+        //ObjectList<std::string> identifier_list = private_clause.get_arguments();
+        ObjectList<Expression> identifier_list = private_clause.get_expression_list();
+        ObjectList<DataReference> private_name_list;
+
+        for (ObjectList<Expression>::iterator it = identifier_list.begin();
+             it != identifier_list.end();
+             it++)
+        {
+            // FIXME: scope of variable. it is able to have two or more variables
+            // that has the same name
+
+            Type var_type = it->get_type();
+
+            bool found = false;
+            for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
+                 sit != symbol_list.end();
+                 sit++)
+            {
+                if (sit->get_symbol().get_name() == it->prettyprint())
+                {
+                    found = true;
+                    DataReference data_ref(*it);
+
+                    if (0 /*!data_ref.is_valid(warning)*/)
+                    {
+                        /*std::cerr << warning;
+                        std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref
+                            << "' is not a valid name for private variables" << std::endl;*/
+                    }
+                    else
+                    {
+                        private_name_list.push_back(data_ref);
+                    }
+                    break;
+                }
+            }
+            if (!found)
+            {
+                // Remove from list
+                std::cerr << it->prettyprint() << " is not variable.\n";
+            }
+        }
+
+        kernel_info->set_private_list(private_name_list);
+    }
+}
+
+void GFNPragmaPhase::get_accurate_clause(PragmaCustomConstruct construct,
+                                         KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause accurate_clause = construct.get_clause("accurate");
+    if (accurate_clause.is_defined())
+    {
+        ObjectList<std::string> accurate_arg = accurate_clause.get_arguments();
+
+        if (accurate_arg.size() != 1)
+        {
+            std::cerr << "" << std::endl;
+        }
+
+        accurate_arg[0];
+    }
+}
+
+void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
+                                          KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause reduction_clause = construct.get_clause("reduction");
+    if (reduction_clause.is_defined())
+    {
+        // DO SOMETHING
+        //ObjectList<OpenMP::ReductionSymbol> reduction_references;
+
+        //ObjectList<ObjectList<std::string> > clause_arguments = reduction_clause.get_arguments_unflattened();
+    }
+}
+
+void GFNPragmaPhase::get_size_clause(PragmaCustomConstruct construct,
+                                     KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause size_clause = construct.get_clause("size");
+    if (size_clause.is_defined())
+    {
+        ObjectList<std::string> list_arg = size_clause.get_arguments();
+        for (ObjectList<std::string>::iterator it = list_arg.begin();
+             it != list_arg.end();
+             ++it)
+        {
+            // var,var2,var3,... : dim_size1, dim_size2, dim_size3
+            size_t colon_pos = it->find(":");
+            if (colon_pos == std::string::npos)
+            {
+                std::cerr << "size clause must have \':\' before size\n";
+                // TODO: throw
+            }
+
+            std::string var_list_str = it->substr(0, colon_pos);
+            std::string size_list_str = it->substr(colon_pos+1);
+
+            if (var_list_str.size() == 0 || size_list_str.size() == 0)
+            {
+                std::cerr << "size clause syntax error";
+            }
+
+            ObjectList<std::string> var_list, size_list;
+            size_t start_pos = 0, comma_pos = 0;
+            while ((comma_pos = var_list_str.find(",", start_pos)) != std::string::npos) {
+                std::string var = var_list_str.substr(start_pos, comma_pos - start_pos);
+                if (var.size() != 0)
+                {
+                    var_list.push_back(var);
+                }
+                start_pos = comma_pos + 1;
+            }
+            if (start_pos != var_list_str.size())
+            {
+                std::string var = var_list_str.substr(start_pos, var_list_str.size() - start_pos);
+                var_list.push_back(var);
+            }
+
+            // parse size list
+            start_pos = 0, comma_pos = 0;
+            while ((comma_pos = size_list_str.find(",", start_pos)) != std::string::npos) {
+                std::string size = size_list_str.substr(start_pos, comma_pos - start_pos);
+                if (size.size() != 0)
+                {
+                    size_list.push_back(size);
+                }
+                start_pos = comma_pos + 1;
+            }
+            if (start_pos != size_list_str.size())
+            {
+                std::string size = size_list_str.substr(start_pos, size_list_str.size() - start_pos);
+                size_list.push_back(size);
+            }
+            while (size_list.size() < 3)
+            {
+                size_list.push_back("1");
+            }
+
+            // set size data to kernel
+            for (ObjectList<std::string>::iterator it = var_list.begin();
+                 it != var_list.end();
+                 ++it)
+            {
+                if (kernel_info->get_use_list_index(*it) == -1 &&
+                    kernel_info->get_def_list_index(*it) == -1)
+                {
+                    std::cerr << "cannot find " << *it << " in kernel\n";
+                    continue;
+                }
+
+                DimSize &dim_size = kernel_info->_dim_size_list[*it];
+                dim_size._dim1_size = size_list[0];
+                dim_size._dim2_size = size_list[1];
+                dim_size._dim3_size = size_list[2];
+            }
+        }
+    }
+}
+
+void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
+                                           KernelInfo *kernel_info)
+{
+
+    if (!compound_stmt.is_compound_statement())
+    {
+        std::cerr
+            << "Error at gfn-parallel_for.cpp:find_use_and_def_list\n";
+    }
+
+    ObjectList<Statement> statements = compound_stmt.get_inner_statements();
+
+    /* FIXME: if def before use eg.
+     * A[i] = 6;
+     * B[i] = A[i];
+     * A is def but also use;
+     *
+     * A[i] += 9; ?
+     */
+    for (ObjectList<Statement>::iterator it = statements.begin();
+         it != statements.end();
+         it++)
+    {
+        Expression expression = it->get_expression();
+        if (it->is_compound_statement())
+        {
+            find_use_and_def_list(*it, kernel_info);
+        }
+        else if (expression.is_assignment() || expression.is_operation_assignment())
+        {
+            DataReference def_var_ref(expression.get_first_operand());
+            kernel_info->push_to_def_list(def_var_ref);
+        }
+        else
+        {
+            /* if pass to function we don't know use or def
+             * add to both list.
+             */
+            // XXX: get all variable in statement
+            ObjectList<IdExpression> stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
+            for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
+                 iit != stmt_var_list.end();
+                 iit++)
+            {
+                DataReference data_ref(iit->get_expression());
+                kernel_info->push_to_use_list(data_ref);
+            }
+
+        }
+    }
 }
 
 EXPORT_PHASE(TL::GFN::GFNPragmaPhase)

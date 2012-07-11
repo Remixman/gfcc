@@ -57,10 +57,29 @@ namespace TL
                 GFNPragmaPhase();
                 virtual void run(TL::DTO& dto);
             private:
+                void init(PragmaCustomConstruct construct);
+                void finalize(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);
                 void overlapcompute(PragmaCustomConstruct construct);
                 void barrier(PragmaCustomConstruct construct);
                 void atomic(PragmaCustomConstruct construct);
+
+                void get_kernelname_clause(PragmaCustomConstruct construct,
+                                           KernelInfo *kernel_info);
+                void get_waitfor_clause(PragmaCustomConstruct construct,
+                                        KernelInfo *kernel_info);
+                void get_private_clause(PragmaCustomConstruct construct,
+                                        KernelInfo *kernel_info,
+                                        ObjectList<IdExpression> &symbol_list);
+                void get_accurate_clause(PragmaCustomConstruct construct,
+                                         KernelInfo *kernel_info);
+                void get_reduction_clause(PragmaCustomConstruct construct,
+                                          KernelInfo *kernel_info);
+                void get_size_clause(PragmaCustomConstruct construct,
+                                     KernelInfo *kernel_info);
+
+                void find_use_and_def_list(Statement compound_stmt,
+                                           KernelInfo *kernel_info);
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;
