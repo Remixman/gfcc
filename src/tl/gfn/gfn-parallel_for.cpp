@@ -246,9 +246,15 @@ TL::Source ParallelFor::do_parallel_for()
 
     // XXX: prepend kernel
     _function_def->get_ast().prepend_sibling_function(kernel_def_tree);
-    
-    result 
-        << device_var_decl
+
+    /* Add device variable declaration to top of function */
+    TL::AST_t device_var_decl_tree = device_var_decl.parse_declaration(
+            _function_def->get_point_of_declaration(),
+            _function_def->get_scope_link());
+    _function_def->get_function_body().get_inner_statements()
+            .front().get_ast().prepend(device_var_decl_tree);
+
+    result
         << memcpy_h2d
         << kernel_name
         << do_kernel_config(lower_bound, upper_bound, step) /// <<< block, thread_p_block >>>

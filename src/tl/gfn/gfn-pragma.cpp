@@ -123,7 +123,11 @@ void GFNPragmaPhase::init(PragmaCustomConstruct construct)
 {
     Source result;
 
-    result << "_gfn_mpi_init();";
+    result
+        << comment("MPI_Init")
+        << "_gfn_mpi_init();"
+        // XXX: hacking follow construct statement disappear
+        << construct.get_statement().prettyprint();
 
     AST_t mpi_init_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -135,7 +139,11 @@ void GFNPragmaPhase::finalize(PragmaCustomConstruct construct)
 {
     Source result;
 
-    result << "_gfn_mpi_finalize();";
+    result
+        << comment("MPI finalize")
+        << "_gfn_mpi_finalize();"
+        // XXX: hacking follow construct statement disappear
+        << construct.get_statement().prettyprint();
 
     AST_t mpi_final_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());

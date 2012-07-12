@@ -117,6 +117,16 @@ Source BaseTransform::get_declaration(PragmaCustomConstruct &construct,
 
     Symbol sym = data_ref.get_symbol();
     Type type = sym.get_type();
+
+    if (type.is_array())
+    {
+        if (type.get_num_dimensions() == 1)
+        {
+            // XXX: change array 1 dimension type to pointer
+            type = type.array_element().get_pointer_to();
+        }
+        // TODO: multidimension ??
+    }
     
     declaration
             << type.get_declaration(construct.get_scope(), name_prefix + sym.get_name());
