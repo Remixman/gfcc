@@ -54,6 +54,9 @@
 #define GFN_PROC_NUM_VAR "_gfn_proc_num"
 #define GFN_RANK_VAR "_gfn_rank"
 
+#define GFN_TRANS_MPI   0x00001
+#define GFN_TRANS_CUDA  0x00002
+
 enum GFN_ACCURATE
 {
     ACCURATE_LOW,

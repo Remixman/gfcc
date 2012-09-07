@@ -27,6 +27,7 @@
 
 
 #include "gfn-parallel_for.hpp"
+#include "gfn-config.hpp"
 #include <sstream>
 
 using namespace TL::GFN;
@@ -138,7 +139,7 @@ TL::Source ParallelFor::do_parallel_for()
 
 
     /*==------------------- Cluster CG section ---------------------==*/
-    if (1/*BaseTransform::is_cluster_trans*/) {
+    if (Conf_Trans_flags & GFN_TRANS_MPI) {
         TL::Source new_for_stmt, new_init, new_cond, new_step;
 
         /* Declare MPI rank and proc_num in function */

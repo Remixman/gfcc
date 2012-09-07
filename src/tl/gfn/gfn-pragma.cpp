@@ -30,6 +30,7 @@
 #include "gfn-parallel_for.hpp"
 #include "gfn-atomic.hpp"
 #include "gfn-exception.hpp"
+#include "gfn-config.hpp"
 
 
 #include <algorithm>
@@ -105,19 +106,15 @@ void GFNPragmaPhase::run(TL::DTO& dto)
      *  - GPU & Cluster specify & topology TODO:
      *  - compile config (cluster, gpu, gpucluster) */
     // TODO: change config directory
-    /*std::ifstream config_file("/home/remixman/Desktop/gfn_testsuite/config.gfn");
+    std::ifstream config_file("/home/remixman/Desktop/gfn_testsuite/config.gfn");
     std::string s;
     config_file >> s;
-    BaseTransform::is_cluster_trans = false;
-    BaseTransform::is_gpu_trans = false;
     if (s == "cluster")
-        BaseTransform::is_cluster_trans = true;
+        Conf_Trans_flags |= GFN_TRANS_MPI;
     else if (s == "gpu")
-        BaseTransform::is_gpu_trans = true;
-    else if (s == "gpucluster") {
-        BaseTransform::is_cluster_trans = true;
-        BaseTransform::is_gpu_trans = true;
-    }*/
+        Conf_Trans_flags |= GFN_TRANS_CUDA;
+    else if (s == "gpucluster")
+        Conf_Trans_flags |= GFN_TRANS_MPI | GFN_TRANS_CUDA;
 
     try
     {
