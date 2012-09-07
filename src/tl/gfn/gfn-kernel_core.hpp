@@ -49,6 +49,10 @@ namespace TL
         struct LIBGFN_CLASS DimSize
         {
             DimSize() { _dim1_size = _dim2_size = _dim3_size = "1"; }
+            std::string prettyprint()
+            {
+                return "{" + _dim1_size + "," + _dim2_size + "," + _dim3_size + "}";
+            }
 
             std::string _dim1_size;
             std::string _dim2_size;
@@ -104,6 +108,7 @@ namespace TL
                 
                 static std::map< std::string, KernelInfo > _kernel_map;
 
+                std::string loop_index_var_name;
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
                 std::map< std::string, DimSize > _dim_size_list;

@@ -140,7 +140,12 @@ int KernelInfo::get_def_list_index(std::string var)
 
 void KernelInfo::push_to_use_list(DataReference &data_ref)
 {
-    if (get_use_list_index(data_ref.prettyprint()) == -1)
+    if (loop_index_var_name == data_ref.get_base_symbol().get_name())
+    {
+        return;
+    }
+
+    if (get_use_list_index(data_ref.get_base_symbol().get_name()) == -1)
     {
         _use_list.push_back(data_ref);
     }
@@ -148,7 +153,7 @@ void KernelInfo::push_to_use_list(DataReference &data_ref)
 
 void KernelInfo::push_to_def_list(DataReference &data_ref)
 {
-    if (get_def_list_index(data_ref.prettyprint()) == -1)
+    if (get_def_list_index(data_ref.get_base_symbol().get_name()) == -1)
     {
         _def_list.push_back(data_ref);
     }

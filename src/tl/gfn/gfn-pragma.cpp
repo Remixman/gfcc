@@ -33,6 +33,7 @@
 
 
 #include <algorithm>
+#include <fstream>
 
 using namespace TL::GFN;
 
@@ -43,7 +44,7 @@ GFNPragmaPhase::GFNPragmaPhase()
     set_phase_name("Griffon Transformations");
     set_phase_description("This phase implements griffon transformations "
             "available through the usage of #pragma gfn");
-    
+
     register_construct("init");
     on_directive_post["init"].connect(functor(&GFNPragmaPhase::init, *this));
 
@@ -100,6 +101,24 @@ HLTPragmaPhase::HLTPragmaPhase()
 
 void GFNPragmaPhase::run(TL::DTO& dto)
 {
+    /* Read config file consist of
+     *  - GPU & Cluster specify & topology TODO:
+     *  - compile config (cluster, gpu, gpucluster) */
+    // TODO: change config directory
+    /*std::ifstream config_file("/home/remixman/Desktop/gfn_testsuite/config.gfn");
+    std::string s;
+    config_file >> s;
+    BaseTransform::is_cluster_trans = false;
+    BaseTransform::is_gpu_trans = false;
+    if (s == "cluster")
+        BaseTransform::is_cluster_trans = true;
+    else if (s == "gpu")
+        BaseTransform::is_gpu_trans = true;
+    else if (s == "gpucluster") {
+        BaseTransform::is_cluster_trans = true;
+        BaseTransform::is_gpu_trans = true;
+    }*/
+
     try
     {
         _scope_link = dto["scope_link"];
@@ -180,6 +199,8 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
 
     // XXX: find use and def variable
     Statement loop_body = for_statement.get_loop_body();
+    kernel_info->loop_index_var_name = for_statement.get_induction_variable()
+            .get_symbol().get_name();
     find_use_and_def_list(loop_body, kernel_info);
 
     // get data from clauses
@@ -189,6 +210,29 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_accurate_clause(construct, kernel_info);
     get_reduction_clause(construct, kernel_info);
     get_size_clause(construct, kernel_info);
+
+    // DEBUG: print use and def list
+    std::cout << "\n====================================================\n";
+    std::cout << "USE LIST for kernel\n";
+    for (ObjectList<DataReference>::iterator it = kernel_info->_use_list.begin();
+         it != kernel_info->_use_list.end();
+         ++it)
+    {
+        std::string var = it->prettyprint();
+        std::cout << " - " << var /*<< " , size = "
+                  << kernel_info->_dim_size_list[var].prettyprint()*/ << "\n";
+    }
+    std::cout << "====================================================\n";
+    std::cout << "DEF LIST for kernel\n";
+    for (ObjectList<DataReference>::iterator it = kernel_info->_def_list.begin();
+         it != kernel_info->_def_list.end();
+         ++it)
+    {
+        std::string var = it->prettyprint();
+        std::cout << " - " << var /*<< " , size = "
+                  << kernel_info->_dim_size_list[var].prettyprint()*/ << "\n";
+    }
+    std::cout << "====================================================\n\n";
     
     parallel_for_fun(construct, for_statement, kernel_info);
 
@@ -218,7 +262,11 @@ void GFNPragmaPhase::barrier(PragmaCustomConstruct construct)
 {
     Source result;
 
-    result << "__threadfence();";
+    result
+        << comment("barrier")
+        << "__threadfence();"
+        // XXX: hacking follow construct statement disappear
+        << construct.get_statement().prettyprint();
     
     AST_t threadfence_tree = result.parse_statement(construct.get_ast(), 
             construct.get_scope_link());
@@ -456,6 +504,7 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
     {
         std::cerr
             << "Error at gfn-parallel_for.cpp:find_use_and_def_list\n";
+        return;
     }
 
     ObjectList<Statement> statements = compound_stmt.get_inner_statements();
@@ -465,13 +514,22 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
      * B[i] = A[i];
      * A is def but also use;
      *
+     * A[i] = 6
+     * B[i] = A[i-1]??
+     *
      * A[i] += 9; ?
      */
     for (ObjectList<Statement>::iterator it = statements.begin();
          it != statements.end();
-         it++)
+         ++it)
     {
         Expression expression = it->get_expression();
+        ObjectList<IdExpression> stmt_var_list;
+
+        /* XXX: if pass to function we don't know use or def
+         * add to both list.
+         */
+
         if (it->is_compound_statement())
         {
             find_use_and_def_list(*it, kernel_info);
@@ -479,23 +537,24 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
         else if (expression.is_assignment() || expression.is_operation_assignment())
         {
             DataReference def_var_ref(expression.get_first_operand());
+
             kernel_info->push_to_def_list(def_var_ref);
+
+            stmt_var_list = expression.get_second_operand().all_symbol_occurrences(Statement::ONLY_VARIABLES);
         }
         else
         {
-            /* if pass to function we don't know use or def
-             * add to both list.
-             */
             // XXX: get all variable in statement
-            ObjectList<IdExpression> stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
-            for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
-                 iit != stmt_var_list.end();
-                 iit++)
-            {
-                DataReference data_ref(iit->get_expression());
-                kernel_info->push_to_use_list(data_ref);
-            }
+            stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
+        }
 
+        //
+        for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
+             iit != stmt_var_list.end();
+             iit++)
+        {
+            DataReference data_ref(iit->get_expression());
+            kernel_info->push_to_use_list(data_ref);
         }
     }
 }

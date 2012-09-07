@@ -49,6 +49,11 @@
 #define GFN_THREAD_ID_VAR "_thread_id"
 #define GFN_UPPER_BOUND "_upper_bound"
 
+/* Cluster define TODO: change to dynamic config */
+#define GFN_PROC_NUM 8
+#define GFN_PROC_NUM_VAR "_gfn_proc_num"
+#define GFN_RANK_VAR "_gfn_rank"
+
 enum GFN_ACCURATE
 {
     ACCURATE_LOW,

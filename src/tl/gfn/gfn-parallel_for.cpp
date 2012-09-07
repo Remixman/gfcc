@@ -132,7 +132,48 @@ TL::Source ParallelFor::do_parallel_for()
     //TL::Source operator_bound = _for_stmt.get_bound_operator();
     
     Statement loop_body = _for_stmt.get_loop_body();
-    
+
+    // XXX: _function_def is function that call for_stmt
+    _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
+
+
+    /*==------------------- Cluster CG section ---------------------==*/
+    if (1/*BaseTransform::is_cluster_trans*/) {
+        TL::Source new_for_stmt, new_init, new_cond, new_step;
+
+        /* Declare MPI rank and proc_num in function */
+        TL::Source rank_proc_decl;
+
+        rank_proc_decl
+            << "int " << GFN_PROC_NUM_VAR << ", "
+            << GFN_RANK_VAR << ";";
+
+        TL::AST_t rank_proc_decl_tree = rank_proc_decl.parse_declaration(
+                _function_def->get_point_of_declaration(),
+                _function_def->get_scope_link());
+        _function_def->get_function_body().get_inner_statements()
+                .front().get_ast().prepend(rank_proc_decl_tree);
+
+        //_function_def->get_function_body().get_inner_statements().
+
+        new_init
+            << induction_var.prettyprint() << " = _gfn_rank";
+        // TODO: <=, >= ??
+        new_cond
+            << induction_var.prettyprint() << " <= "
+            << upper_bound.prettyprint();
+        // TODO: +=, -= ??
+        new_step
+            << induction_var.prettyprint() << " += ("
+            << step.prettyprint() << " * " << GFN_PROC_NUM << ")";
+        new_for_stmt
+            << "for(" << new_init << ";" << new_cond << ";" << new_step << ")"
+            << loop_body;
+        return new_for_stmt;
+    }
+
+
+    /*==--------------------- GPU CG section -----------------------==*/
     TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
     TL::Source new_param_list;
     std::string kernel_name = get_new_kernel_name();
@@ -156,9 +197,6 @@ TL::Source ParallelFor::do_parallel_for()
         << "if (" << induction_var.prettyprint() << "<=" << GFN_UPPER_BOUND << ")"
             << "{" << loop_body_replace << "}"
         << "}";
- 
-    // XXX: _function_def is function that call for_stmt
-    _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
     
     ObjectList<DataReference> private_list = _kernel_info->get_private_list();
     
@@ -328,12 +366,15 @@ TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
     TL::Source index_declaration;
     Type type = loop_index.get_type();
     
+    // TOOD: simplify expression
     index_declaration
         << comment("loop index entity");
     index_declaration
         << type.get_declaration(_construct.get_scope(), loop_index.get_name())
         << "="
+        << "("
         << GFN_THREAD_ID_VAR << "*" << loop_increment
+        << ")"
         << "+" << loop_lowerbound
         << ";";
 
