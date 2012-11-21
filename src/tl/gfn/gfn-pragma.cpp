@@ -122,6 +122,11 @@ void GFNPragmaPhase::run(TL::DTO& dto)
         _translation_unit = dto["translation_unit"];
         
         PragmaCustomCompilerPhase::run(dto);
+
+        //std::cout << "TRANSLATION UNIT : \n";
+        //std::cout << _translation_unit << "\n\n";
+
+        add_select_process_to_run_statement(_translation_unit);
     }
     catch (GFNException e)
     {
@@ -135,9 +140,24 @@ void GFNPragmaPhase::run(TL::DTO& dto)
     }
 }
 
+void GFNPragmaPhase::add_select_process_to_run_statement(TL::AST_t ast)
+{
+    if (!ast.is_valid())
+        return;
+
+    TL::Statement stmt = ast;
+
+    TL::ObjectList<TL::AST_t> children = ast.children();
+    for (TL::ObjectList<TL::AST_t>::iterator child_it = children.begin();
+         child_it != children.end(); ++child_it)
+    {
+        add_select_process_to_run_statement(*child_it);
+    }
+}
+
 void GFNPragmaPhase::init(PragmaCustomConstruct construct)
 {
-    Source result;
+    /*Source result;
 
     result
         << comment("MPI_Init")
@@ -148,12 +168,12 @@ void GFNPragmaPhase::init(PragmaCustomConstruct construct)
     AST_t mpi_init_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 
-    construct.get_ast().replace(mpi_init_tree);
+    construct.get_ast().replace(mpi_init_tree);*/
 }
 
 void GFNPragmaPhase::finalize(PragmaCustomConstruct construct)
 {
-    Source result;
+    /*Source result;
 
     result
         << comment("MPI finalize")
@@ -164,7 +184,7 @@ void GFNPragmaPhase::finalize(PragmaCustomConstruct construct)
     AST_t mpi_final_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 
-    construct.get_ast().replace(mpi_final_tree);
+    construct.get_ast().replace(mpi_final_tree);*/
 }
 
 static void parallel_for_fun(TL::PragmaCustomConstruct construct, 
@@ -259,13 +279,21 @@ void GFNPragmaPhase::barrier(PragmaCustomConstruct construct)
 {
     Source result;
 
-    result
-        << comment("barrier")
-        << "__threadfence();"
-        // XXX: hacking follow construct statement disappear
-        << construct.get_statement().prettyprint();
+    if (Conf_Trans_flags & GFN_TRANS_MPI) {
+        return;
+        result
+            << "MPI_Barrier(" << GFN_COMM << ");";
+    }
+
+    if (Conf_Trans_flags & GFN_TRANS_CUDA) {
+        result
+            << comment("barrier")
+            << "__threadfence();"
+            // XXX: hacking follow construct statement disappear
+            << construct.get_statement().prettyprint();
+    }
     
-    AST_t threadfence_tree = result.parse_statement(construct.get_ast(), 
+    AST_t threadfence_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 
     construct.get_ast().replace(threadfence_tree);

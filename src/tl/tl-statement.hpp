@@ -89,6 +89,14 @@ namespace TL
              */
             ObjectList<Statement> get_inner_statements() const;
 
+            /*!
+             */
+            Statement get_first_expr_statement() const;
+
+            /*!
+             */
+            Statement get_last_decl_statement() const;
+
             //! States whether this Statement is enclosed in a compound statement
             bool is_in_compound_statement() const;
 

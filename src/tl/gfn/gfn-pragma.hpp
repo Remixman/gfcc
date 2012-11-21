@@ -57,6 +57,8 @@ namespace TL
                 GFNPragmaPhase();
                 virtual void run(TL::DTO& dto);
             private:
+                void add_select_process_to_run_statement(TL::AST_t ast);
+
                 void init(PragmaCustomConstruct construct);
                 void finalize(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);

@@ -103,6 +103,44 @@ namespace TL
         return result;
     }
 
+    Statement Statement::get_first_expr_statement() const
+    {
+        ObjectList<Statement> comp_stmt = get_inner_statements();
+        for (ObjectList<Statement>::iterator it = comp_stmt.begin();
+             it != comp_stmt.end();
+             ++it)
+        {
+            if (!it->is_declaration())
+            {
+                return *it;
+            }
+        }
+
+        std::cerr << "ERROR " << __FILE__ << ":" << __LINE__
+                  << ": cannot get first expr statement" << std::endl;
+    }
+
+    Statement Statement::get_last_decl_statement() const
+    {
+        ObjectList<Statement> comp_stmt = get_inner_statements();
+        for (ObjectList<Statement>::iterator it = comp_stmt.begin();
+             it != comp_stmt.end();
+             ++it)
+        {
+            if (!it->is_declaration())
+            {
+                --it;
+                if (it == comp_stmt.end()) {
+                    std::cerr << "ERROR " << __FILE__ << ":" << __LINE__ << "\n";
+                }
+                return *it;
+            }
+        }
+
+        std::cerr << "ERROR " << __FILE__ << ":" << __LINE__
+                  << ": cannot get last decl statement" << std::endl;
+    }
+
     Statement Statement::get_pragma_line() const
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);

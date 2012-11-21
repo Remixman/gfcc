@@ -118,6 +118,70 @@ TL::Source ParallelFor::do_kernel_config(Expression &lower_bound,
     return new_config;
 }
 
+/* int MPI_Send(void *buf,
+int count,
+MPI_Datatype datatype,
+int dest,
+    int tag,
+MPI_Comm comm)*/
+static TL::Source createMpiSend() {
+    TL::Source send_fn;
+    return send_fn;
+}
+
+/*int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
+    int source, int tag, MPI_Comm comm, MPI_Status *status) */
+static TL::Source createMpiRecv() {
+    TL::Source recv_fn;
+    return recv_fn;
+}
+
+/*int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
+    MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)*/
+static TL::Source createMpiReduce() {
+    TL::Source reduce_fn;
+    return reduce_fn;
+}
+
+/*int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
+    MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)*/
+static TL::Source createMpiAllReduce() {
+    TL::Source allreduce_fn;
+
+    /*allreduce_fn
+        << "MPI_Allreduce(" << sendbuf << ", " << recvbuf << ", "
+        << count << ", " <<*/
+
+    return allreduce_fn;
+}
+
+static TL::Source createMpiBcast(std::string buffer, std::string count,
+                                 std::string type, std::string root,
+                                 std::string comm) {
+    TL::Source bcast_fn;
+
+    bcast_fn
+        << "MPI_Bcast(" << buffer << ", " << count << ", " << type << ","
+        << root << ", " << comm << ");";
+
+    return bcast_fn;
+}
+
+/* int MPI_Scatter( void *sendbuf,
+ *                  int sendcount,
+ *                  MPI_Datatype sendtype,
+ *                  void *recvbuf,
+ *                  int recvcount,
+ *                  MPI_Datatype recvtype,
+ *                  int root,
+ *                  MPI_Comm comm)
+ */
+static TL::Source createMpiScatter() {
+
+    TL::Source scatter_fn;
+    return scatter_fn;
+}
+
 TL::Source ParallelFor::do_parallel_for()
 {
     if (!_for_stmt.regular_loop())
@@ -137,25 +201,57 @@ TL::Source ParallelFor::do_parallel_for()
     // XXX: _function_def is function that call for_stmt
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
 
-
     /*==------------------- Cluster CG section ---------------------==*/
     if (Conf_Trans_flags & GFN_TRANS_MPI) {
         TL::Source new_for_stmt, new_init, new_cond, new_step;
 
-        /* Declare MPI rank and proc_num in function */
-        TL::Source rank_proc_decl;
+        TL::Statement first_expr_in_func = _function_def->get_function_body()
+                .get_first_expr_statement();
+        TL::Statement last_decl_in_func = _function_def->get_function_body()
+                .get_last_decl_statement();
 
-        rank_proc_decl
+        /*  Declare MPI rank and proc_num in function
+            Exmaple :   int _gfn_proc_num, _gfn_rank; */
+        TL::Source mpi_decl;
+        mpi_decl
             << "int " << GFN_PROC_NUM_VAR << ", "
-            << GFN_RANK_VAR << ";";
+            << GFN_RANK_VAR << ";"
+            << "MPI_Comm " << GFN_COMM << " = MPI_COMM_WORLD;";
 
-        TL::AST_t rank_proc_decl_tree = rank_proc_decl.parse_declaration(
+        TL::AST_t mpi_decl_tree = mpi_decl.parse_declaration(
                 _function_def->get_point_of_declaration(),
                 _function_def->get_scope_link());
-        _function_def->get_function_body().get_inner_statements()
-                .front().get_ast().prepend(rank_proc_decl_tree);
+        last_decl_in_func.get_ast().append(mpi_decl_tree);
 
-        //_function_def->get_function_body().get_inner_statements().
+        /*  Initialize MPI
+            Exmaple :   MPI_Comm_size(_gfn_comm, &_gfn_proc_num);
+                        MPI_Comm_rank(_gfn_comm, &_gfn_rank); */
+        TL::Source mpi_init;
+        mpi_init
+            << "MPI_Comm_size(" << GFN_COMM << ", &" << GFN_PROC_NUM_VAR << ");"
+            << "MPI_Comm_rank(" << GFN_COMM << ", &" << GFN_RANK_VAR << ");";
+
+        TL::AST_t mpi_init_tree = mpi_init.parse_statement(
+                _function_def->get_point_of_declaration(),
+                _function_def->get_scope_link());
+        first_expr_in_func.get_ast().prepend(mpi_init_tree);
+
+        /* Data send from rank 0 to all */
+        for (ObjectList<DataReference>::iterator it = _kernel_info->_use_list.begin();
+             it != _kernel_info->_use_list.end();
+             ++it)
+        {
+            /*if (!contain(private_list, *it))
+            {
+                std::string var_name = it->get_base_symbol().get_name();
+                std::string size = _kernel_info->_dim_size_list[var_name]._dim1_size;
+
+                memcpy_h2d
+                    << do_gfn_memcpy_h2d(var_name, size);
+            }*/
+        }
+
+        /* Data send back to master */
 
         new_init
             << induction_var.prettyprint() << " = _gfn_rank";

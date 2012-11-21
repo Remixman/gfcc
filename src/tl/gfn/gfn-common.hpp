@@ -53,6 +53,7 @@
 #define GFN_PROC_NUM 8
 #define GFN_PROC_NUM_VAR "_gfn_proc_num"
 #define GFN_RANK_VAR "_gfn_rank"
+#define GFN_COMM "_gfn_comm"
 
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
