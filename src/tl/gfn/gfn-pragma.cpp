@@ -46,11 +46,11 @@ GFNPragmaPhase::GFNPragmaPhase()
     set_phase_description("This phase implements griffon transformations "
             "available through the usage of #pragma gfn");
 
-    register_construct("init");
-    on_directive_post["init"].connect(functor(&GFNPragmaPhase::init, *this));
+    register_construct("start");
+    on_directive_post["start"].connect(functor(&GFNPragmaPhase::start, *this));
 
-    register_construct("finalize");
-    on_directive_post["finalize"].connect(functor(&GFNPragmaPhase::finalize, *this));
+    register_construct("finish");
+    on_directive_post["finish"].connect(functor(&GFNPragmaPhase::finish, *this));
 
     register_construct("parallel_for");
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
@@ -65,40 +65,6 @@ GFNPragmaPhase::GFNPragmaPhase()
     register_construct("atomic");
     on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));
 }
-#if 0
-HLTPragmaPhase::HLTPragmaPhase()
-    : PragmaCustomCompilerPhase("hlt")
-{
-    set_phase_name("High Level Transformations");
-    set_phase_description("This phase implements several high level "
-            "transformations available through the usage of #pragma hlt");
-
-    register_construct("unroll");
-    on_directive_post["unroll"].connect(functor(&HLTPragmaPhase::unroll_loop, *this));
-
-    register_construct("fusion");
-    on_directive_pre["fusion"].connect(functor(&HLTPragmaPhase::pre_fuse_loops, *this));
-    on_directive_post["fusion"].connect(functor(&HLTPragmaPhase::fuse_loops, *this));
-
-    register_construct("task_aggregate");
-    on_directive_post["task_aggregate"].connect(functor(&HLTPragmaPhase::task_aggregate, *this));
-
-    register_construct("simd");
-    on_directive_post["simd"].connect(functor(&HLTPragmaPhase::simdize, *this));
-
-    _allow_identity_str = "1";
-
-    register_parameter("allow_identity", 
-            "Use this to disable identity, this is for testing only",
-            _allow_identity_str,
-            "true").connect(functor( update_identity_flag ));
-
-    register_parameter("instrument",
-            "Enables mintaka instrumentation if set to '1'",
-            _enable_hlt_instr_str,
-            "0").connect(functor( &HLTPragmaPhase::set_instrument_hlt, *this ));
-}
-#endif
 
 void GFNPragmaPhase::run(TL::DTO& dto)
 {
@@ -145,46 +111,54 @@ void GFNPragmaPhase::add_select_process_to_run_statement(TL::AST_t ast)
     if (!ast.is_valid())
         return;
 
-    TL::Statement stmt = ast;
+    /*TL::Statement stmt = ast;
 
     TL::ObjectList<TL::AST_t> children = ast.children();
     for (TL::ObjectList<TL::AST_t>::iterator child_it = children.begin();
          child_it != children.end(); ++child_it)
     {
         add_select_process_to_run_statement(*child_it);
-    }
+    }*/
 }
 
-void GFNPragmaPhase::init(PragmaCustomConstruct construct)
+/*
+ * if program is
+ * #pragma gfn A
+ * #pragma gfn B
+ * startment block
+ *
+ * PragmaCustomConstruct of A is
+ * #pragma gfn A
+ * startment block
+ *
+ * so we cannot replace all of construct
+ */
+void GFNPragmaPhase::start(PragmaCustomConstruct construct)
 {
-    /*Source result;
-
+    Source result;
     result
-        << comment("MPI_Init")
-        << "_gfn_mpi_init();"
-        // XXX: hacking follow construct statement disappear
-        << construct.get_statement().prettyprint();
+        << "_OpenMasterMsgQueue();"
+        << construct.get_statement(); // get startment of construct before replace
 
-    AST_t mpi_init_tree = result.parse_statement(construct.get_ast(),
+    AST_t master_start_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 
-    construct.get_ast().replace(mpi_init_tree);*/
+    construct.get_ast().replace(master_start_tree);
 }
 
-void GFNPragmaPhase::finalize(PragmaCustomConstruct construct)
+void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
 {
-    /*Source result;
+    Source result;
 
     result
-        << comment("MPI finalize")
-        << "_gfn_mpi_finalize();"
-        // XXX: hacking follow construct statement disappear
-        << construct.get_statement().prettyprint();
+        << "_SendCallFuncMsg(0);"
+        << "_CloseMasterMsgQueue();"
+        << construct.get_statement(); // get startment of construct before replace
 
-    AST_t mpi_final_tree = result.parse_statement(construct.get_ast(),
+    AST_t master_finish_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 
-    construct.get_ast().replace(mpi_final_tree);*/
+    construct.get_ast().replace(master_finish_tree);
 }
 
 static void parallel_for_fun(TL::PragmaCustomConstruct construct, 

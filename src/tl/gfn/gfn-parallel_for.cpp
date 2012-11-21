@@ -204,7 +204,7 @@ TL::Source ParallelFor::do_parallel_for()
     /*==------------------- Cluster CG section ---------------------==*/
     if (Conf_Trans_flags & GFN_TRANS_MPI) {
         TL::Source new_for_stmt, new_init, new_cond, new_step;
-
+#if 0
         TL::Statement first_expr_in_func = _function_def->get_function_body()
                 .get_first_expr_statement();
         TL::Statement last_decl_in_func = _function_def->get_function_body()
@@ -250,6 +250,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << do_gfn_memcpy_h2d(var_name, size);
             }*/
         }
+#endif
 
         /* Data send back to master */
 
