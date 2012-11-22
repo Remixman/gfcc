@@ -47,6 +47,18 @@ KernelInfo::~KernelInfo()
 {
 }
 
+int KernelInfo::get_var_info_index_from_var_name(std::string &var_name)
+{
+    for (int i = 0; i < _var_info.size(); ++i)
+    {
+        if (var_name == _var_info[i]._name)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void KernelInfo::set_kernel_name(std::string &name)
 {
     // XXX: find in _kernel_map

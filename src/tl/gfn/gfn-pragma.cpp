@@ -38,6 +38,26 @@
 
 using namespace TL::GFN;
 
+////////////////////////// HELPER FUNCTION //////////////////////////////
+static void parse_var_list_and_append(std::string &var_list_str,
+                                      TL::ObjectList<std::string> &var_list)
+{
+    size_t start_pos = 0, comma_pos = 0;
+    while ((comma_pos = var_list_str.find(",", start_pos)) != std::string::npos) {
+        std::string var = var_list_str.substr(start_pos, comma_pos - start_pos);
+        if (var.size() != 0)
+        {
+            var_list.push_back(var);
+        }
+        start_pos = comma_pos + 1;
+    }
+    if (start_pos != var_list_str.size())
+    {
+        std::string var = var_list_str.substr(start_pos, var_list_str.size() - start_pos);
+        var_list.push_back(var);
+    }
+}
+//////////////////////////////////////////////////////////////////////////
 
 GFNPragmaPhase::GFNPragmaPhase()
     : PragmaCustomCompilerPhase("gfn")
@@ -91,8 +111,6 @@ void GFNPragmaPhase::run(TL::DTO& dto)
 
         //std::cout << "TRANSLATION UNIT : \n";
         //std::cout << _translation_unit << "\n\n";
-
-        add_select_process_to_run_statement(_translation_unit);
     }
     catch (GFNException e)
     {
@@ -104,21 +122,6 @@ void GFNPragmaPhase::run(TL::DTO& dto)
         std::cerr << "(gfn-phase): error: unknown exception" << std::endl;
         set_phase_status(PHASE_STATUS_ERROR);
     }
-}
-
-void GFNPragmaPhase::add_select_process_to_run_statement(TL::AST_t ast)
-{
-    if (!ast.is_valid())
-        return;
-
-    /*TL::Statement stmt = ast;
-
-    TL::ObjectList<TL::AST_t> children = ast.children();
-    for (TL::ObjectList<TL::AST_t>::iterator child_it = children.begin();
-         child_it != children.end(); ++child_it)
-    {
-        add_select_process_to_run_statement(*child_it);
-    }*/
 }
 
 /*
@@ -138,7 +141,7 @@ void GFNPragmaPhase::start(PragmaCustomConstruct construct)
     Source result;
     result
         << "_OpenMasterMsgQueue();"
-        << construct.get_statement(); // get startment of construct before replace
+        << construct.get_statement(); // XXX: get startment of construct before replace
 
     AST_t master_start_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -153,7 +156,7 @@ void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
     result
         << "_SendCallFuncMsg(0);"
         << "_CloseMasterMsgQueue();"
-        << construct.get_statement(); // get startment of construct before replace
+        << construct.get_statement(); // XXX: get startment of construct before replace
 
     AST_t master_finish_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -178,6 +181,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     Statement statement = construct.get_statement();
     KernelInfo *kernel_info = new KernelInfo();
     
+    /* Get for_statement and for loop body */
     ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
     Statement for_body = for_statement.get_loop_body();
     
@@ -187,6 +191,37 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     }*/
 
     ObjectList<IdExpression> symbol_list = for_body.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+
+    /* Symbol list is not unique create new unique variable list */
+    //std::cout << "\n=====================================================\n";
+    //std::cout << "VARIABLE IN KERNEL\n";
+    ObjectList<std::string> sym_name_list;
+    for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
+         sit != symbol_list.end();
+         sit++)
+    {
+        // TODO: don't add local declare variable
+        DataReference data_ref(sit->get_expression());
+        std::string name = sit->get_symbol().get_name();
+
+        if (sym_name_list.find(name).size() == 0)
+        {
+            TL::Type var_type = data_ref.get_type();
+            std::string base_type_name;
+            //if (data_ref.get_type().is_array())
+              //  base_type_name = data_ref.get_type().get_array_to().get_symbol().get_name();
+            //else //if (data_ref.get_type().is_pointer())
+              //  base_type_name = data_ref.get_type().get_canonical_type().get_symbol().get_name();
+
+            std::cout << name << " : " << base_type_name << std::endl;
+            VariableInfo var_info(name, base_type_name);
+            if (var_type.is_array() || var_type.is_pointer())
+                var_info._is_array_or_pointer = true;
+            kernel_info->_var_info.append(var_info);
+            kernel_info->_var_ref.append(data_ref);
+            sym_name_list.append(name);
+        }
+    }
 
     // XXX: find use and def variable
     Statement loop_body = for_statement.get_loop_body();
@@ -201,6 +236,9 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_accurate_clause(construct, kernel_info);
     get_reduction_clause(construct, kernel_info);
     get_size_clause(construct, kernel_info);
+    get_in_clause(construct, kernel_info);
+    get_out_clause(construct, kernel_info);
+    get_inout_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
     std::cout << "\n====================================================\n";
@@ -479,6 +517,27 @@ void GFNPragmaPhase::get_size_clause(PragmaCustomConstruct construct,
                  it != var_list.end();
                  ++it)
             {
+                /* Set size to var info list */
+                ObjectList<VariableInfo>::iterator viit = kernel_info->_var_info.begin();
+                ObjectList<DataReference>::iterator vrit = kernel_info->_var_ref.begin();
+                for (;viit != kernel_info->_var_info.end();
+                     ++viit, ++vrit)
+                {
+                    if (*it == vrit->get_id_expression().get_symbol().get_name())
+                    {
+                        std::cout << "Size of " << *it << " = "
+                                  << size_list[0] << ":"
+                                  << size_list[1] << ":"
+                                  << size_list[2] << std::endl;
+
+                        viit->_size._dim1_size = size_list[0];
+                        viit->_size._dim2_size = size_list[1];
+                        viit->_size._dim3_size = size_list[2];
+                    }
+                }
+
+
+
                 if (kernel_info->get_use_list_index(*it) == -1 &&
                     kernel_info->get_def_list_index(*it) == -1)
                 {
@@ -490,6 +549,66 @@ void GFNPragmaPhase::get_size_clause(PragmaCustomConstruct construct,
                 dim_size._dim1_size = size_list[0];
                 dim_size._dim2_size = size_list[1];
                 dim_size._dim3_size = size_list[2];
+            }
+
+
+        }
+    }
+}
+
+void GFNPragmaPhase::get_in_clause(TL::PragmaCustomConstruct construct,
+                                   KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause in_clause = construct.get_clause("in");
+    get_copy_clause(in_clause, kernel_info, "in", VAR_COPY_IN);
+}
+
+void GFNPragmaPhase::get_out_clause(TL::PragmaCustomConstruct construct,
+                                    KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause out_clause = construct.get_clause("out");
+    get_copy_clause(out_clause, kernel_info, "out", VAR_COPY_OUT);
+}
+
+void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct,
+                                      KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
+    get_copy_clause(inout_clause, kernel_info, "inout", VAR_COPY_INOUT);
+}
+
+void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
+                                     KernelInfo *kernel_info,
+                                     const char *copy_type_str,
+                                     VAR_COPY_T copy_type)
+{
+    if (copy_clause.is_defined())
+    {
+        ObjectList<std::string> var_list;
+
+        ObjectList<std::string> list_arg = copy_clause.get_arguments();
+        for (ObjectList<std::string>::iterator it = list_arg.begin();
+             it != list_arg.end();
+             ++it)
+        {
+            parse_var_list_and_append(*it, var_list);
+        }
+
+        for (ObjectList<std::string>::iterator it = var_list.begin();
+             it != var_list.end();
+             ++it)
+        {
+            int idx = kernel_info->get_var_info_index_from_var_name(*it);
+            if (idx != -1)
+            {
+                //std::cout << "Found " << copy_type_str << " : " << *it << std::endl;
+                kernel_info->_var_info[idx]._copy_type = copy_type;
+            }
+            else
+            {
+                std::cerr << "warning : " << copy_type_str
+                          << " clause unknown variable \"" << *it
+                          << "\" in parallel region " << std::endl;
             }
         }
     }

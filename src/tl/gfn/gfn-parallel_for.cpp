@@ -189,14 +189,22 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
-    // Get parts of the loop
+    /* Get parts of the loop */
     IdExpression induction_var = _for_stmt.get_induction_variable();
     Expression lower_bound = _for_stmt.get_lower_bound();
     Expression upper_bound = _for_stmt.get_upper_bound();
     Expression step = _for_stmt.get_step();
     //TL::Source operator_bound = _for_stmt.get_bound_operator();
-    
     Statement loop_body = _for_stmt.get_loop_body();
+
+    /* Replace with call function */
+    /*TL::Source send_call_func;
+    send_call_func
+            << "_SendCallFuncMsg(1)";
+    ;
+        _SendInputMsg((void*)&h, sizeof(double));
+        _SendInputMsg((void*)&n, sizeof(int));
+        _RecvOutputMsg((void*)&sum, &_sum_size);*/
 
     // XXX: _function_def is function that call for_stmt
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());

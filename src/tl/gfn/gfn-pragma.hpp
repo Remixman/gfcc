@@ -57,8 +57,6 @@ namespace TL
                 GFNPragmaPhase();
                 virtual void run(TL::DTO& dto);
             private:
-                void add_select_process_to_run_statement(TL::AST_t ast);
-
                 void start(PragmaCustomConstruct construct);
                 void finish(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);
@@ -79,6 +77,16 @@ namespace TL
                                           KernelInfo *kernel_info);
                 void get_size_clause(PragmaCustomConstruct construct,
                                      KernelInfo *kernel_info);
+                void get_in_clause(PragmaCustomConstruct construct,
+                                   KernelInfo *kernel_info);
+                void get_out_clause(PragmaCustomConstruct construct,
+                                    KernelInfo *kernel_info);
+                void get_inout_clause(PragmaCustomConstruct construct,
+                                      KernelInfo *kernel_info);
+                void get_copy_clause(PragmaCustomClause &copy_clause,
+                                     KernelInfo *kernel_info,
+                                     const char *copy_type_str,
+                                     VAR_COPY_T copy_type);
 
                 void find_use_and_def_list(Statement compound_stmt,
                                            KernelInfo *kernel_info);

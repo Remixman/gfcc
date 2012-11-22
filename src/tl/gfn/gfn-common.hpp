@@ -58,6 +58,19 @@
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
 
+enum VAR_COPY_T
+{
+    VAR_COPY_IN,
+    VAR_COPY_OUT,
+    VAR_COPY_INOUT
+};
+
+enum VAR_ACCESS_T
+{
+    VAR_ACCESS_SHARED,
+    VAR_ACCESS_PRIVATE
+};
+
 enum GFN_ACCURATE
 {
     ACCURATE_LOW,
@@ -70,5 +83,11 @@ enum CUDA_MEMCPY_KIND
     CUDA_MEMCPY_D2H,
     CUDA_MEMCPY_D2D
 };
+
+/* Utility function */
+/*const char* c_type_to_mpi_type(std::string ctype) {
+    //if (ctype == )
+    return NULL;
+}*/
 
 #endif // GFN_COMMON_HPP

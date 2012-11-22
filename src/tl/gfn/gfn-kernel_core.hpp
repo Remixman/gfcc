@@ -59,6 +59,31 @@ namespace TL
             std::string _dim3_size;
         };
 
+        struct LIBGFN_CLASS VariableInfo
+        {
+            std::string     _name;
+            std::string     _base_type_name;
+            VAR_COPY_T      _copy_type;
+            VAR_ACCESS_T    _access_type;
+            DimSize         _size;
+
+            // TODO: change to bit
+            bool            _is_array_or_pointer;
+            bool            _is_use;
+            bool            _is_prop_use; // e.g. pass reference to function
+            bool            _is_def;
+
+            VariableInfo(std::string n, std::string btn) :
+                _name(n), _base_type_name(btn),
+                _copy_type(VAR_COPY_INOUT), _access_type(VAR_ACCESS_SHARED),
+                _is_array_or_pointer(false), _is_use(false),
+                _is_prop_use(false), _is_def(false) {}
+
+            void print() {
+                std::cout << _name << std::endl;
+            }
+        };
+
         //! GFN Kernel Infomation
         /*!
           .........
@@ -67,6 +92,7 @@ namespace TL
         {
             private:
                 std::string _kernel_name;
+
                 ObjectList<std::string> _wait_for;
                 ObjectList<std::string> _all_var;
                 
@@ -83,6 +109,10 @@ namespace TL
             public:
                 //operator Source();
                 //operator std::string();
+
+                ObjectList<DataReference> _var_ref;
+                ObjectList<VariableInfo> _var_info;
+                int get_var_info_index_from_var_name(std::string &var_name);
 
                 KernelInfo();
                 KernelInfo(std::string &kernel_name);
