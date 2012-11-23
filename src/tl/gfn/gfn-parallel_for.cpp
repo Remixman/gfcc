@@ -28,6 +28,7 @@
 
 #include "gfn-parallel_for.hpp"
 #include "gfn-config.hpp"
+#include "gfn-common.hpp"
 #include <sstream>
 
 using namespace TL::GFN;
@@ -118,76 +119,15 @@ TL::Source ParallelFor::do_kernel_config(Expression &lower_bound,
     return new_config;
 }
 
-/* int MPI_Send(void *buf,
-int count,
-MPI_Datatype datatype,
-int dest,
-    int tag,
-MPI_Comm comm)*/
-static TL::Source createMpiSend() {
-    TL::Source send_fn;
-    return send_fn;
-}
-
-/*int MPI_Recv(void *buf, int count, MPI_Datatype datatype,
-    int source, int tag, MPI_Comm comm, MPI_Status *status) */
-static TL::Source createMpiRecv() {
-    TL::Source recv_fn;
-    return recv_fn;
-}
-
-/*int MPI_Reduce(void *sendbuf, void *recvbuf, int count,
-    MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm)*/
-static TL::Source createMpiReduce() {
-    TL::Source reduce_fn;
-    return reduce_fn;
-}
-
-/*int MPI_Allreduce(void *sendbuf, void *recvbuf, int count,
-    MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)*/
-static TL::Source createMpiAllReduce() {
-    TL::Source allreduce_fn;
-
-    /*allreduce_fn
-        << "MPI_Allreduce(" << sendbuf << ", " << recvbuf << ", "
-        << count << ", " <<*/
-
-    return allreduce_fn;
-}
-
-static TL::Source createMpiBcast(std::string buffer, std::string count,
-                                 std::string type, std::string root,
-                                 std::string comm) {
-    TL::Source bcast_fn;
-
-    bcast_fn
-        << "MPI_Bcast(" << buffer << ", " << count << ", " << type << ","
-        << root << ", " << comm << ");";
-
-    return bcast_fn;
-}
-
-/* int MPI_Scatter( void *sendbuf,
- *                  int sendcount,
- *                  MPI_Datatype sendtype,
- *                  void *recvbuf,
- *                  int recvcount,
- *                  MPI_Datatype recvtype,
- *                  int root,
- *                  MPI_Comm comm)
- */
-static TL::Source createMpiScatter() {
-
-    TL::Source scatter_fn;
-    return scatter_fn;
-}
-
 TL::Source ParallelFor::do_parallel_for()
 {
     if (!_for_stmt.regular_loop())
     {
         throw GFNException(_for_stmt, "support only simple for loop");
     }
+
+    TL::Source worker_func_def, worker_recv_input, worker_send_output;
+    TL::Source worker_scatter_input, worker_gather_output;
 
     /* Get parts of the loop */
     IdExpression induction_var = _for_stmt.get_induction_variable();
@@ -198,13 +138,71 @@ TL::Source ParallelFor::do_parallel_for()
     Statement loop_body = _for_stmt.get_loop_body();
 
     /* Replace with call function */
-    /*TL::Source send_call_func;
+    TL::Source send_call_func;
     send_call_func
-            << "_SendCallFuncMsg(1)";
-    ;
-        _SendInputMsg((void*)&h, sizeof(double));
-        _SendInputMsg((void*)&n, sizeof(int));
-        _RecvOutputMsg((void*)&sum, &_sum_size);*/
+        << comment("Send call function message")
+        << "_SendCallFuncMsg(1);";
+
+    // In | Inout -- _SendInputMsg((void*)&h, sizeof(double));
+    for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
+    {
+        VariableInfo var_info = _kernel_info->_var_info[i];
+        DataReference var_ref = _kernel_info->_var_ref[i];
+
+        if (var_info._copy_type == VAR_COPY_IN || var_info._copy_type == VAR_COPY_INOUT)
+        {
+            //if (var_info._is_array_or_pointer)
+            send_call_func
+                << "_SendInputMsg((void*)&" << var_info._name
+                << ",sizeof(" << var_info._name  << "));";
+            worker_recv_input
+                << "_RecvInputMsg2((void*)&" << var_info._name << ");";
+            worker_scatter_input
+                << create_mpi_bcast(var_info._name, "1", "ddf");
+        }
+    }
+
+    // Out | Inout -- _RecvOutputMsg((void*)&sum, &_sum_size);
+    for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
+    {
+        VariableInfo var_info = _kernel_info->_var_info[i];
+        DataReference var_ref = _kernel_info->_var_ref[i];
+
+        if (var_info._copy_type == VAR_COPY_OUT || var_info._copy_type == VAR_COPY_INOUT)
+        {
+            //if (var_info._is_array_or_pointer)
+            send_call_func
+                << "_RecvOutputMsg2((void*)&" << var_info._name << ");";
+            worker_send_output
+                << "_SendOutputMsg((void*)&" << var_info._name
+                << ",sizeof(" << var_info._name  << "));";
+        }
+    }
+
+    /*==----------------  Create worker function -------------------==*/
+
+    worker_func_def
+        //<< comment("/* #ifdef GFN_WORKER */")
+        << "void _Function_01() {"
+        << create_run_only_root_stmt( worker_recv_input )
+        << create_run_only_root_stmt( worker_send_output )
+        << "}";
+        //<< comment("/ #endif /");
+    std::cout << "FUNC : \n" << (std::string)worker_func_def << "\n";
+#if 0
+    TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
+            _function_def->get_point_of_declaration(),
+            _function_def->get_scope_link());
+    _function_def->get_ast().prepend_sibling_function(worker_func_tree);
+#endif
+
+    return send_call_func;
+
+
+
+
+
+
 
     // XXX: _function_def is function that call for_stmt
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());

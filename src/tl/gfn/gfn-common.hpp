@@ -29,6 +29,11 @@
 #ifndef GFN_COMMON_HPP
 #define GFN_COMMON_HPP
 
+#include "tl-pragmasupport.hpp"
+#include "tl-ast.hpp"
+#include "tl-datareference.hpp"
+#include "tl-source.hpp"
+
 #ifdef _WIN32
   #ifdef LIBGFN_DLL_EXPORT
     #define LIBGFN_EXTERN extern __declspec(dllexport)
@@ -84,10 +89,84 @@ enum CUDA_MEMCPY_KIND
     CUDA_MEMCPY_D2D
 };
 
-/* Utility function */
-/*const char* c_type_to_mpi_type(std::string ctype) {
-    //if (ctype == )
-    return NULL;
-}*/
+
+/*==--------------- Utility Function ----------------==*/
+std::string type_to_mpi_type(TL::Type type);
+TL::Source create_run_only_root_stmt(TL::Source src);
+
+#define DEFAULT_MPI_COMM "MPI_COMM_WORLD"
+#define DEFAULT_MPI_ROOT "0"
+#define DEFAULT_MPI_STATUS "NULL"
+
+TL::Source create_mpi_abort(std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_allgatherv(std::string send_buf_name,
+                                 std::string send_cnt,
+                                 std::string send_mpi_type,
+                                 std::string recv_buf_name,
+                                 std::string recv_cnts,
+                                 std::string recv_disp,
+                                 std::string recv_mpi_type,
+                                 std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_allreduce(std::string send_buf_name,
+                                std::string recv_buf_name,
+                                std::string cnt,
+                                std::string mpi_type,
+                                std::string mpi_op,
+                                std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_alltoallv(std::string send_buf_name,
+                                std::string send_cnt,
+                                std::string send_mpi_type,
+                                std::string recv_buf_name,
+                                std::string recv_cnt,
+                                std::string recv_mpi_type,
+                                std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_barrier(std::string comm = DEFAULT_MPI_COMM);
+TL::Source
+create_mpi_bcast(std::string buf_name,
+                 std::string cnt,
+                 std::string mpi_type,
+                 std::string root = DEFAULT_MPI_ROOT,
+                 std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_gatherv(std::string send_buf_name,
+                              std::string send_cnt,
+                              std::string send_mpi_type,
+                              std::string recv_buf_name,
+                              std::string recv_cnt,
+                              std::string disps,
+                              std::string recv_mpi_type,
+                              std::string root = DEFAULT_MPI_ROOT,
+                              std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_iprobe();
+TL::Source create_mpi_irecv();
+TL::Source create_mpi_isend();
+TL::Source create_mpi_probe(std::string src,
+                            std::string tag,
+                            std::string comm = DEFAULT_MPI_COMM,
+                            std::string status = DEFAULT_MPI_STATUS);
+TL::Source create_mpi_recv(std::string buf_name,
+                           std::string cnt,
+                           std::string mpi_type,
+                           std::string src,
+                           std::string tag,
+                           std::string comm = DEFAULT_MPI_COMM,
+                           std::string status = DEFAULT_MPI_STATUS);
+TL::Source create_mpi_send();
+TL::Source create_mpi_reduce(std::string send_buf_name,
+                             std::string recv_buf_name,
+                             std::string cnt,
+                             std::string mpi_type,
+                             std::string mpi_op,
+                             std::string root = DEFAULT_MPI_ROOT,
+                             std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_scatterv(std::string send_buf_name,
+                               std::string send_cnts,
+                               std::string send_disp,
+                               std::string send_mpi_type,
+                               std::string recv_buf_name,
+                               std::string recv_cnt,
+                               std::string recv_mpi_type,
+                               std::string root = DEFAULT_MPI_ROOT,
+                               std::string comm = DEFAULT_MPI_COMM);
+
 
 #endif // GFN_COMMON_HPP

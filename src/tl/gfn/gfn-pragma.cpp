@@ -67,10 +67,10 @@ GFNPragmaPhase::GFNPragmaPhase()
             "available through the usage of #pragma gfn");
 
     register_construct("start");
-    on_directive_post["start"].connect(functor(&GFNPragmaPhase::start, *this));
+    on_directive_pre["start"].connect(functor(&GFNPragmaPhase::start, *this));
 
     register_construct("finish");
-    on_directive_post["finish"].connect(functor(&GFNPragmaPhase::finish, *this));
+    on_directive_pre["finish"].connect(functor(&GFNPragmaPhase::finish, *this));
 
     register_construct("parallel_for");
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
@@ -140,6 +140,7 @@ void GFNPragmaPhase::start(PragmaCustomConstruct construct)
 {
     Source result;
     result
+        << comment("Initialize IPC to worker")
         << "_OpenMasterMsgQueue();"
         << construct.get_statement(); // XXX: get startment of construct before replace
 
@@ -154,6 +155,7 @@ void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
     Source result;
 
     result
+        << comment("Close IPC to worker")
         << "_SendCallFuncMsg(0);"
         << "_CloseMasterMsgQueue();"
         << construct.get_statement(); // XXX: get startment of construct before replace

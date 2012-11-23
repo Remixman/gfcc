@@ -39,6 +39,8 @@ libtl_gfn_la_LIBADD=$(tl_libadd)
 libtl_gfn_la_LDFLAGS=$(tl_ldflags)
 
 libtl_gfn_la_SOURCES = \
+      gfn-common.hpp \
+      gfn-common.cpp \
       gfn-config.hpp \
       gfn-config.cpp \
       gfn-kernel_core.hpp \
