@@ -238,9 +238,8 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_accurate_clause(construct, kernel_info);
     get_reduction_clause(construct, kernel_info);
     get_size_clause(construct, kernel_info);
-    get_in_clause(construct, kernel_info);
-    get_out_clause(construct, kernel_info);
-    get_inout_clause(construct, kernel_info);
+    get_input_clause(construct, kernel_info);
+    get_output_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
     std::cout << "\n====================================================\n";
@@ -558,31 +557,23 @@ void GFNPragmaPhase::get_size_clause(PragmaCustomConstruct construct,
     }
 }
 
-void GFNPragmaPhase::get_in_clause(TL::PragmaCustomConstruct construct,
-                                   KernelInfo *kernel_info)
-{
-    TL::PragmaCustomClause in_clause = construct.get_clause("in");
-    get_copy_clause(in_clause, kernel_info, "in", VAR_COPY_IN);
-}
-
-void GFNPragmaPhase::get_out_clause(TL::PragmaCustomConstruct construct,
-                                    KernelInfo *kernel_info)
-{
-    TL::PragmaCustomClause out_clause = construct.get_clause("out");
-    get_copy_clause(out_clause, kernel_info, "out", VAR_COPY_OUT);
-}
-
-void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct,
+void GFNPragmaPhase::get_input_clause(TL::PragmaCustomConstruct construct,
                                       KernelInfo *kernel_info)
 {
-    TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
-    get_copy_clause(inout_clause, kernel_info, "inout", VAR_COPY_INOUT);
+    TL::PragmaCustomClause input_clause = construct.get_clause("input");
+    get_copy_clause(input_clause, kernel_info, "input");
+}
+
+void GFNPragmaPhase::get_output_clause(TL::PragmaCustomConstruct construct,
+                                       KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause output_clause = construct.get_clause("output");
+    get_copy_clause(output_clause, kernel_info, "output");
 }
 
 void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                                      KernelInfo *kernel_info,
-                                     const char *copy_type_str,
-                                     VAR_COPY_T copy_type)
+                                     std::string copy_type_str)
 {
     if (copy_clause.is_defined())
     {
@@ -604,12 +595,18 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             if (idx != -1)
             {
                 //std::cout << "Found " << copy_type_str << " : " << *it << std::endl;
-                kernel_info->_var_info[idx]._copy_type = copy_type;
+                if (copy_type_str == "input")
+                    kernel_info->_var_info[idx]._is_input = true;
+                else if (copy_type_str == "output")
+                    kernel_info->_var_info[idx]._is_output = true;
+                else
+                    std::cerr << "warning : " << __LINE__
+                              << " at " << __FILE__ << std::endl;
             }
             else
             {
-                std::cerr << "warning : " << copy_type_str
-                          << " clause unknown variable \"" << *it
+                std::cerr << "warning : clause \"" << copy_type_str
+                          << "\" unknown variable \"" << *it
                           << "\" in parallel region " << std::endl;
             }
         }

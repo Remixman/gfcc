@@ -63,13 +63,6 @@
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
 
-enum VAR_COPY_T
-{
-    VAR_COPY_IN,
-    VAR_COPY_OUT,
-    VAR_COPY_INOUT
-};
-
 enum VAR_ACCESS_T
 {
     VAR_ACCESS_SHARED,

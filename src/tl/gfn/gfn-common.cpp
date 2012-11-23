@@ -92,7 +92,7 @@ std::string type_to_mpi_type(TL::Type type)
 TL::Source create_run_only_root_stmt(TL::Source src)
 {
     TL::Source result;
-    result << "if (_gfn_rank == 0 ) {" << src << "}";
+    result << "if (_gfn_rank == 0) {" << src << "}";
     return result;
 }
 

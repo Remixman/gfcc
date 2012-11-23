@@ -77,16 +77,13 @@ namespace TL
                                           KernelInfo *kernel_info);
                 void get_size_clause(PragmaCustomConstruct construct,
                                      KernelInfo *kernel_info);
-                void get_in_clause(PragmaCustomConstruct construct,
-                                   KernelInfo *kernel_info);
-                void get_out_clause(PragmaCustomConstruct construct,
-                                    KernelInfo *kernel_info);
-                void get_inout_clause(PragmaCustomConstruct construct,
+                void get_input_clause(PragmaCustomConstruct construct,
                                       KernelInfo *kernel_info);
+                void get_output_clause(PragmaCustomConstruct construct,
+                                       KernelInfo *kernel_info);
                 void get_copy_clause(PragmaCustomClause &copy_clause,
                                      KernelInfo *kernel_info,
-                                     const char *copy_type_str,
-                                     VAR_COPY_T copy_type);
+                                     std::string copy_type_str);
 
                 void find_use_and_def_list(Statement compound_stmt,
                                            KernelInfo *kernel_info);

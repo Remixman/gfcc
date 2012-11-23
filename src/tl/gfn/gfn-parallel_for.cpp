@@ -128,6 +128,10 @@ TL::Source ParallelFor::do_parallel_for()
 
     TL::Source worker_func_def, worker_recv_input, worker_send_output;
     TL::Source worker_scatter_input, worker_gather_output;
+    TL::Source worker_var_decl;
+
+    /* _function_def is function that call for_stmt */
+    _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
 
     /* Get parts of the loop */
     IdExpression induction_var = _for_stmt.get_induction_variable();
@@ -143,13 +147,17 @@ TL::Source ParallelFor::do_parallel_for()
         << comment("Send call function message")
         << "_SendCallFuncMsg(1);";
 
-    // In | Inout -- _SendInputMsg((void*)&h, sizeof(double));
     for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
     {
         VariableInfo var_info = _kernel_info->_var_info[i];
         DataReference var_ref = _kernel_info->_var_ref[i];
 
-        if (var_info._copy_type == VAR_COPY_IN || var_info._copy_type == VAR_COPY_INOUT)
+        std::string var_name = var_info._name;
+        worker_var_decl
+            << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name)
+            << ";";
+
+        if (var_info._is_input)
         {
             //if (var_info._is_array_or_pointer)
             send_call_func
@@ -160,15 +168,8 @@ TL::Source ParallelFor::do_parallel_for()
             worker_scatter_input
                 << create_mpi_bcast(var_info._name, "1", "ddf");
         }
-    }
 
-    // Out | Inout -- _RecvOutputMsg((void*)&sum, &_sum_size);
-    for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
-    {
-        VariableInfo var_info = _kernel_info->_var_info[i];
-        DataReference var_ref = _kernel_info->_var_ref[i];
-
-        if (var_info._copy_type == VAR_COPY_OUT || var_info._copy_type == VAR_COPY_INOUT)
+        if (var_info._is_output)
         {
             //if (var_info._is_array_or_pointer)
             send_call_func
@@ -179,22 +180,23 @@ TL::Source ParallelFor::do_parallel_for()
         }
     }
 
+
     /*==----------------  Create worker function -------------------==*/
 
     worker_func_def
-        //<< comment("/* #ifdef GFN_WORKER */")
-        << "void _Function_01() {"
+        << comment("*/ #ifdef GFN_WORKER /*")
+        << "void _Function_01 () {"
+        << worker_var_decl
         << create_run_only_root_stmt( worker_recv_input )
         << create_run_only_root_stmt( worker_send_output )
-        << "}";
-        //<< comment("/ #endif /");
-    std::cout << "FUNC : \n" << (std::string)worker_func_def << "\n";
-#if 0
+        << "}"
+        << comment("*/ #endif /*");
+
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
             _function_def->get_scope_link());
     _function_def->get_ast().prepend_sibling_function(worker_func_tree);
-#endif
+
 
     return send_call_func;
 
@@ -204,8 +206,6 @@ TL::Source ParallelFor::do_parallel_for()
 
 
 
-    // XXX: _function_def is function that call for_stmt
-    _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
 
     /*==------------------- Cluster CG section ---------------------==*/
     if (Conf_Trans_flags & GFN_TRANS_MPI) {

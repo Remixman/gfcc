@@ -63,21 +63,21 @@ namespace TL
         {
             std::string     _name;
             std::string     _base_type_name;
-            VAR_COPY_T      _copy_type;
             VAR_ACCESS_T    _access_type;
             DimSize         _size;
 
             // TODO: change to bit
+            bool            _is_input;
+            bool            _is_output;
             bool            _is_array_or_pointer;
             bool            _is_use;
             bool            _is_prop_use; // e.g. pass reference to function
             bool            _is_def;
 
             VariableInfo(std::string n, std::string btn) :
-                _name(n), _base_type_name(btn),
-                _copy_type(VAR_COPY_INOUT), _access_type(VAR_ACCESS_SHARED),
-                _is_array_or_pointer(false), _is_use(false),
-                _is_prop_use(false), _is_def(false) {}
+                _name(n), _base_type_name(btn), _access_type(VAR_ACCESS_SHARED),
+                _is_input(0), _is_output(0), _is_array_or_pointer(0),
+                _is_use(0), _is_prop_use(0), _is_def(0) {}
 
             void print() {
                 std::cout << _name << std::endl;
