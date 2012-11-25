@@ -344,6 +344,7 @@ TL::Source ParallelFor::do_parallel_for()
                                                            lower_bound);
     TL::Source private_var_decl;
     TL::Source kernel_def, loop_body_replace;
+    std::cout << (std::string)thread_id_decl << std::endl;
     kernel_def
         << "__global__ void " << kernel_name
         << "(" << kernel_actual_param << ") { "
@@ -353,7 +354,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "if (" << induction_var.prettyprint() << "<=" << GFN_UPPER_BOUND << ")"
             << "{" << loop_body << "}"
         << "}";
-std::cout << (std::string)kernel_def << std::endl;
+//std::cout << (std::string)kernel_def << std::endl;
     TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
             _function_def->get_point_of_declaration(),
             _function_def->get_scope_link());
@@ -571,8 +572,8 @@ TL::Source ParallelFor::do_thread_id_declaration()
 {
     TL::Source thread_id_decl;
     
-    thread_id_decl 
-        << comment("kernel thread id entity");
+    //thread_id_decl
+        //<< comment("kernel thread id entity");
     
     if (0 /* block_num == 1 */)
     {
