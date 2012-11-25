@@ -85,6 +85,8 @@ enum CUDA_MEMCPY_KIND
 
 /*==--------------- Utility Function ----------------==*/
 std::string type_to_mpi_type(TL::Type type);
+std::string type_to_ctype(TL::Type type);
+std::string op_to_mpi_op(std::string op);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
 #define DEFAULT_MPI_COMM "MPI_COMM_WORLD"
@@ -114,12 +116,11 @@ TL::Source create_mpi_alltoallv(std::string send_buf_name,
                                 std::string recv_mpi_type,
                                 std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_barrier(std::string comm = DEFAULT_MPI_COMM);
-TL::Source
-create_mpi_bcast(std::string buf_name,
-                 std::string cnt,
-                 std::string mpi_type,
-                 std::string root = DEFAULT_MPI_ROOT,
-                 std::string comm = DEFAULT_MPI_COMM);
+TL::Source create_mpi_bcast(std::string buf_name,
+                            std::string cnt,
+                            std::string mpi_type,
+                            std::string root = DEFAULT_MPI_ROOT,
+                            std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_gatherv(std::string send_buf_name,
                               std::string send_cnt,
                               std::string send_mpi_type,
@@ -129,9 +130,25 @@ TL::Source create_mpi_gatherv(std::string send_buf_name,
                               std::string recv_mpi_type,
                               std::string root = DEFAULT_MPI_ROOT,
                               std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_iprobe();
-TL::Source create_mpi_irecv();
-TL::Source create_mpi_isend();
+TL::Source create_mpi_iprobe(std::string src,
+                             std::string tag,
+                             std::string comm,
+                             std::string flag_name,
+                             std::string status);
+TL::Source create_mpi_irecv(std::string buf_name,
+                            std::string cnt,
+                            std::string mpi_type,
+                            std::string src,
+                            std::string tag,
+                            std::string comm,
+                            std::string handle);
+TL::Source create_mpi_isend(std::string buf_name,
+                            std::string cnt,
+                            std::string mpi_type,
+                            std::string dest,
+                            std::string tag,
+                            std::string comm,
+                            std::string handle);
 TL::Source create_mpi_probe(std::string src,
                             std::string tag,
                             std::string comm = DEFAULT_MPI_COMM,
@@ -143,7 +160,12 @@ TL::Source create_mpi_recv(std::string buf_name,
                            std::string tag,
                            std::string comm = DEFAULT_MPI_COMM,
                            std::string status = DEFAULT_MPI_STATUS);
-TL::Source create_mpi_send();
+TL::Source create_mpi_send(std::string buf_name,
+                           std::string cnt,
+                           std::string mpi_type,
+                           std::string dest,
+                           std::string tag,
+                           std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_reduce(std::string send_buf_name,
                              std::string recv_buf_name,
                              std::string cnt,

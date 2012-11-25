@@ -35,8 +35,8 @@ std::string type_to_mpi_type(TL::Type type)
     /* Reference : https://computing.llnl.gov/tutorials/mpi/ */
     if (type.is_char())
         mpi_type_str = "MPI_CHAR";
-    else if (type.is_wchar_t())
-        mpi_type_str = "MPI_WCHAR";
+    //else if (type.is_wchar_t())
+        //mpi_type_str = "MPI_WCHAR";
     else if (type.is_signed_short_int())
         mpi_type_str = "MPI_SHORT";
     else if (type.is_signed_int())
@@ -88,6 +88,87 @@ std::string type_to_mpi_type(TL::Type type)
 
     return mpi_type_str;
 }
+
+std::string type_to_ctype(TL::Type type)
+{
+    std::string ctype;
+
+    if (type.is_char())
+        ctype = "char";
+    //else if (type.is_wchar_t())
+        //mpi_type_str = "MPI_WCHAR";
+    else if (type.is_signed_short_int())
+        ctype = "short";
+    else if (type.is_signed_int())
+        ctype = "int";
+    else if (type.is_signed_long_int())
+        ctype = "long";
+    else if (type.is_signed_long_long_int())
+        ctype = "long long";
+    /* MPI_LONG_LONG */
+    //else if (type.is_signed_char())
+        //ctype = "MPI_SIGNED_CHAR";
+    else if (type.is_unsigned_char())
+        ctype = "unsigned char";
+    else if (type.is_unsigned_short_int())
+        ctype = "unsigned short";
+    else if (type.is_unsigned_int())
+        ctype = "unsigned";
+    else if (type.is_unsigned_long_int())
+        ctype = "unsigned long";
+    else if (type.is_unsigned_long_long_int())
+        ctype = "unsigned long long";
+    else if (type.is_float())
+        ctype = "float";
+    else if (type.is_double())
+        ctype = "double";
+    else if (type.is_long_double())
+        ctype = "long double";
+    else {
+        std::cerr << "Don't support type : "
+                  << type.get_symbol().get_name() << std::endl;
+    }
+
+    return ctype;
+}
+
+std::string op_to_mpi_op(std::string op)
+{
+    std::string mpi_op;
+
+    if (op == "max")
+        mpi_op = "MPI_MAX";
+    else if (op == "min")
+        mpi_op = "MPI_MIN";
+    else if (op == "+")
+        mpi_op = "MPI_SUM";
+    else if (op == "*")
+        mpi_op = "MPI_PROD";
+    else if (op == "&")
+        mpi_op = "MPI_BAND";
+    else if (op == "|")
+        mpi_op = "MPI_BOR";
+    else if (op == "")
+        mpi_op = "MPI_BXOR";
+#if 0
+    else if (op == "")
+        mpi_op = "MPI_LAND";
+    else if (op == "")
+        mpi_op = "MPI_LOR";
+    else if (op == "")
+        mpi_op = "MPI_LXOR";
+    else if (op == "")
+        mpi_op = "MPI_MAXLOC";
+    else if (op == "")
+        mpi_op = "MPI_MINLOC";
+#endif
+    else {
+        std::cerr << "Don't support operator : " << op << std::endl;
+    }
+
+    return mpi_op;
+}
+
 
 TL::Source create_run_only_root_stmt(TL::Source src)
 {
@@ -151,9 +232,9 @@ TL::Source create_mpi_barrier(std::string comm)
     return result;
 }
 
-TL::Source
-create_mpi_bcast(std::string buf_name, std::string cnt, std::string mpi_type,
-                 std::string root, std::string comm)
+TL::Source create_mpi_bcast(std::string buf_name, std::string cnt,
+                            std::string mpi_type, std::string root,
+                            std::string comm)
 {
     TL::Source result;
     result
@@ -172,44 +253,52 @@ TL::Source create_mpi_gatherv(std::string send_buf_name, std::string send_cnt,
     return result;
 }
 
-TL::Source create_mpi_iprobe()
+TL::Source create_mpi_iprobe(std::string src, std::string tag,
+                             std::string comm, std::string flag_name,
+                             std::string status)
 {
     TL::Source result;
     return result;
 }
 
-TL::Source create_mpi_irecv()
+TL::Source create_mpi_irecv(std::string buf_name, std::string cnt,
+                            std::string mpi_type, std::string src,
+                            std::string tag, std::string comm,
+                            std::string handle)
 {
     TL::Source result;
     return result;
 }
 
-TL::Source create_mpi_isend()
+TL::Source create_mpi_isend(std::string buf_name, std::string cnt,
+                            std::string mpi_type, std::string dest,
+                            std::string tag, std::string comm,
+                            std::string handle)
 {
     TL::Source result;
     return result;
 }
 
-TL::Source create_mpi_probe()
+TL::Source create_mpi_probe(std::string src, std::string tag,
+                            std::string comm, std::string status)
 {
     TL::Source result;
     return result;
 }
 
-TL::Source create_mpi_recv()
+TL::Source create_mpi_recv(std::string buf_name, std::string cnt,
+                           std::string mpi_type, std::string src,
+                           std::string tag, std::string comm,
+                           std::string status)
 {
     TL::Source result;
     return result;
 }
 
-TL::Source create_mpi_send()
+TL::Source create_mpi_send(std::string buf_name, std::string cnt,
+                           std::string mpi_type, std::string dest,
+                           std::string tag, std::string comm)
 {
-    /* int MPI_Send(void *buf,
-    int count,
-    MPI_Datatype datatype,
-    int dest,
-        int tag,
-    MPI_Comm comm)*/
     TL::Source result;
     return result;
 }
@@ -243,6 +332,4 @@ TL::Source create_mpi_scatterv(std::string send_buf_name, std::string send_cnts,
         << root << "," << comm << ");";
     return result;
 }
-
-
 

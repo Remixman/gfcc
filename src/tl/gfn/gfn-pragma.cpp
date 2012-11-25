@@ -209,14 +209,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
         if (sym_name_list.find(name).size() == 0)
         {
             TL::Type var_type = data_ref.get_type();
-            std::string base_type_name;
-            //if (data_ref.get_type().is_array())
-              //  base_type_name = data_ref.get_type().get_array_to().get_symbol().get_name();
-            //else //if (data_ref.get_type().is_pointer())
-              //  base_type_name = data_ref.get_type().get_canonical_type().get_symbol().get_name();
-
-            std::cout << name << " : " << base_type_name << std::endl;
-            VariableInfo var_info(name, base_type_name);
+            VariableInfo var_info(name);
             if (var_type.is_array() || var_type.is_pointer())
                 var_info._is_array_or_pointer = true;
             kernel_info->_var_info.append(var_info);
