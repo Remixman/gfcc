@@ -63,11 +63,14 @@ namespace TL
         {
             std::string     _name;
             VAR_ACCESS_T    _access_type;
+            REDUCTION_T     _reduction_type;
             DimSize         _size;
 
             // TODO: change to bit
             bool            _is_input;
             bool            _is_output;
+            bool            _is_index;
+            bool            _is_reduction;
             bool            _is_array_or_pointer;
             bool            _is_use;
             bool            _is_prop_use; // e.g. pass reference to function

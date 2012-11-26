@@ -132,6 +132,40 @@ std::string type_to_ctype(TL::Type type)
     return ctype;
 }
 
+REDUCTION_T op_to_op_type(std::string op)
+{
+    if (op == "max")
+        return REDUCTION_MAX;
+    else if (op == "min")
+        return REDUCTION_MIN;
+    else if (op == "+")
+        return REDUCTION_SUM;
+    else if (op == "*")
+        return REDUCTION_PROD;
+    else if (op == "&")
+        return REDUCTION_BAND;
+    else if (op == "|")
+        return REDUCTION_BOR;
+    else if (op == "")
+        return REDUCTION_BXOR;
+#if 0
+    else if (op == "")
+        return REDUCTION_LAND;
+    else if (op == "")
+        return REDUCTION_LOR;
+    else if (op == "")
+        return REDUCTION_LXOR;
+    else if (op == "")
+        return REDUCTION_MAXLOC;
+    else if (op == "")
+        return REDUCTION_MINLOC;
+#endif
+    else {
+        std::cerr << "Don't support operator : " << op << std::endl;
+        return REDUCTION_UNKNOWN;
+    }
+}
+
 std::string op_to_mpi_op(std::string op)
 {
     std::string mpi_op;
@@ -250,6 +284,11 @@ TL::Source create_mpi_gatherv(std::string send_buf_name, std::string send_cnt,
                               std::string comm)
 {
     TL::Source result;
+    result
+        << "MPI_Gatherv(&" << send_buf_name << "," << send_cnt << ","
+        << send_mpi_type << ",&" << recv_buf_name << ","
+        << recv_cnt << "," << disps << "," << recv_mpi_type << ","
+        << root << "," << comm << ");";
     return result;
 }
 
@@ -258,6 +297,9 @@ TL::Source create_mpi_iprobe(std::string src, std::string tag,
                              std::string status)
 {
     TL::Source result;
+    result
+        << "MPI_Iprobe(" << src << "," << tag << ","
+        << comm << ",&" << flag_name << "," << status << ");";
     return result;
 }
 
@@ -283,6 +325,9 @@ TL::Source create_mpi_probe(std::string src, std::string tag,
                             std::string comm, std::string status)
 {
     TL::Source result;
+    result
+        << "MPI_Probe(" << src << "," << tag << ","
+        << comm << "," << status << ");";
     return result;
 }
 
@@ -292,6 +337,10 @@ TL::Source create_mpi_recv(std::string buf_name, std::string cnt,
                            std::string status)
 {
     TL::Source result;
+    result
+        << "MPI_Recv(&" << buf_name << "," << cnt << ","
+        << mpi_type << "," << src << "," << tag << ","
+        << comm << "," << status << ");";
     return result;
 }
 
@@ -300,6 +349,9 @@ TL::Source create_mpi_send(std::string buf_name, std::string cnt,
                            std::string tag, std::string comm)
 {
     TL::Source result;
+    result
+        << "MPI_Send(&" << buf_name << "," << cnt << "," << mpi_type << ","
+        << dest << "," << tag << "," << comm << ");";
     return result;
 }
 

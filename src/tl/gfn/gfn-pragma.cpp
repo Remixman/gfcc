@@ -39,7 +39,7 @@
 using namespace TL::GFN;
 
 ////////////////////////// HELPER FUNCTION //////////////////////////////
-static void parse_var_list_and_append(std::string &var_list_str,
+static void parse_var_list_and_append(std::string var_list_str,
                                       TL::ObjectList<std::string> &var_list)
 {
     size_t start_pos = 0, comma_pos = 0;
@@ -436,10 +436,34 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
     TL::PragmaCustomClause reduction_clause = construct.get_clause("reduction");
     if (reduction_clause.is_defined())
     {
-        // DO SOMETHING
-        //ObjectList<OpenMP::ReductionSymbol> reduction_references;
+        ObjectList<std::string> list_arg = reduction_clause.get_arguments();
+        for (int i = 0; i < list_arg.size(); ++i)
+        {
+            std::string reduction_arg = list_arg[i];
+            size_t colon_pos = reduction_arg.find(":");
+            if (colon_pos == std::string::npos)
+            {
+                // TODO: Parse error
+            }
 
-        //ObjectList<ObjectList<std::string> > clause_arguments = reduction_clause.get_arguments_unflattened();
+            std::string opr = reduction_arg.substr(0, colon_pos);
+            TL::ObjectList<std::string> reduc_var_list;
+            parse_var_list_and_append(reduction_arg.substr(colon_pos+1), reduc_var_list);
+
+            for (int j = 0; j < reduc_var_list.size(); ++j)
+            {
+                std::string var_name = reduc_var_list[j];
+                // Find variable index
+                for (int k = 0; k < kernel_info->_var_info.size(); ++k)
+                {
+                    if (kernel_info->_var_info[k]._name == var_name)
+                    {
+                        kernel_info->_var_info[k]._is_reduction = true;
+                        kernel_info->_var_info[k]._reduction_type = op_to_op_type(opr);
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -69,6 +69,24 @@ enum VAR_ACCESS_T
     VAR_ACCESS_PRIVATE
 };
 
+enum REDUCTION_T
+{
+    REDUCTION_UNKNOWN,
+
+    REDUCTION_MAX,
+    REDUCTION_MIN,
+    REDUCTION_SUM,
+    REDUCTION_PROD,
+    REDUCTION_BAND,
+    REDUCTION_BOR,
+    REDUCTION_BXOR,
+    REDUCTION_LAND,
+    REDUCTION_LOR,
+    REDUCTION_LXOR,
+    REDUCTION_MAXLOC,
+    REDUCTION_MINLOC
+};
+
 enum GFN_ACCURATE
 {
     ACCURATE_LOW,
@@ -86,6 +104,7 @@ enum CUDA_MEMCPY_KIND
 /*==--------------- Utility Function ----------------==*/
 std::string type_to_mpi_type(TL::Type type);
 std::string type_to_ctype(TL::Type type);
+REDUCTION_T op_to_op_type(std::string op);
 std::string op_to_mpi_op(std::string op);
 TL::Source create_run_only_root_stmt(TL::Source src);
 

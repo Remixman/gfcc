@@ -161,10 +161,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_cnts = "_" + var_name + "_cnts"; // for array or pointer
         std::string var_disp = "_" + var_name + "_disp"; // for array or pointer
         std::string var_sub_size = "_sub_size_" + var_name;
-        std::string var_sub_name = "_sub_" + var_name;   // for array or pointer
-        worker_var_decl
-            << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name)
-            << ";";
+        std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
 
         TL::Type type = var_ref.get_type();
         std::string mpi_type_str, c_type_str, size_str;
@@ -187,26 +184,39 @@ TL::Source ParallelFor::do_parallel_for()
             size_str = "sizeof(" + var_info._name  + ")";
         }
 
+        /* Declaration necessary variable */
+        if (var_info._is_array_or_pointer)
+        {
+            worker_var_decl
+                << c_type_str << " * " << var_name << ";";
+        }
+        else
+        {
+            worker_var_decl
+                << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
+        }
+
         /* Declaration generated variable */
         if (var_info._is_input || var_info._is_output)
         {
             if (var_info._is_array_or_pointer)
             {
                 worker_gen_var_decl
+                    // ipc recv buffer variable
+                    << c_type_str << " * " << var_buf_name << ";"
                     // sub size of variable
                     << "int " << var_sub_size << ";"
                     // send counts variable
                     << "int " << var_cnts << "[_gfn_num_proc];"
                     // send displacement variable
-                    << "int " << var_disp << "[_gfn_num_proc];"
-                    // recv buffer variable
-                    << c_type_str << " * " << var_sub_name << ";";
+                    << "int " << var_disp << "[_gfn_num_proc];";
+
                 worker_init_gen_var
                     // init sub size
                     << var_sub_size << " = _CalcSubSize("
                     << var_info._size._dim1_size <<",_gfn_num_proc,_gfn_rank);"
-                    // allocate buffer
-                    << var_sub_name << " = (" << c_type_str
+                    // allocate sub array buffer
+                    << var_name << " = (" << c_type_str
                     <<"*)malloc(sizeof(" << c_type_str << ") * "
                     << var_sub_size << ");"
                     // init counts
@@ -215,8 +225,9 @@ TL::Source ParallelFor::do_parallel_for()
                     // init displacement
                     << "_CalcDisp(" << var_info._size._dim1_size
                     << ",_gfn_num_proc," << var_disp << ");";
+
                 worker_free_gen_var
-                    << "free(" << var_sub_name << ");";
+                    << "free(" << var_name << ");";
 
                 TL::Source actual_param;
                 actual_param << c_type_str << " * " << var_name;
@@ -233,62 +244,74 @@ TL::Source ParallelFor::do_parallel_for()
 
         if (var_info._is_input)
         {
-            send_call_func
-                << "_SendInputMsg((void*)&" << var_info._name
-                << "," << size_str << ");";
-            worker_recv_input
-                << "_RecvInputMsg2((void*)&" << var_info._name << ");";
-
             // TODO: How to classify scater type
             if (var_info._is_array_or_pointer)
             {
+                send_call_func
+                    << "_SendInputMsg((void*)&" << var_name
+                    << "," << size_str << ");";
+
+                worker_recv_input
+                    << "_RecvInputMsg((void*)&" << var_buf_name
+                    << "," << size_str << ");";
+
                 worker_scatter_input
-                    << create_mpi_scatterv(var_info._name, var_cnts, var_disp,
-                                           mpi_type_str, var_sub_name,
+                    << create_mpi_scatterv(var_buf_name, var_cnts, var_disp,
+                                           mpi_type_str, var_name,
                                            var_sub_size, mpi_type_str);
             }
             else
             {
+                send_call_func
+                    << "_SendInputMsg((void*)&" << var_name
+                    << "," << size_str << ");";
+
+                worker_recv_input
+                    << "_RecvInputMsg2((void*)&" << var_name << ");";
+
                 worker_scatter_input
-                    << create_mpi_bcast(var_info._name, "1", mpi_type_str);
+                    << create_mpi_bcast(var_name, "1", mpi_type_str);
             }
         }
 
         if (var_info._is_output)
         {
-            //if (var_info._is_array_or_pointer)
-            send_call_func
-                << "_RecvOutputMsg2((void*)&" << var_info._name << ");";
-            worker_send_output
-                << "_SendOutputMsg((void*)&" << var_info._name
-                << "," << size_str << ");";
-
             if (var_info._is_array_or_pointer)
             {
-                /*create_mpi_gatherv(std::string send_buf_name,
-                                              std::string send_cnt,
-                                              std::string send_mpi_type,
-                                              std::string recv_buf_name,
-                                              std::string recv_cnt,
-                                              std::string disps,
-                                              std::string recv_mpi_type,*/
+                send_call_func
+                    << "_RecvOutputMsg((void*)&" << var_name
+                    << "," << size_str << ");";
 
-                /*worker_gather_output
-                    << create_mpi_gatherv(var_sub_name, var_cnts, var_disp,
-                                          mpi_type_str, var_info._name);*/
+                worker_send_output
+                    << "_SendOutputMsg((void*)&" << var_buf_name
+                    << "," << size_str << ");";
+
+                worker_gather_output
+                    << create_mpi_gatherv(var_name, var_sub_size, mpi_type_str,
+                                          var_buf_name, var_cnts, var_disp,
+                                          mpi_type_str);
             }
             else
             {
+                send_call_func
+                    << "_RecvOutputMsg2((void*)&" << var_name << ");";
 
+                worker_send_output
+                    << "_SendOutputMsg((void*)&" << var_name
+                    << "," << size_str << ");";
             }
         }
 
         if (0 /* reduction */)
         {
-            std::string local_reduce_var_name = "_local_" + var_info._name;
+            std::string local_reduce_var_name = "_local_" + var_name;
             worker_gen_var_decl
-                    << create_mpi_reduce(local_reduce_var_name, var_info._name,
-                                         "1", mpi_type_str, "MPI_SUM");
+                // TODO: initialize value
+                << c_type_str << " " << local_reduce_var_name << ";";
+
+            worker_gather_output
+                << create_mpi_reduce(local_reduce_var_name, var_name,
+                                     "1", mpi_type_str, "MPI_SUM");
         }
     }
 
@@ -305,6 +328,33 @@ TL::Source ParallelFor::do_parallel_for()
         << induction_var.prettyprint() << "<" << new_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ")" << loop_body;
 
+
+    /*== -------------  Create GPU kernel function -----------------==*/
+    TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
+    TL::Source new_param_list;
+    std::string kernel_name = get_new_kernel_name();
+
+    // declare thread id variable
+    TL::Source thread_id_decl = do_thread_id_declaration();
+    TL::Source loop_index_decl = do_loop_index_declaration(induction_var.get_symbol(),
+                                                           step,
+                                                           lower_bound);
+    TL::Source private_var_decl;
+    TL::Source kernel_def, loop_body_replace;
+
+    kernel_def
+        << "__global__ void " << kernel_name
+        << "(" << kernel_actual_param << ") { "
+        << thread_id_decl
+        << loop_index_decl
+        //<< private_var_decl
+        << "if (" << induction_var.prettyprint() << "<" << GFN_UPPER_BOUND << ")"
+        << loop_body << "}";
+
+    TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
+            _function_def->get_point_of_declaration(),
+            _function_def->get_scope_link());
+    _function_def->get_ast().prepend_sibling_function(kernel_def_tree);
 
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
@@ -332,64 +382,8 @@ TL::Source ParallelFor::do_parallel_for()
     _function_def->get_ast().prepend_sibling_function(worker_func_tree);
 
 
-    /*== -------------  Create GPU kernel function -----------------==*/
-    TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
-    TL::Source new_param_list;
-    std::string kernel_name = get_new_kernel_name();
-
-    // declare thread id variable
-    TL::Source thread_id_decl = do_thread_id_declaration();
-    TL::Source loop_index_decl = do_loop_index_declaration(induction_var.get_symbol(),
-                                                           step,
-                                                           lower_bound);
-    TL::Source private_var_decl;
-    TL::Source kernel_def, loop_body_replace;
-    std::cout << (std::string)thread_id_decl << std::endl;
-    kernel_def
-        << "__global__ void " << kernel_name
-        << "(" << kernel_actual_param << ") { "
-        << thread_id_decl
-        << loop_index_decl
-        << private_var_decl
-        << "if (" << induction_var.prettyprint() << "<=" << GFN_UPPER_BOUND << ")"
-            << "{" << loop_body << "}"
-        << "}";
-//std::cout << (std::string)kernel_def << std::endl;
-    TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
-            _function_def->get_point_of_declaration(),
-            _function_def->get_scope_link());
-    //worker_func_tree.prepend_sibling_function(kernel_def_tree);
-
     return send_call_func;
 
-
-
-
-
-
-
-
-    /*==------------------- Cluster CG section ---------------------==*/
-    if (Conf_Trans_flags & GFN_TRANS_MPI) {
-        TL::Source new_for_stmt, new_init, new_cond, new_step;
-
-        /* Data send back to master */
-
-        new_init
-            << induction_var.prettyprint() << " = _gfn_rank";
-        // TODO: <=, >= ??
-        new_cond
-            << induction_var.prettyprint() << " <= "
-            << upper_bound.prettyprint();
-        // TODO: +=, -= ??
-        new_step
-            << induction_var.prettyprint() << " += ("
-            << step.prettyprint() << " * " << GFN_PROC_NUM << ")";
-        new_for_stmt
-            << "for(" << new_init << ";" << new_cond << ";" << new_step << ")"
-            << loop_body;
-        return new_for_stmt;
-    }
 
 #if 0
     /*==--------------------- GPU CG section -----------------------==*/
@@ -559,11 +553,8 @@ TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
     index_declaration
         << type.get_declaration(_construct.get_scope(), loop_index.get_name())
         << "="
-        << "("
-        << GFN_THREAD_ID_VAR << "*" << loop_increment
-        << ")"
-        << "+" << loop_lowerbound
-        << ";";
+        << "(" << GFN_THREAD_ID_VAR << "*" << loop_increment << ")"
+        << "+" << loop_lowerbound << ";";
 
     return index_declaration;
 }
@@ -572,8 +563,8 @@ TL::Source ParallelFor::do_thread_id_declaration()
 {
     TL::Source thread_id_decl;
     
-    //thread_id_decl
-        //<< comment("kernel thread id entity");
+    thread_id_decl
+        << comment("kernel thread id entity");
     
     if (0 /* block_num == 1 */)
     {
