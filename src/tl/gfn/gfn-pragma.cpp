@@ -233,6 +233,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_size_clause(construct, kernel_info);
     get_input_clause(construct, kernel_info);
     get_output_clause(construct, kernel_info);
+    get_parallel_if_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
     std::cout << "\n====================================================\n";
@@ -627,6 +628,24 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                           << "\" in parallel region " << std::endl;
             }
         }
+    }
+}
+
+void GFNPragmaPhase::get_parallel_if_clause(TL::PragmaCustomConstruct construct,
+                                            KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause parallel_if_clause = construct.get_clause("parallel_if");
+
+    if (parallel_if_clause.is_defined())
+    {
+        ObjectList<std::string> list_arg = parallel_if_clause.get_arguments();
+
+        if (list_arg.size() > 1)
+        {
+            std::cerr << "Error : multiple parallel_if clause\n";
+        }
+
+        kernel_info->_parallel_if_expr = list_arg[0];
     }
 }
 

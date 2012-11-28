@@ -105,7 +105,7 @@ enum CUDA_MEMCPY_KIND
 std::string type_to_mpi_type(TL::Type type);
 std::string type_to_ctype(TL::Type type);
 REDUCTION_T op_to_op_type(std::string op);
-std::string op_to_mpi_op(std::string op);
+std::string op_to_mpi_op(REDUCTION_T rt);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
 #define DEFAULT_MPI_COMM "MPI_COMM_WORLD"

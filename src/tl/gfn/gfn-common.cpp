@@ -166,38 +166,38 @@ REDUCTION_T op_to_op_type(std::string op)
     }
 }
 
-std::string op_to_mpi_op(std::string op)
+std::string op_to_mpi_op(REDUCTION_T rt)
 {
     std::string mpi_op;
 
-    if (op == "max")
+    if (rt == REDUCTION_MAX)
         mpi_op = "MPI_MAX";
-    else if (op == "min")
+    else if (rt == REDUCTION_MIN)
         mpi_op = "MPI_MIN";
-    else if (op == "+")
+    else if (rt == REDUCTION_SUM)
         mpi_op = "MPI_SUM";
-    else if (op == "*")
+    else if (rt == REDUCTION_PROD)
         mpi_op = "MPI_PROD";
-    else if (op == "&")
+    else if (rt == REDUCTION_BAND)
         mpi_op = "MPI_BAND";
-    else if (op == "|")
+    else if (rt == REDUCTION_BOR)
         mpi_op = "MPI_BOR";
-    else if (op == "")
+    else if (rt == REDUCTION_BXOR)
         mpi_op = "MPI_BXOR";
 #if 0
-    else if (op == "")
+    else if (rt == REDUCTION_LAND)
         mpi_op = "MPI_LAND";
-    else if (op == "")
+    else if (rt == REDUCTION_LOR)
         mpi_op = "MPI_LOR";
-    else if (op == "")
+    else if (rt == REDUCTION_LXOR)
         mpi_op = "MPI_LXOR";
-    else if (op == "")
+    else if (rt == REDUCTION_MAXLOC)
         mpi_op = "MPI_MAXLOC";
-    else if (op == "")
+    else if (rt == REDUCTION_MINLOC)
         mpi_op = "MPI_MINLOC";
 #endif
     else {
-        std::cerr << "Don't support operator : " << op << std::endl;
+        std::cerr << "Don't support operator : " << (int)rt << std::endl;
     }
 
     return mpi_op;

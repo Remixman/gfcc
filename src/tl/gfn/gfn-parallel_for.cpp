@@ -143,8 +143,18 @@ TL::Source ParallelFor::do_parallel_for()
     Expression lower_bound = _for_stmt.get_lower_bound();
     Expression upper_bound = _for_stmt.get_upper_bound();
     Expression step = _for_stmt.get_step();
-    //TL::Source operator_bound = _for_stmt.get_bound_operator();
+    std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
+    std::string loop_iter_size;
     Statement loop_body = _for_stmt.get_loop_body();
+
+    /*if (bound_opr == "<=")
+        loop_iter_size = "(" + upper_bound + "-" + lower_bound + "+1)";
+    else if (bound_opr == ">=")
+        loop_iter_size = "(" + lower_bound + "-" + upper_bound + "+1)";
+    else
+        std::cerr << "Error : unknown loop bound operator : \""
+                  << bound_opr << "\"" << std::endl;*/
+
 
     /* Replace with call function */
     TL::Source send_call_func;
@@ -302,16 +312,16 @@ TL::Source ParallelFor::do_parallel_for()
             }
         }
 
-        if (0 /* reduction */)
+        if (var_info._is_reduction)
         {
             std::string local_reduce_var_name = "_local_" + var_name;
             worker_gen_var_decl
                 // TODO: initialize value
-                << c_type_str << " " << local_reduce_var_name << ";";
+                << c_type_str << " " << local_reduce_var_name << " = 0;";
 
             worker_gather_output
                 << create_mpi_reduce(local_reduce_var_name, var_name,
-                                     "1", mpi_type_str, "MPI_SUM");
+                       "1", mpi_type_str, op_to_mpi_op(var_info._reduction_type));
         }
     }
 
@@ -321,8 +331,12 @@ TL::Source ParallelFor::do_parallel_for()
     worker_gen_var_decl
         << "int " << new_start_idx_var << "," << new_end_idx_var << ";";
     worker_init_gen_var
-        << new_start_idx_var << " = " << lower_bound.prettyprint() << " + _CalcSubSize(_gfn_rank-1);"
-        << new_end_idx_var << " = " << lower_bound.prettyprint() << " + _CalcSubSize(_gfn_rank);";
+        << new_start_idx_var << " = " << lower_bound.prettyprint()
+        << " + _CalcOffset(" << loop_iter_size << ","
+        << "_gfn_num_proc,_gfn_rank);"
+        << new_end_idx_var << " = " << lower_bound.prettyprint()
+        << " + _CalcOffset(" << loop_iter_size << ","
+        << "_gfn_num_proc,_gfn_rank+1);";
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = " << new_start_idx_var << ";"
         << induction_var.prettyprint() << "<" << new_end_idx_var << ";"

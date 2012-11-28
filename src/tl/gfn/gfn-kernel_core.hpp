@@ -77,12 +77,17 @@ namespace TL
             bool            _is_def;
 
             VariableInfo(std::string n) :
-                _name(n), _access_type(VAR_ACCESS_SHARED),
-                _is_input(0), _is_output(0), _is_array_or_pointer(0),
-                _is_use(0), _is_prop_use(0), _is_def(0) {}
+                _name(n), _access_type(VAR_ACCESS_SHARED), _reduction_type(REDUCTION_UNKNOWN),
+                _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
+                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
 
             void print() {
-                std::cout << _name << std::endl;
+                std::cout << _name << " prop[";
+                if (_is_input) std::cout << "IN/";
+                if (_is_output) std::cout << "OUT/";
+                if (_is_index) std::cout << "IDX/";
+                if (_is_reduction) std::cout << "REDUC/";
+                std::cout << "]" << std::endl;
             }
         };
 
@@ -111,6 +116,8 @@ namespace TL
             public:
                 //operator Source();
                 //operator std::string();
+
+                std::string _parallel_if_expr;
 
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;

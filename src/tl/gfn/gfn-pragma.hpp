@@ -84,6 +84,8 @@ namespace TL
                 void get_copy_clause(PragmaCustomClause &copy_clause,
                                      KernelInfo *kernel_info,
                                      std::string copy_type_str);
+                void get_parallel_if_clause(PragmaCustomConstruct construct,
+                                            KernelInfo *kernel_info);
 
                 void find_use_and_def_list(Statement compound_stmt,
                                            KernelInfo *kernel_info);
