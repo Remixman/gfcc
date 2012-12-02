@@ -59,6 +59,34 @@ int KernelInfo::get_var_info_index_from_var_name(std::string &var_name)
     return -1;
 }
 
+void KernelInfo::sort_var_info()
+{
+    for (int i = 0; i < _var_info.size(); ++i)
+    {
+        VariableInfo var_i = _var_info[i];
+        int min_size = (var_i._size._dim1_size == "1")? 1 : 100;//var_i._size._dim1_size;
+        int min_idx = i;
+        for (int j = i + 1; j < _var_info.size(); ++j)
+        {
+            VariableInfo var_j = _var_info[j];
+            int j_size = (var_j._size._dim1_size == "1")? 1 : 100;//var_j._size._dim1_size;
+            if (j_size < min_size)
+            {
+                min_size = j_size;
+                min_idx = j;
+            }
+        }
+
+        VariableInfo var_tmp = _var_info[i];
+        _var_info[i] = _var_info[min_idx];
+        _var_info[min_idx] = var_tmp;
+
+        DataReference ref_tmp = _var_ref[i];
+        _var_ref[i] = _var_ref[min_idx];
+        _var_ref[min_idx] = ref_tmp;
+    }
+}
+
 void KernelInfo::set_kernel_name(std::string &name)
 {
     // XXX: find in _kernel_map

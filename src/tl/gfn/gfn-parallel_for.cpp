@@ -143,18 +143,26 @@ TL::Source ParallelFor::do_parallel_for()
     Expression lower_bound = _for_stmt.get_lower_bound();
     Expression upper_bound = _for_stmt.get_upper_bound();
     Expression step = _for_stmt.get_step();
-    std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
+    std::string step_str = (std::string)step;
+    //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     Statement loop_body = _for_stmt.get_loop_body();
 
-    /*if (bound_opr == "<=")
-        loop_iter_size = "(" + upper_bound + "-" + lower_bound + "+1)";
-    else if (bound_opr == ">=")
-        loop_iter_size = "(" + lower_bound + "-" + upper_bound + "+1)";
+    // XXX: we indicate with only step symbol
+    bool is_incre_loop = (step_str[0] == '-')? false : true;
+    if (is_incre_loop)
+    {
+        loop_iter_size = "(" + upper_bound.prettyprint() + "-"
+                + lower_bound.prettyprint() + "+1)";
+    }
     else
-        std::cerr << "Error : unknown loop bound operator : \""
-                  << bound_opr << "\"" << std::endl;*/
+    {
+        loop_iter_size = "(" + lower_bound.prettyprint() + "-"
+                + upper_bound.prettyprint() + "+1)";
+    }
 
+    /* Sort variable in kernel (sort by size) */
+    _kernel_info->sort_var_info();
 
     /* Replace with call function */
     TL::Source send_call_func;
@@ -262,8 +270,13 @@ TL::Source ParallelFor::do_parallel_for()
                     << "," << size_str << ");";
 
                 worker_recv_input
+                    << var_buf_name << " = (" << c_type_str
+                    <<"*)malloc(" << size_str << ");"
                     << "_RecvInputMsg((void*)&" << var_buf_name
                     << "," << size_str << ");";
+
+                worker_free_gen_var
+                    << "free(" << var_buf_name << ");";
 
                 worker_scatter_input
                     << create_mpi_scatterv(var_buf_name, var_cnts, var_disp,
@@ -288,6 +301,13 @@ TL::Source ParallelFor::do_parallel_for()
         {
             if (var_info._is_array_or_pointer)
             {
+                worker_init_gen_var
+                    << var_buf_name << " = (" << c_type_str
+                    << "*)malloc(" << size_str << ");";
+
+                worker_free_gen_var
+                    << "free(" << var_buf_name << ");";
+
                 send_call_func
                     << "_RecvOutputMsg((void*)&" << var_name
                     << "," << size_str << ");";
@@ -332,14 +352,17 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << new_start_idx_var << "," << new_end_idx_var << ";";
     worker_init_gen_var
         << new_start_idx_var << " = " << lower_bound.prettyprint()
-        << " + _CalcOffset(" << loop_iter_size << ","
+        << ((is_incre_loop)? " + " : " - ")
+        << "_CalcOffset(" << loop_iter_size << ","
         << "_gfn_num_proc,_gfn_rank);"
         << new_end_idx_var << " = " << lower_bound.prettyprint()
-        << " + _CalcOffset(" << loop_iter_size << ","
+        << ((is_incre_loop)? " + " : " - ")
+        << "_CalcOffset(" << loop_iter_size << ","
         << "_gfn_num_proc,_gfn_rank+1);";
     mpi_block_dist_for_stmt
-        << "for(" << induction_var.prettyprint() << " = " << new_start_idx_var << ";"
-        << induction_var.prettyprint() << "<" << new_end_idx_var << ";"
+        << "for(" << induction_var.prettyprint() << " = "
+        << new_start_idx_var << ";" << induction_var.prettyprint()
+        << ((is_incre_loop)? "<" : ">") << new_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ")" << loop_body;
 
 

@@ -122,6 +122,7 @@ namespace TL
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;
                 int get_var_info_index_from_var_name(std::string &var_name);
+                void sort_var_info();
 
                 KernelInfo();
                 KernelInfo(std::string &kernel_name);
