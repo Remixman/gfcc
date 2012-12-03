@@ -26,6 +26,7 @@
 
 
 
+#include <sstream>
 #include "gfn-common.hpp"
 
 std::string type_to_mpi_type(TL::Type type)
@@ -146,13 +147,13 @@ REDUCTION_T op_to_op_type(std::string op)
         return REDUCTION_BAND;
     else if (op == "|")
         return REDUCTION_BOR;
-    else if (op == "")
+    else if (op == "^")
         return REDUCTION_BXOR;
-#if 0
-    else if (op == "")
+    else if (op == "&&")
         return REDUCTION_LAND;
-    else if (op == "")
+    else if (op == "||")
         return REDUCTION_LOR;
+#if 0
     else if (op == "")
         return REDUCTION_LXOR;
     else if (op == "")
@@ -163,6 +164,40 @@ REDUCTION_T op_to_op_type(std::string op)
     else {
         std::cerr << "Don't support operator : " << op << std::endl;
         return REDUCTION_UNKNOWN;
+    }
+}
+
+std::string reduction_op_init_value(REDUCTION_T rt)
+{
+    return "";
+
+    if (rt == REDUCTION_MAX)
+        return "";
+    else if (rt == REDUCTION_MIN)
+        return "";
+    else if (rt == REDUCTION_SUM)
+        return "0";
+    else if (rt == REDUCTION_PROD)
+        return "1";
+    else if (rt == REDUCTION_BAND)
+        return "~0";
+    else if (rt == REDUCTION_BOR)
+        return "0";
+    else if (rt == REDUCTION_BXOR)
+        return "0";
+    else if (rt == REDUCTION_LAND)
+        return "1";
+    else if (rt == REDUCTION_LOR)
+        return "0";
+    else if (rt == REDUCTION_LXOR)
+        return "";
+    else if (rt == REDUCTION_MAXLOC)
+        return "";
+    else if (rt == REDUCTION_MINLOC)
+        return "";
+    else {
+        std::cerr << "Don't support operator : " << (int)rt << std::endl;
+        return "";
     }
 }
 
@@ -184,7 +219,6 @@ std::string op_to_mpi_op(REDUCTION_T rt)
         mpi_op = "MPI_BOR";
     else if (rt == REDUCTION_BXOR)
         mpi_op = "MPI_BXOR";
-#if 0
     else if (rt == REDUCTION_LAND)
         mpi_op = "MPI_LAND";
     else if (rt == REDUCTION_LOR)
@@ -195,7 +229,6 @@ std::string op_to_mpi_op(REDUCTION_T rt)
         mpi_op = "MPI_MAXLOC";
     else if (rt == REDUCTION_MINLOC)
         mpi_op = "MPI_MINLOC";
-#endif
     else {
         std::cerr << "Don't support operator : " << (int)rt << std::endl;
     }
@@ -203,6 +236,35 @@ std::string op_to_mpi_op(REDUCTION_T rt)
     return mpi_op;
 }
 
+std::string int_to_string(int num)
+{
+    std::stringstream ss;
+    ss << num;
+    return ss.str();
+}
+
+std::string source_to_kernel_str(TL::Source src)
+{
+    std::string result = "";
+    result += "\"";
+
+    std::string src_str = (std::string)src;
+    std::cout << "src_str = " << src_str << std::endl;
+    for (int i = 0; i < src_str.size(); ++i)
+    {
+        if (src_str[i] == '\n')
+        {
+            result += "\"\n\"";
+        }
+        else
+        {
+            result += src_str[i];
+        }
+    }
+
+    result += "\"";
+    return result;
+}
 
 TL::Source create_run_only_root_stmt(TL::Source src)
 {
@@ -381,7 +443,98 @@ TL::Source create_mpi_scatterv(std::string send_buf_name, std::string send_cnts,
         << send_cnts << "," << send_disp << ","
         << send_mpi_type << ",&" << recv_buf_name << ","
         << recv_cnt << "," << recv_mpi_type << ","
-        << root << "," << comm << ");";
+        << root << ",&" << comm << ");";
+    return result;
+}
+
+
+TL::Source create_cl_create_buffer(std::string context, std::string flags,
+                                   std::string size, std::string host_ptr,
+                                   std::string status)
+{
+    TL::Source result;
+    result
+        << "clCreateBuffer(" << context << "," << flags << ","
+        << size << "," << host_ptr << ",&" << status << ");";
+    return result;
+}
+
+TL::Source create_cl_release_mem_object(std::string buffer)
+{
+    TL::Source result;
+    result << "clReleaseMemObject(" << buffer << ");";
+    return result;
+}
+
+TL::Source create_cl_enqueue_nd_range_kernel(std::string cmd_queue, std::string kernel,
+                                             std::string work_dim, std::string global_work_offset,
+                                             std::string global_work_size, std::string local_work_size,
+                                             std::string num_event_wait_list,
+                                             std::string event_wait_list, std::string event)
+{
+    TL::Source result;
+    result
+        << "clEnqueueNDRangeKernel(" << cmd_queue << "," << kernel << ","
+        << work_dim << "," << global_work_offset << ","
+        << global_work_size << "," << local_work_size << ","
+        << num_event_wait_list << "," << event_wait_list << ","
+        << event << ");";
+    return result;
+}
+
+TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue, std::string buffer,
+                                          bool is_block, std::string offset,
+                                          std::string size, std::string var_ptr,
+                                          std::string num_event_wait_list,
+                                          std::string event_wait_list, std::string event)
+{
+    TL::Source result;
+    std::string block = ((is_block)? "1" /* CL_TRUE */ : "0" /* CL_FALSE */ );
+    result
+        << "clEnqueueWriteBuffer(" << cmd_queue << "," << buffer << ","
+        << block << "," << offset << "," << size << "," << var_ptr << ","
+        << num_event_wait_list << "," << event_wait_list << "," << event << ");";
+    return result;
+}
+
+TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buffer,
+                                         bool is_block, std::string offset,
+                                         std::string size, std::string var_ptr,
+                                         std::string num_event_wait_list,
+                                         std::string event_wait_list, std::string event)
+{
+    TL::Source result;
+    std::string block = ((is_block)? "1" /* CL_TRUE */ : "0" /* CL_FALSE */ );
+    result
+        << "clEnqueueReadBuffer(" << cmd_queue << "," << buffer << ","
+        << block << "," << offset << "," << size << "," << var_ptr << ","
+        << num_event_wait_list << "," << event_wait_list << "," << event << ");";
+    return result;
+}
+
+TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
+                                    std::string buffer)
+{
+    TL::Source result;
+    result
+        << "clSetKernelArg(" << kernel << "," << arg_no
+        << ",sizeof(cl_mem),(void*)&" << buffer << ");";
+    return result;
+}
+
+TL::Source create_cl_flush(std::string cmd_queue, std::string status)
+{
+    TL::Source result;
+    if (status != "") result << status << " = ";
+    result << "clFlush(" << cmd_queue << ");";
+    return result;
+}
+
+TL::Source create_cl_finish(std::string cmd_queue, std::string status)
+{
+    TL::Source result;
+    if (status != "") result << status << " = ";
+    result << "clFinish(" << cmd_queue << ");";
     return result;
 }
 

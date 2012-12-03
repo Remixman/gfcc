@@ -126,14 +126,29 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
+    bool enable_opencl = false;
+
+    // C/C++ and MPI sources
     TL::Source worker_func_def, worker_recv_input, worker_send_output;
     TL::Source worker_scatter_input, worker_gather_output;
     TL::Source worker_var_decl, worker_gen_var_decl;
     TL::Source worker_init_gen_var, worker_free_gen_var;
 
+    // CUDA sources
     TL::Source kernel_actual_param, kernel_formal_param;
 
+    // OpenCL sources
+    TL::Source cl_var_decl, cl_init_var, cl_free_var;
+    TL::Source cl_write_input, cl_read_output;
+    TL::Source cl_create_kernel, cl_set_kernel_arg;
+    TL::Source cl_kernel_src_str, cl_kernel;
+    TL::Source cl_kernel_body, cl_finalize;
+    TL::Source cl_actual_params, cl_kernel_var_decl;
+    int kernel_arg_num = 0;
+
+    //
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
+
 
     /* _function_def is function that call for_stmt */
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
@@ -180,6 +195,16 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_disp = "_" + var_name + "_disp"; // for array or pointer
         std::string var_sub_size = "_sub_size_" + var_name;
         std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
+        std::string var_cl_name = "_cl_mem_" + var_name;
+
+        std::string var_cl_mem_type;
+        if (var_info._is_input && var_info._is_output)
+            var_cl_mem_type = "(1 << 0)"; //CL_MEM_READ_WRITE
+        else if (var_info._is_input)
+            var_cl_mem_type = "(1 << 1)"; //CL_MEM_WRITE_ONLY
+        else if (var_info._is_output)
+            var_cl_mem_type = "(1 << 2)"; // CL_MEM_READ_ONLY
+
 
         TL::Type type = var_ref.get_type();
         std::string mpi_type_str, c_type_str, size_str;
@@ -247,6 +272,26 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_free_gen_var
                     << "free(" << var_name << ");";
 
+                cl_var_decl
+                    << "cl_mem " << var_cl_name << ";";
+
+                cl_init_var
+                    << var_cl_name << " = "
+                    << create_cl_create_buffer("_gfn_context", var_cl_mem_type,
+                                               var_sub_size, "0");
+
+                cl_free_var
+                    << create_cl_release_mem_object(var_cl_name);
+
+                cl_set_kernel_arg
+                    << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, var_cl_name);
+
+                TL::Source cl_actual_param;
+                cl_actual_param
+                    << "__global " << ((!var_info._is_output)? "const " : "")
+                    << c_type_str << " * " << var_name;
+                cl_actual_params.append_with_separator(cl_actual_param, ",");
+
                 TL::Source actual_param;
                 actual_param << c_type_str << " * " << var_name;
                 TL::Source formal_param;
@@ -282,6 +327,10 @@ TL::Source ParallelFor::do_parallel_for()
                     << create_mpi_scatterv(var_buf_name, var_cnts, var_disp,
                                            mpi_type_str, var_name,
                                            var_sub_size, mpi_type_str);
+
+                cl_write_input
+                    << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
+                           var_cl_name, true, "0", var_sub_size, var_buf_name);
             }
             else
             {
@@ -320,6 +369,10 @@ TL::Source ParallelFor::do_parallel_for()
                     << create_mpi_gatherv(var_name, var_sub_size, mpi_type_str,
                                           var_buf_name, var_cnts, var_disp,
                                           mpi_type_str);
+
+                cl_read_output
+                    << create_cl_enqueue_read_buffer("_gfn_cmd_queue",
+                           var_cl_name, true, "0", var_sub_size, var_buf_name);
             }
             else
             {
@@ -365,6 +418,27 @@ TL::Source ParallelFor::do_parallel_for()
         << ((is_incre_loop)? "<" : ">") << new_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ")" << loop_body;
 
+    /*== ---------------- Create OpenCL kernel ---------------------==*/
+    cl_kernel_var_decl
+        << "int " << induction_var << " = get_global_id(0);";
+    cl_kernel
+        << "__kernel void _kernel_01(" << cl_actual_params << ") {" << "\n"
+        << cl_kernel_var_decl << "\n"
+        << loop_body << "\n"
+        << "}";
+    cl_kernel_src_str
+        << "const char *_kernel_01_src = "
+        << source_to_kernel_str(cl_kernel) << ";";
+    cl_var_decl
+        << "cl_kernel _kernel;";
+    cl_create_kernel
+        << "_kernel = _CreateKernelFromSource(\"kernel_01\",_kernel_01_src,"
+           "200,_gfn_context,_gfn_device_id);";
+
+    TL::AST_t cl_kernel_src_def_tree = cl_kernel_src_str.parse_declaration(
+            _function_def->get_point_of_declaration(),
+            _function_def->get_scope_link());
+    _function_def->get_ast().prepend_sibling_function(cl_kernel_src_def_tree);
 
     /*== -------------  Create GPU kernel function -----------------==*/
     TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
@@ -387,29 +461,56 @@ TL::Source ParallelFor::do_parallel_for()
         //<< private_var_decl
         << "if (" << induction_var.prettyprint() << "<" << GFN_UPPER_BOUND << ")"
         << loop_body << "}";
-
+#if 0
     TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
             _function_def->get_point_of_declaration(),
             _function_def->get_scope_link());
     _function_def->get_ast().prepend_sibling_function(kernel_def_tree);
+#endif
+
+    if (enable_opencl == false)
+    {
+        TL::Source blank_source;
+        cl_var_decl = blank_source;
+        cl_init_var = blank_source;
+        cl_write_input = blank_source;
+        cl_create_kernel = blank_source;
+        cl_set_kernel_arg = blank_source;
+        cl_read_output = blank_source;
+        cl_free_var = blank_source;
+    }
 
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
         << comment("*/ #ifdef GFN_WORKER /*")
         << "void _Function_01 () {"
         << worker_var_decl
+            /* GPU */ << cl_var_decl
         << comment("Generated variable")
         << worker_gen_var_decl
         << create_run_only_root_stmt( worker_recv_input )
         << comment("Init generated variable")
         << worker_init_gen_var
+            /* GPU */ << cl_init_var
         << comment("Send data to all process")
         << worker_scatter_input
-        << mpi_block_dist_for_stmt
+
+        << comment("Compute work-load")
+        << "if (0) {"
+            << comment("TODO: Overlap node data transfer and device data transfer")
+            << cl_write_input
+            << cl_create_kernel
+            << cl_set_kernel_arg
+            << cl_read_output
+        << "} else {"
+            << mpi_block_dist_for_stmt
+        << "}"
+
         << comment("Gather data from all process")
         << worker_gather_output
         << create_run_only_root_stmt( worker_send_output )
         << worker_free_gen_var
+            /* GPU */ << cl_free_var
         << "}"
         << comment("*/ #endif /*");
 

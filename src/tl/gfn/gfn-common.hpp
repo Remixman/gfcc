@@ -105,7 +105,10 @@ enum CUDA_MEMCPY_KIND
 std::string type_to_mpi_type(TL::Type type);
 std::string type_to_ctype(TL::Type type);
 REDUCTION_T op_to_op_type(std::string op);
+std::string reduction_op_init_value(REDUCTION_T rt);
 std::string op_to_mpi_op(REDUCTION_T rt);
+std::string int_to_string(int num);
+std::string source_to_kernel_str(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
 #define DEFAULT_MPI_COMM "MPI_COMM_WORLD"
@@ -202,5 +205,49 @@ TL::Source create_mpi_scatterv(std::string send_buf_name,
                                std::string root = DEFAULT_MPI_ROOT,
                                std::string comm = DEFAULT_MPI_COMM);
 
+
+TL::Source create_cl_create_context();
+TL::Source create_cl_command_queue(std::string context,
+                                   std::string device,
+                                   std::string properties,
+                                   std::string status = "_gfn_status");
+TL::Source create_cl_create_buffer(std::string context,
+                                   std::string flags,
+                                   std::string size,
+                                   std::string host_ptr,
+                                   std::string status = "_gfn_status");
+TL::Source create_cl_release_mem_object(std::string buffer);
+TL::Source create_cl_enqueue_nd_range_kernel(std::string cmd_queue,
+                                             std::string kernel,
+                                             std::string work_dim,
+                                             std::string global_work_offset,
+                                             std::string global_work_size,
+                                             std::string local_work_size,
+                                             std::string num_event_wait_list = "0",
+                                             std::string event_wait_list = "0",
+                                             std::string event = "0");
+TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue,
+                                          std::string buffer,
+                                          bool is_block,
+                                          std::string offset,
+                                          std::string size,
+                                          std::string var_ptr,
+                                          std::string num_event_wait_list = "0",
+                                          std::string event_wait_list = "0",
+                                          std::string event = "0");
+TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue,
+                                         std::string buffer,
+                                         bool is_block,
+                                         std::string offset,
+                                         std::string size,
+                                         std::string var_ptr,
+                                         std::string num_event_wait_list = "0",
+                                         std::string event_wait_list = "0",
+                                         std::string event = "0");
+TL::Source create_cl_set_kernel_arg(std::string kernel,
+                                    int arg_no,
+                                    std::string buffer);
+TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
+TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
 
 #endif // GFN_COMMON_HPP
