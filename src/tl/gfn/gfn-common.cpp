@@ -35,36 +35,36 @@ std::string type_to_mpi_type(TL::Type type)
 
     /* Reference : https://computing.llnl.gov/tutorials/mpi/ */
     if (type.is_char())
-        mpi_type_str = "MPI_CHAR";
+        mpi_type_str = "_get_mpi_char()"; //"MPI_CHAR";
     //else if (type.is_wchar_t())
         //mpi_type_str = "MPI_WCHAR";
     else if (type.is_signed_short_int())
-        mpi_type_str = "MPI_SHORT";
+        mpi_type_str = "_get_mpi_short()"; //"MPI_SHORT";
     else if (type.is_signed_int())
-        mpi_type_str = "MPI_INT";
+        mpi_type_str = "_get_mpi_int()"; //"MPI_INT";
     else if (type.is_signed_long_int())
-        mpi_type_str = "MPI_LONG";
+        mpi_type_str = "_get_mpi_long()"; //"MPI_LONG";
     else if (type.is_signed_long_long_int())
-        mpi_type_str = "MPI_LONG_LONG_INT";
+        mpi_type_str = "_get_mpi_long_long_int()"; //"MPI_LONG_LONG_INT";
     /* MPI_LONG_LONG */
     else if (type.is_signed_char())
         mpi_type_str = "MPI_SIGNED_CHAR";
     else if (type.is_unsigned_char())
-        mpi_type_str = "MPI_UNSIGNED_CHAR";
+        mpi_type_str = "_get_mpi_unsigned_char()"; //"MPI_UNSIGNED_CHAR";
     else if (type.is_unsigned_short_int())
-        mpi_type_str = "MPI_UNSIGNED_SHORT";
+        mpi_type_str = "_get_mpi_unsigned_short()"; //"MPI_UNSIGNED_SHORT";
     else if (type.is_unsigned_int())
-        mpi_type_str = "MPI_UNSIGNED";
+        mpi_type_str = "_get_mpi_unsigned()"; //"MPI_UNSIGNED";
     else if (type.is_unsigned_long_int())
-        mpi_type_str = "MPI_UNSIGNED_LONG";
+        mpi_type_str = "_get_mpi_unsigned_long()"; //"MPI_UNSIGNED_LONG";
     else if (type.is_unsigned_long_long_int())
         mpi_type_str = "MPI_UNSIGNED_LONG_LONG";
     else if (type.is_float())
-        mpi_type_str = "MPI_FLOAT";
+        mpi_type_str = "_get_mpi_float()"; //"MPI_FLOAT";
     else if (type.is_double())
-        mpi_type_str = "MPI_DOUBLE";
+        mpi_type_str = "_get_mpi_double()"; //"MPI_DOUBLE";
     else if (type.is_long_double())
-        mpi_type_str = "MPI_LONG_DOUBLE";
+        mpi_type_str = "_get_mpi_long_double()"; //"MPI_LONG_DOUBLE";
     else {
         std::cerr << "Don't support type : "
                   << type.get_symbol().get_name() << std::endl;
@@ -288,8 +288,8 @@ TL::Source create_mpi_allgatherv(std::string send_buf_name, std::string send_cnt
 {
     TL::Source result;
     result
-        << "MPI_Allgatherv(&" << send_buf_name << ","
-        << send_buf_name << "," << send_mpi_type << ",&"
+        << "MPI_Allgatherv(" << send_buf_name << ","
+        << send_buf_name << "," << send_mpi_type << ","
         << recv_buf_name << "," << recv_cnts << ","
         << recv_disp << "," << recv_mpi_type << "," << comm << ");";
     return result;
@@ -347,8 +347,8 @@ TL::Source create_mpi_gatherv(std::string send_buf_name, std::string send_cnt,
 {
     TL::Source result;
     result
-        << "MPI_Gatherv(&" << send_buf_name << "," << send_cnt << ","
-        << send_mpi_type << ",&" << recv_buf_name << ","
+        << "MPI_Gatherv(" << send_buf_name << "," << send_cnt << ","
+        << send_mpi_type << "," << recv_buf_name << ","
         << recv_cnt << "," << disps << "," << recv_mpi_type << ","
         << root << "," << comm << ");";
     return result;
@@ -439,11 +439,11 @@ TL::Source create_mpi_scatterv(std::string send_buf_name, std::string send_cnts,
 {
     TL::Source result;
     result
-        << "MPI_Scatterv(&" << send_buf_name << ","
+        << "MPI_Scatterv(" << send_buf_name << ","
         << send_cnts << "," << send_disp << ","
-        << send_mpi_type << ",&" << recv_buf_name << ","
+        << send_mpi_type << "," << recv_buf_name << ","
         << recv_cnt << "," << recv_mpi_type << ","
-        << root << ",&" << comm << ");";
+        << root << "," << comm << ");";
     return result;
 }
 

@@ -119,6 +119,25 @@ TL::Source ParallelFor::do_kernel_config(Expression &lower_bound,
     return new_config;
 }
 
+void ParallelFor::xxxx(TL::Statement stmt)
+{
+    if (stmt.is_compound_statement())
+    {
+
+        TL::ObjectList<TL::Statement> list = stmt.get_inner_statements();
+        for (TL::ObjectList<TL::Statement>::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            xxxx(*it);
+        }
+    }
+    else
+    {
+
+    }
+}
+
 TL::Source ParallelFor::do_parallel_for()
 {
     if (!_for_stmt.regular_loop())
@@ -129,10 +148,12 @@ TL::Source ParallelFor::do_parallel_for()
     bool enable_opencl = false;
 
     // C/C++ and MPI sources
+    TL::Source send_input, recv_output;
     TL::Source worker_func_def, worker_recv_input, worker_send_output;
     TL::Source worker_scatter_input, worker_gather_output;
     TL::Source worker_var_decl, worker_gen_var_decl;
     TL::Source worker_init_gen_var, worker_free_gen_var;
+    TL::Source worker_root_free_gen_var;
 
     // CUDA sources
     TL::Source kernel_actual_param, kernel_formal_param;
@@ -162,6 +183,26 @@ TL::Source ParallelFor::do_parallel_for()
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     Statement loop_body = _for_stmt.get_loop_body();
+
+    /*== ----- Create MPI block distribution for statement ---------==*/
+    std::string local_idx_var = "_local_" + induction_var.prettyprint();
+    std::string local_start_idx_var = "_local_" + induction_var.prettyprint() + "_start";
+    std::string local_end_idx_var = "_local_" + induction_var.prettyprint() + "_end";
+    std::string loop_size_var = "_loop_size";
+    worker_gen_var_decl
+        << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
+        << "int " << loop_size_var << ";";
+    worker_init_gen_var
+        << local_start_idx_var << " = _CalcLocalStartIndex("
+        << lower_bound.prettyprint() << ","
+        << upper_bound.prettyprint() << ",_gfn_num_proc,_gfn_rank+1);"
+        << local_end_idx_var << " = _CalcLocalEndIndex("
+        << lower_bound.prettyprint() << ","
+        << upper_bound.prettyprint() << ",_gfn_num_proc,_gfn_rank+1);"
+        << loop_size_var << " = _CalcLoopSize("
+        << lower_bound.prettyprint() << ","
+        << upper_bound.prettyprint() << ","
+        << step.prettyprint() << ");";
 
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (step_str[0] == '-')? false : true;
@@ -196,6 +237,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_sub_size = "_sub_size_" + var_name;
         std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
         std::string var_cl_name = "_cl_mem_" + var_name;
+        std::string var_local_buf_name = "_local_buffer_" + var_name;
 
         std::string var_cl_mem_type;
         if (var_info._is_input && var_info._is_output)
@@ -246,6 +288,7 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 worker_gen_var_decl
                     // ipc recv buffer variable
+                    << c_type_str << " * " << var_local_buf_name << ";"
                     << c_type_str << " * " << var_buf_name << ";"
                     // sub size of variable
                     << "int " << var_sub_size << ";"
@@ -258,10 +301,16 @@ TL::Source ParallelFor::do_parallel_for()
                     // init sub size
                     << var_sub_size << " = _CalcSubSize("
                     << var_info._size._dim1_size <<",_gfn_num_proc,_gfn_rank);"
+
                     // allocate sub array buffer
-                    << var_name << " = (" << c_type_str
+                    << var_local_buf_name << " = (" << c_type_str
                     <<"*)malloc(sizeof(" << c_type_str << ") * "
                     << var_sub_size << ");"
+
+                    // A = ((void*)_local_buffer_A) - (_local_i_start * sizeof(int));
+                    << var_name << " = ((void*)" << var_local_buf_name << ") - ("
+                    << local_start_idx_var << " * sizeof(" << c_type_str << "));"
+
                     // init counts
                     << "_CalcCnts(" << var_info._size._dim1_size
                     << ",_gfn_num_proc," << var_cnts << ");"
@@ -270,7 +319,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << ",_gfn_num_proc," << var_disp << ");";
 
                 worker_free_gen_var
-                    << "free(" << var_name << ");";
+                    << "free(" << var_local_buf_name << ");";
 
                 cl_var_decl
                     << "cl_mem " << var_cl_name << ";";
@@ -310,22 +359,24 @@ TL::Source ParallelFor::do_parallel_for()
             // TODO: How to classify scater type
             if (var_info._is_array_or_pointer)
             {
-                send_call_func
-                    << "_SendInputMsg((void*)&" << var_name
+                send_input
+                    << "_SendInputMsg((void*)" << var_name
                     << "," << size_str << ");";
 
                 worker_recv_input
                     << var_buf_name << " = (" << c_type_str
-                    <<"*)malloc(" << size_str << ");"
-                    << "_RecvInputMsg((void*)&" << var_buf_name
-                    << "," << size_str << ");";
+                    <<"*)malloc(" << size_str << ");";
+                worker_recv_input
+                    << "_RecvInputMsg2((void*)" << var_buf_name << ");";
+                    //<< "_RecvInputMsg((void*)" << var_buf_name
+                    //<< "," << size_str << ");";
 
-                worker_free_gen_var
+                worker_root_free_gen_var
                     << "free(" << var_buf_name << ");";
 
                 worker_scatter_input
                     << create_mpi_scatterv(var_buf_name, var_cnts, var_disp,
-                                           mpi_type_str, var_name,
+                                           mpi_type_str, var_local_buf_name,
                                            var_sub_size, mpi_type_str);
 
                 cl_write_input
@@ -334,12 +385,12 @@ TL::Source ParallelFor::do_parallel_for()
             }
             else
             {
-                send_call_func
+                send_input
                     << "_SendInputMsg((void*)&" << var_name
                     << "," << size_str << ");";
 
                 worker_recv_input
-                    << "_RecvInputMsg2((void*)&" << var_name << ");";
+                    << "_RecvInputMsg2((void*)" << var_name << ");";
 
                 worker_scatter_input
                     << create_mpi_bcast(var_name, "1", mpi_type_str);
@@ -350,23 +401,25 @@ TL::Source ParallelFor::do_parallel_for()
         {
             if (var_info._is_array_or_pointer)
             {
-                worker_init_gen_var
+                worker_recv_input
                     << var_buf_name << " = (" << c_type_str
                     << "*)malloc(" << size_str << ");";
 
-                worker_free_gen_var
+                worker_root_free_gen_var
                     << "free(" << var_buf_name << ");";
 
-                send_call_func
-                    << "_RecvOutputMsg((void*)&" << var_name
-                    << "," << size_str << ");";
+                //recv_output
+                    //<< "_RecvOutputMsg((void*)" << var_name
+                    //<< "," << size_str << ");";
+                recv_output
+                    << "_RecvOutputMsg2((void*)" << var_name << ");";
 
                 worker_send_output
-                    << "_SendOutputMsg((void*)&" << var_buf_name
+                    << "_SendOutputMsg((void*)" << var_buf_name
                     << "," << size_str << ");";
 
                 worker_gather_output
-                    << create_mpi_gatherv(var_name, var_sub_size, mpi_type_str,
+                    << create_mpi_gatherv(var_local_buf_name, var_sub_size, mpi_type_str,
                                           var_buf_name, var_cnts, var_disp,
                                           mpi_type_str);
 
@@ -376,7 +429,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
             else
             {
-                send_call_func
+                recv_output
                     << "_RecvOutputMsg2((void*)&" << var_name << ");";
 
                 worker_send_output
@@ -399,23 +452,10 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
-    std::string new_start_idx_var = "_new_" + induction_var.prettyprint() + "_start";
-    std::string new_end_idx_var = "_new_" + induction_var.prettyprint() + "_end";
-    worker_gen_var_decl
-        << "int " << new_start_idx_var << "," << new_end_idx_var << ";";
-    worker_init_gen_var
-        << new_start_idx_var << " = " << lower_bound.prettyprint()
-        << ((is_incre_loop)? " + " : " - ")
-        << "_CalcOffset(" << loop_iter_size << ","
-        << "_gfn_num_proc,_gfn_rank);"
-        << new_end_idx_var << " = " << lower_bound.prettyprint()
-        << ((is_incre_loop)? " + " : " - ")
-        << "_CalcOffset(" << loop_iter_size << ","
-        << "_gfn_num_proc,_gfn_rank+1);";
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = "
-        << new_start_idx_var << ";" << induction_var.prettyprint()
-        << ((is_incre_loop)? "<" : ">") << new_end_idx_var << ";"
+        << local_start_idx_var << ";" << induction_var.prettyprint()
+        << ((is_incre_loop)? "<" : ">") << local_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ")" << loop_body;
 
     /*== ---------------- Create OpenCL kernel ---------------------==*/
@@ -510,6 +550,7 @@ TL::Source ParallelFor::do_parallel_for()
         << worker_gather_output
         << create_run_only_root_stmt( worker_send_output )
         << worker_free_gen_var
+        << create_run_only_root_stmt( worker_root_free_gen_var )
             /* GPU */ << cl_free_var
         << "}"
         << comment("*/ #endif /*");
@@ -519,6 +560,9 @@ TL::Source ParallelFor::do_parallel_for()
             _function_def->get_scope_link());
     _function_def->get_ast().prepend_sibling_function(worker_func_tree);
 
+
+
+    send_call_func << send_input << recv_output;
 
     return send_call_func;
 

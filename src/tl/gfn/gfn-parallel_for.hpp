@@ -64,6 +64,7 @@ namespace TL
                 ObjectList<std::string> _device_function_name_list;
 
                 Source do_parallel_for();
+                void xxxx(TL::Statement stmt);
                 
                 // kernel config <<<block_num, thread_per_block>>>
                 Source do_kernel_config(Expression &lower_bound,

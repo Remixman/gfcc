@@ -111,9 +111,9 @@ std::string int_to_string(int num);
 std::string source_to_kernel_str(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
-#define DEFAULT_MPI_COMM "MPI_COMM_WORLD"
+#define DEFAULT_MPI_COMM "_get_mpi_comm_world()"  //"MPI_COMM_WORLD"
 #define DEFAULT_MPI_ROOT "0"
-#define DEFAULT_MPI_STATUS "NULL"
+#define DEFAULT_MPI_STATUS "0" //"NULL"
 
 TL::Source create_mpi_abort(std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_allgatherv(std::string send_buf_name,

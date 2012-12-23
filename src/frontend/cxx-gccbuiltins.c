@@ -833,6 +833,8 @@ DEF_FUNCTION_TYPE_3 (BT_FN_VOID_PTR_INT_INT,
 		     BT_VOID, BT_PTR, BT_INT, BT_INT)
 DEF_FUNCTION_TYPE_3 (BT_FN_VOID_CONST_PTR_PTR_SIZE,
 		     BT_VOID, BT_CONST_PTR, BT_PTR, BT_SIZE)
+DEF_FUNCTION_TYPE_3 (BT_FN_INT_INT_INT_INT,
+             BT_INT, BT_INT, BT_INT, BT_INT)
 DEF_FUNCTION_TYPE_3 (BT_FN_INT_STRING_CONST_STRING_VALIST_ARG,
 		     BT_INT, BT_STRING, BT_CONST_STRING, BT_VALIST_ARG)
 DEF_FUNCTION_TYPE_3 (BT_FN_INT_CONST_STRING_CONST_STRING_VALIST_ARG,
@@ -1136,6 +1138,13 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
                0, 1, 1, ATTRS, 0, \
           !CURRENT_CONFIGURATION->disable_openmp)
 	       // (flag_openmp || flag_tree_parallelize_loops))
+
+/* Builtin used by the implementation of Griffon  None of these are
+   actually implemented in the compiler; they're all in libgfn.  */
+#undef DEF_GFN_BUILTIN
+#define DEF_GFN_BUILTIN(ENUM, NAME, TYPE, ATTRS)        \
+  DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,  \
+               0, 0, 0, ATTRS, 1, 1)
 
 
 /* Define an attribute list for math functions that are normally
@@ -2173,6 +2182,10 @@ DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_START, "GOMP_single_copy_start",
 		  BT_FN_PTR, ATTR_NOTHROW_LEAF_LIST)
 DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_END, "GOMP_single_copy_end",
 		  BT_FN_VOID_PTR, ATTR_NOTHROW_LEAF_LIST)
+
+// Griffon
+DEF_GFN_BUILTIN (BUILT_IN_GFN_CALCSUBSIZE, "_CalcSubSize",
+          BT_FN_INT_INT_INT_INT, ATTR_NOTHROW_LEAF_LIST)
 
 }
 

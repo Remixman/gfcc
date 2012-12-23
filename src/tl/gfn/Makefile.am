@@ -31,7 +31,9 @@ include ../Makefile.phases
 
 END=
  
-COMMON_CFLAGS=-DLIBGFN_DLL_EXPORT -I $(srcdir)/../omp/core
+COMMON_CFLAGS=-DLIBGFN_DLL_EXPORT -I $(srcdir)/../omp/core \
+-I /usr/lib/openmpi/include \
+-I /usr/include
 
 libtl_gfn_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS) 
 libtl_gfn_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
