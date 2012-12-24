@@ -145,7 +145,7 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
-    bool enable_opencl = false;
+    bool enable_opencl = true;
 
     // C/C++ and MPI sources
     TL::Source send_input, recv_output;
@@ -162,7 +162,8 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source cl_var_decl, cl_init_var, cl_free_var;
     TL::Source cl_write_input, cl_read_output;
     TL::Source cl_create_kernel, cl_set_kernel_arg;
-    TL::Source cl_kernel_src_str, cl_kernel;
+    TL::Source cl_kernel_src_str, cl_kernel, cl_launch_kernel;
+    TL::Source cl_decl_init_work_item_var;
     TL::Source cl_kernel_body, cl_finalize;
     TL::Source cl_actual_params, cl_kernel_var_decl;
     int kernel_arg_num = 0;
@@ -188,6 +189,8 @@ TL::Source ParallelFor::do_parallel_for()
     std::string local_idx_var = "_local_" + induction_var.prettyprint();
     std::string local_start_idx_var = "_local_" + induction_var.prettyprint() + "_start";
     std::string local_end_idx_var = "_local_" + induction_var.prettyprint() + "_end";
+    std::string local_cl_start_idx_var = "_local_cl_" + induction_var.prettyprint() + "_start";
+    std::string local_cl_end_idx_var = "_local_cl_" + induction_var.prettyprint() + "_end";
     std::string loop_size_var = "_loop_size";
     worker_gen_var_decl
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
@@ -241,11 +244,11 @@ TL::Source ParallelFor::do_parallel_for()
 
         std::string var_cl_mem_type;
         if (var_info._is_input && var_info._is_output)
-            var_cl_mem_type = "(1 << 0)"; //CL_MEM_READ_WRITE
+            var_cl_mem_type = "_get_cl_mem_read_write()";
         else if (var_info._is_input)
-            var_cl_mem_type = "(1 << 1)"; //CL_MEM_WRITE_ONLY
+            var_cl_mem_type = "_get_cl_mem_read_only()";
         else if (var_info._is_output)
-            var_cl_mem_type = "(1 << 2)"; // CL_MEM_READ_ONLY
+            var_cl_mem_type = "_get_cl_mem_write_only()";
 
 
         TL::Type type = var_ref.get_type();
@@ -268,6 +271,8 @@ TL::Source ParallelFor::do_parallel_for()
             c_type_str = type_to_mpi_type(type);
             size_str = "sizeof(" + var_info._name  + ")";
         }
+
+        std::string full_expr_sub_size = "sizeof(" + c_type_str + ") * " + var_sub_size;
 
         /* Declaration necessary variable */
         if (var_info._is_array_or_pointer)
@@ -327,13 +332,13 @@ TL::Source ParallelFor::do_parallel_for()
                 cl_init_var
                     << var_cl_name << " = "
                     << create_cl_create_buffer("_gfn_context", var_cl_mem_type,
-                                               var_sub_size, "0");
+                                               full_expr_sub_size, "0");
 
                 cl_free_var
                     << create_cl_release_mem_object(var_cl_name);
 
                 cl_set_kernel_arg
-                    << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, var_cl_name);
+                    << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_mem", var_cl_name);
 
                 TL::Source cl_actual_param;
                 cl_actual_param
@@ -381,7 +386,7 @@ TL::Source ParallelFor::do_parallel_for()
 
                 cl_write_input
                     << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
-                           var_cl_name, true, "0", var_sub_size, var_buf_name);
+                           var_cl_name, true, "0", full_expr_sub_size, var_local_buf_name);
             }
             else
             {
@@ -425,7 +430,7 @@ TL::Source ParallelFor::do_parallel_for()
 
                 cl_read_output
                     << create_cl_enqueue_read_buffer("_gfn_cmd_queue",
-                           var_cl_name, true, "0", var_sub_size, var_buf_name);
+                           var_cl_name, true, "0", full_expr_sub_size, var_local_buf_name);
             }
             else
             {
@@ -459,6 +464,25 @@ TL::Source ParallelFor::do_parallel_for()
         << _for_stmt.get_iterating_expression() << ")" << loop_body;
 
     /*== ---------------- Create OpenCL kernel ---------------------==*/
+    cl_decl_init_work_item_var
+        << "size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank);"
+        << "size_t _work_group_item_num = 64;"
+        << "cl_int " + local_cl_start_idx_var + " = " << local_start_idx_var << ";"
+        << "cl_int " + local_cl_end_idx_var + " = " << local_end_idx_var << ";";
+
+    // Add new start and end index to kernel argument
+    cl_set_kernel_arg
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_cl_start_idx_var);
+    cl_set_kernel_arg
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_cl_end_idx_var);
+    // TODO: Refactor this
+    TL::Source tmp_src_1;
+    tmp_src_1 << "__global const int " << local_start_idx_var;
+    cl_actual_params.append_with_separator(tmp_src_1, ",");
+    TL::Source tmp_src_2;
+    tmp_src_2 << "__global const int " << local_end_idx_var;
+    cl_actual_params.append_with_separator(tmp_src_2, ",");
+
     cl_kernel_var_decl
         << "int " << induction_var << " = get_global_id(0);";
     cl_kernel
@@ -472,8 +496,9 @@ TL::Source ParallelFor::do_parallel_for()
     cl_var_decl
         << "cl_kernel _kernel;";
     cl_create_kernel
-        << "_kernel = _CreateKernelFromSource(\"kernel_01\",_kernel_01_src,"
-           "200,_gfn_context,_gfn_device_id);";
+        << "_kernel = _CreateKernelFromSource(\"_kernel_01\",_kernel_01_src,"
+           "_gfn_context,_gfn_device_id);";
+
 
     TL::AST_t cl_kernel_src_def_tree = cl_kernel_src_str.parse_declaration(
             _function_def->get_point_of_declaration(),
@@ -501,6 +526,11 @@ TL::Source ParallelFor::do_parallel_for()
         //<< private_var_decl
         << "if (" << induction_var.prettyprint() << "<" << GFN_UPPER_BOUND << ")"
         << loop_body << "}";
+
+    cl_launch_kernel
+        << create_cl_enqueue_nd_range_kernel("_gfn_cmd_queue", "_kernel", "1", "0",
+                                             "&_work_item_num", "0", "0", "0", "0");
+
 #if 0
     TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
             _function_def->get_point_of_declaration(),
@@ -537,10 +567,12 @@ TL::Source ParallelFor::do_parallel_for()
 
         << comment("Compute work-load")
         << "if (0) {"
+            << cl_decl_init_work_item_var
             << comment("TODO: Overlap node data transfer and device data transfer")
             << cl_write_input
             << cl_create_kernel
             << cl_set_kernel_arg
+            << cl_launch_kernel
             << cl_read_output
         << "} else {"
             << mpi_block_dist_for_stmt

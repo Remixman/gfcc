@@ -489,7 +489,7 @@ TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue, std::string buf
                                           std::string event_wait_list, std::string event)
 {
     TL::Source result;
-    std::string block = ((is_block)? "1" /* CL_TRUE */ : "0" /* CL_FALSE */ );
+    std::string block = ((is_block)? "_get_cl_true()" : "_get_cl_false()");
     result
         << "clEnqueueWriteBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
@@ -504,7 +504,7 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buff
                                          std::string event_wait_list, std::string event)
 {
     TL::Source result;
-    std::string block = ((is_block)? "1" /* CL_TRUE */ : "0" /* CL_FALSE */ );
+    std::string block = ((is_block)? "_get_cl_true()" : "_get_cl_false()");
     result
         << "clEnqueueReadBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
@@ -513,12 +513,12 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buff
 }
 
 TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
-                                    std::string buffer)
+                                    std::string type, std::string buffer)
 {
     TL::Source result;
     result
         << "clSetKernelArg(" << kernel << "," << arg_no
-        << ",sizeof(cl_mem),(void*)&" << buffer << ");";
+        << ",sizeof(" << type << "),(void*)&" << buffer << ");";
     return result;
 }
 

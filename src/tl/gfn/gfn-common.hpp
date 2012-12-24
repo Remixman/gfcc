@@ -246,6 +246,7 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue,
                                          std::string event = "0");
 TL::Source create_cl_set_kernel_arg(std::string kernel,
                                     int arg_no,
+                                    std::string type,
                                     std::string buffer);
 TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
