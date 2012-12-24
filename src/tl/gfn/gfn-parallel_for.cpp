@@ -477,10 +477,10 @@ TL::Source ParallelFor::do_parallel_for()
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_cl_end_idx_var);
     // TODO: Refactor this
     TL::Source tmp_src_1;
-    tmp_src_1 << "__global const int " << local_start_idx_var;
+    tmp_src_1 << "int " << local_start_idx_var;
     cl_actual_params.append_with_separator(tmp_src_1, ",");
     TL::Source tmp_src_2;
-    tmp_src_2 << "__global const int " << local_end_idx_var;
+    tmp_src_2 << "int " << local_end_idx_var;
     cl_actual_params.append_with_separator(tmp_src_2, ",");
 
     cl_kernel_var_decl
