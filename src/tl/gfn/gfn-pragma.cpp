@@ -183,6 +183,9 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     Statement statement = construct.get_statement();
     KernelInfo *kernel_info = new KernelInfo();
     
+    /* Update kernel count */
+    kernel_info->kernel_id = ++KernelInfo::kernel_count;
+
     /* Get for_statement and for loop body */
     ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
     Statement for_body = for_statement.get_loop_body();

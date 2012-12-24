@@ -117,6 +117,9 @@ namespace TL
                 //operator Source();
                 //operator std::string();
 
+                static int kernel_count;
+                int kernel_id;
+
                 std::string _parallel_if_expr;
 
                 ObjectList<DataReference> _var_ref;

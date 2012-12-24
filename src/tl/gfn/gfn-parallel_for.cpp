@@ -145,6 +145,8 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
+    std::cout << "KERNEL COUNT : " << _kernel_info->kernel_id << std::endl;
+
     bool enable_opencl = true;
 
     // C/C++ and MPI sources
@@ -227,7 +229,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source send_call_func;
     send_call_func
         << comment("Send call function message")
-        << "_SendCallFuncMsg(1);";
+        << "_SendCallFuncMsg(" << int_to_string(_kernel_info->kernel_id) << ");";
 
     for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
     {
@@ -486,18 +488,20 @@ TL::Source ParallelFor::do_parallel_for()
     cl_kernel_var_decl
         << "int " << induction_var << " = get_global_id(0);";
     cl_kernel
-        << "__kernel void _kernel_01(" << cl_actual_params << ") {" << "\n"
+        << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
+        << "(" << cl_actual_params << ") {" << "\n"
         << cl_kernel_var_decl << "\n"
         << loop_body << "\n"
         << "}";
     cl_kernel_src_str
-        << "const char *_kernel_01_src = "
+        << "const char *_kernel_" << int_to_string(_kernel_info->kernel_id) << "_src = "
         << source_to_kernel_str(cl_kernel) << ";";
     cl_var_decl
         << "cl_kernel _kernel;";
     cl_create_kernel
-        << "_kernel = _CreateKernelFromSource(\"_kernel_01\",_kernel_01_src,"
-           "_gfn_context,_gfn_device_id);";
+        << "_kernel = _CreateKernelFromSource(\"_kernel_"
+        << int_to_string(_kernel_info->kernel_id) << "\",_kernel_"
+        << int_to_string(_kernel_info->kernel_id) << "_src,_gfn_context,_gfn_device_id);";
 
 
     TL::AST_t cl_kernel_src_def_tree = cl_kernel_src_str.parse_declaration(
@@ -553,7 +557,7 @@ TL::Source ParallelFor::do_parallel_for()
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
         << comment("*/ #ifdef GFN_WORKER /*")
-        << "void _Function_01 () {"
+        << "void _Function_" << int_to_string(_kernel_info->kernel_id) << " () {"
         << worker_var_decl
             /* GPU */ << cl_var_decl
         << comment("Generated variable")

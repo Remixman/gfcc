@@ -33,6 +33,8 @@
 using namespace TL;
 using namespace GFN;
 
+int KernelInfo::kernel_count = 0;
+
 KernelInfo::KernelInfo() : 
     _accurate(ACCURATE_HIGH)
 {
