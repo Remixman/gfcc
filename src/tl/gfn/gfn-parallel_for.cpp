@@ -168,6 +168,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source cl_decl_init_work_item_var;
     TL::Source cl_kernel_body, cl_finalize;
     TL::Source cl_actual_params, cl_kernel_var_decl;
+    TL::Source cl_kernel_var_init;
     int kernel_arg_num = 0;
 
     //
@@ -345,7 +346,7 @@ TL::Source ParallelFor::do_parallel_for()
                 TL::Source cl_actual_param;
                 cl_actual_param
                     << "__global " << ((!var_info._is_output)? "const " : "")
-                    << c_type_str << " * " << var_name;
+                    << c_type_str << " * " << var_local_buf_name;
                 cl_actual_params.append_with_separator(cl_actual_param, ",");
 
                 TL::Source actual_param;
@@ -354,6 +355,11 @@ TL::Source ParallelFor::do_parallel_for()
                 formal_param << GFN_DEVICE_PREFIX << var_name;
                 kernel_actual_param.append_with_separator(actual_param, ",");
                 kernel_formal_param.append_with_separator(formal_param, ",");
+
+                cl_kernel_var_decl
+                    << c_type_str << " * " << var_name << " = "
+                    << "((void *)" << var_local_buf_name
+                    << ") - (_local_i_start * sizeof(" << c_type_str << "));";
             }
             else
             {
@@ -486,7 +492,12 @@ TL::Source ParallelFor::do_parallel_for()
     cl_actual_params.append_with_separator(tmp_src_2, ",");
 
     cl_kernel_var_decl
-        << "int " << induction_var << " = get_global_id(0);";
+        << "int _thread_id_dim_0 = get_global_id(0);"
+        //<< "int _thread_id_dim_1 = get_global_id(1);"
+        //<< "int _thread_id_dim_2 = get_global_id(2);"
+
+        << "int " << induction_var << " = get_global_id(0) + "
+        << local_start_idx_var << ";";
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
         << "(" << cl_actual_params << ") {" << "\n"
@@ -503,11 +514,6 @@ TL::Source ParallelFor::do_parallel_for()
         << int_to_string(_kernel_info->kernel_id) << "\",_kernel_"
         << int_to_string(_kernel_info->kernel_id) << "_src,_gfn_context,_gfn_device_id);";
 
-
-    TL::AST_t cl_kernel_src_def_tree = cl_kernel_src_str.parse_declaration(
-            _function_def->get_point_of_declaration(),
-            _function_def->get_scope_link());
-    _function_def->get_ast().prepend_sibling_function(cl_kernel_src_def_tree);
 
     /*== -------------  Create GPU kernel function -----------------==*/
     TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
@@ -557,6 +563,7 @@ TL::Source ParallelFor::do_parallel_for()
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
         << comment("*/ #ifdef GFN_WORKER /*")
+            /* GPU */ << cl_kernel_src_str
         << "void _Function_" << int_to_string(_kernel_info->kernel_id) << " () {"
         << worker_var_decl
             /* GPU */ << cl_var_decl
