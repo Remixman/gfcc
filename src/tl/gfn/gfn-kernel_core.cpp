@@ -200,3 +200,56 @@ void KernelInfo::push_to_def_list(DataReference &data_ref)
         _def_list.push_back(data_ref);
     }
 }
+
+
+std::string VariableInfo::get_mem_size()
+{
+    std::string result = "";
+
+    result += "(";
+    result += "(" + _size._dim1_size + ")";
+    if (_size._dim2_size != "1")
+    {
+        result += "(" + _size._dim2_size + ")";
+    }
+    if (_size._dim3_size != "1")
+    {
+        result += "(" + _size._dim3_size + ")";
+    }
+    result += ")";
+
+    return result;
+}
+
+std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
+                                                std::string idx_name2,
+                                                std::string idx_name3)
+{
+    std::string result;
+
+    if (idx_name3 != "")
+    {
+        std::cerr << "TODO : " << __FILE__ << " : " << __LINE__ << std::endl;
+    }
+    else if (idx_name2 != "")
+    {
+        result = "(" + idx_name1 + ") * (" + _size._dim1_size
+               + ") + (" + idx_name2 + ")";
+    }
+    else
+    {
+        result = "(" + idx_name1 + ")";
+    }
+
+    return result;
+}
+
+void VariableInfo::print()
+{
+    std::cout << _name << " prop[";
+    if (_is_input) std::cout << "IN/";
+    if (_is_output) std::cout << "OUT/";
+    if (_is_index) std::cout << "IDX/";
+    if (_is_reduction) std::cout << "REDUC/";
+    std::cout << "]" << std::endl;
+}

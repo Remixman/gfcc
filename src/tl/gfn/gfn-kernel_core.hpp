@@ -81,14 +81,12 @@ namespace TL
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
                 _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
 
-            void print() {
-                std::cout << _name << " prop[";
-                if (_is_input) std::cout << "IN/";
-                if (_is_output) std::cout << "OUT/";
-                if (_is_index) std::cout << "IDX/";
-                if (_is_reduction) std::cout << "REDUC/";
-                std::cout << "]" << std::endl;
-            }
+            std::string get_mem_size();
+            std::string get_array_index_in_1D(std::string idx_name1,
+                                              std::string idx_name2 = "",
+                                              std::string idx_name3 = "");
+
+            void print();
         };
 
         //! GFN Kernel Infomation

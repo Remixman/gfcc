@@ -145,8 +145,6 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
-    std::cout << "KERNEL COUNT : " << _kernel_info->kernel_id << std::endl;
-
     bool enable_opencl = true;
 
     // C/C++ and MPI sources
@@ -260,18 +258,18 @@ TL::Source ParallelFor::do_parallel_for()
         {
             mpi_type_str = type_to_mpi_type(type.array_element());
             c_type_str = type_to_ctype(type.array_element());
-            // TODO: for 2D up array?
-            size_str = "(sizeof(" + type_to_ctype(type.array_element())  +
-                    ") * " + var_info._size._dim1_size + ")";
+            size_str = "(sizeof(" + c_type_str + ") * " + var_info.get_mem_size() + ")";
         }
         else if (type.is_pointer())
         {
-            std::cerr << "TODO: " << __FILE__ << " : " << __LINE__ << std::endl;
+            mpi_type_str = type_to_mpi_type(type.points_to());
+            c_type_str = type_to_ctype(type.points_to());
+            size_str = "(sizeof(" + c_type_str + ") * " + var_info.get_mem_size() + ")";
         }
         else
         {
             mpi_type_str = type_to_mpi_type(type);
-            c_type_str = type_to_mpi_type(type);
+            c_type_str = type_to_ctype(type);
             size_str = "sizeof(" + var_info._name  + ")";
         }
 
@@ -308,7 +306,7 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_init_gen_var
                     // init sub size
                     << var_sub_size << " = _CalcSubSize("
-                    << var_info._size._dim1_size <<",_gfn_num_proc,_gfn_rank);"
+                    << var_info.get_mem_size() <<",_gfn_num_proc,_gfn_rank);"
 
                     // allocate sub array buffer
                     << var_local_buf_name << " = (" << c_type_str
@@ -320,10 +318,10 @@ TL::Source ParallelFor::do_parallel_for()
                     << local_start_idx_var << " * sizeof(" << c_type_str << "));"
 
                     // init counts
-                    << "_CalcCnts(" << var_info._size._dim1_size
+                    << "_CalcCnts(" << var_info.get_mem_size()
                     << ",_gfn_num_proc," << var_cnts << ");"
                     // init displacement
-                    << "_CalcDisp(" << var_info._size._dim1_size
+                    << "_CalcDisp(" << var_info.get_mem_size()
                     << ",_gfn_num_proc," << var_disp << ");";
 
                 worker_free_gen_var
@@ -598,11 +596,12 @@ TL::Source ParallelFor::do_parallel_for()
         << "}"
         << comment("*/ #endif /*");
 
+    //std::cout << (std::string) worker_func_def << "\n";
+
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
             _function_def->get_scope_link());
     _function_def->get_ast().prepend_sibling_function(worker_func_tree);
-
 
 
     send_call_func << send_input << recv_output;
@@ -650,8 +649,7 @@ TL::Source ParallelFor::do_parallel_for()
         if (!contain(private_list, *it))
         {
             std::string var_name = it->get_base_symbol().get_name();
-            std::string size = _kernel_info->_dim_size_list[var_name]._dim1_size;
-                /* + " * " + _kernel_info->_dim_size_list[var_name]._dim2_size */
+            std::string size = _kernel_info->_dim_size_list[var_name].get_mem_size();
 
             memcpy_h2d
                 << do_gfn_memcpy_h2d(var_name, size);
@@ -666,8 +664,7 @@ TL::Source ParallelFor::do_parallel_for()
         if (!contain(private_list, *it))
         {
             std::string var_name = it->get_base_symbol().get_name();
-            std::string size = _kernel_info->_dim_size_list[var_name]._dim1_size;
-                /* + " * " + _kernel_info->_dim_size_list[var_name]._dim2_size */
+            std::string size = _kernel_info->_dim_size_list[var_name].get_mem_size();
 
             memcpy_d2h
                 << do_gfn_memcpy_d2h(var_name, size);

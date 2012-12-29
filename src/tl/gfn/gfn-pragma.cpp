@@ -195,7 +195,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
         throw GFNException(construct, "not found for statement followed #pragma gfn parallel_for");
     }*/
 
-    ObjectList<IdExpression> symbol_list = for_body.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    ObjectList<IdExpression> symbol_list = for_statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
 
     /* Symbol list is not unique create new unique variable list */
     //std::cout << "\n=====================================================\n";
