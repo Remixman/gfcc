@@ -33,8 +33,13 @@ std::string type_to_mpi_type(TL::Type type)
 {
     std::string mpi_type_str;
 
+    if (type.is_array())
+        mpi_type_str = type_to_mpi_type(type.array_element());
+    else if (type.is_pointer())
+        mpi_type_str = type_to_mpi_type(type.get_pointer_to());
+
     /* Reference : https://computing.llnl.gov/tutorials/mpi/ */
-    if (type.is_char())
+    else if (type.is_char())
         mpi_type_str = "_get_mpi_char()"; //"MPI_CHAR";
     //else if (type.is_wchar_t())
         //mpi_type_str = "MPI_WCHAR";
@@ -94,7 +99,12 @@ std::string type_to_ctype(TL::Type type)
 {
     std::string ctype;
 
-    if (type.is_char())
+    if (type.is_array())
+        ctype = type_to_ctype(type.array_element());
+    else if (type.is_pointer())
+        ctype = type_to_ctype(type.get_pointer_to());
+
+    else if (type.is_char())
         ctype = "char";
     //else if (type.is_wchar_t())
         //mpi_type_str = "MPI_WCHAR";

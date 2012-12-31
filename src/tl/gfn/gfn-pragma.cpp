@@ -80,7 +80,7 @@ GFNPragmaPhase::GFNPragmaPhase()
     on_directive_post["overlapcompute"].connect(functor(&GFNPragmaPhase::overlapcompute, *this));
     
     register_construct("barrier");
-    on_directive_post["barrier"].connect(functor(&GFNPragmaPhase::barrier, *this));
+    on_directive_pre["barrier"].connect(functor(&GFNPragmaPhase::barrier, *this));
     
     register_construct("atomic");
     on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));
@@ -289,20 +289,13 @@ void GFNPragmaPhase::barrier(PragmaCustomConstruct construct)
 {
     Source result;
 
-    if (Conf_Trans_flags & GFN_TRANS_MPI) {
-        return;
-        result
-            << "MPI_Barrier(" << GFN_COMM << ");";
-    }
+    // "MPI_Barrier(" << GFN_COMM << ");";
+    // "__threadfence();"
 
-    if (Conf_Trans_flags & GFN_TRANS_CUDA) {
-        result
-            << comment("barrier")
-            << "__threadfence();"
-            // XXX: hacking follow construct statement disappear
-            << construct.get_statement().prettyprint();
-    }
-    
+    result
+        << "_GfnBarrier();"
+        << construct.get_statement(); // XXX: get startment of construct before replace
+
     AST_t threadfence_tree = result.parse_statement(construct.get_ast(),
             construct.get_scope_link());
 

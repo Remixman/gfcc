@@ -253,25 +253,18 @@ TL::Source ParallelFor::do_parallel_for()
 
 
         TL::Type type = var_ref.get_type();
-        std::string mpi_type_str, c_type_str, size_str;
-        if (type.is_array())
+        std::string mpi_type_str = type_to_mpi_type(type);
+        std::string c_type_str = type_to_ctype(type);
+        std::string size_str;
+        if (type.is_array() || type.is_pointer())
         {
-            mpi_type_str = type_to_mpi_type(type.array_element());
-            c_type_str = type_to_ctype(type.array_element());
-            size_str = "(sizeof(" + c_type_str + ") * " + var_info.get_mem_size() + ")";
-        }
-        else if (type.is_pointer())
-        {
-            mpi_type_str = type_to_mpi_type(type.points_to());
-            c_type_str = type_to_ctype(type.points_to());
             size_str = "(sizeof(" + c_type_str + ") * " + var_info.get_mem_size() + ")";
         }
         else
         {
-            mpi_type_str = type_to_mpi_type(type);
-            c_type_str = type_to_ctype(type);
             size_str = "sizeof(" + var_info._name  + ")";
         }
+        std::cout << "Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         std::string full_expr_sub_size = "sizeof(" + c_type_str + ") * " + var_sub_size;
 
@@ -361,13 +354,16 @@ TL::Source ParallelFor::do_parallel_for()
             }
             else
             {
-
+                TL::Source cl_actual_param;
+                cl_actual_param
+                    << c_type_str << " " << var_name;
+                cl_actual_params.append_with_separator(cl_actual_param, ",");
             }
         }
 
         if (var_info._is_input)
         {
-            // TODO: How to classify scater type
+            // TODO: How to classify scatter type
             if (var_info._is_array_or_pointer)
             {
                 send_input
@@ -463,6 +459,7 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
+    std::cout << "Create MPI Block\n";
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = "
         << local_start_idx_var << ";" << induction_var.prettyprint()
@@ -496,6 +493,10 @@ TL::Source ParallelFor::do_parallel_for()
 
         << "int " << induction_var << " = get_global_id(0) + "
         << local_start_idx_var << ";";
+    // Kernel helper function
+    cl_kernel
+        << "void _GfnBarrier() {barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);}\n";
+    // Kernel funcion
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
         << "(" << cl_actual_params << ") {" << "\n"
