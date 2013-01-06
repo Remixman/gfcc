@@ -145,6 +145,9 @@ TL::Source ParallelFor::do_parallel_for()
         throw GFNException(_for_stmt, "support only simple for loop");
     }
 
+    /* Store loop size variable, may be mutiple like
+       for(i = 0; i < n + m; i++ ) */
+    ObjectList<IdExpression> loop_size_var_list;
     bool enable_opencl = true;
 
     // C/C++ and MPI sources
@@ -154,6 +157,10 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source worker_var_decl, worker_gen_var_decl;
     TL::Source worker_init_gen_var, worker_free_gen_var;
     TL::Source worker_root_free_gen_var;
+
+    // MPI loop size sources
+    TL::Source send_loop_size;
+    TL::Source worker_recv_loop_size, worker_scatter_loop_size;
 
     // CUDA sources
     TL::Source kernel_actual_param, kernel_formal_param;
@@ -185,6 +192,31 @@ TL::Source ParallelFor::do_parallel_for()
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     Statement loop_body = _for_stmt.get_loop_body();
+
+    /*== ---------- Create source about loop size ------------------==*/
+    loop_size_var_list = upper_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    for (int i = 0; i < loop_size_var_list.size(); ++i)
+    {
+        DataReference data_ref(loop_size_var_list[i].get_expression());
+        std::string var_name = data_ref.get_symbol().get_name();
+        TL::Type type = data_ref.get_type();
+        std::string c_type_str = type_to_ctype(type);
+        std::string mpi_type_str = type_to_mpi_type(type);
+
+        if (!type.is_scalar_type())
+        {
+            std::cerr << "Error : Variable in loop expression must be scalar\n";
+        }
+
+        send_loop_size
+            << "_SendInputMsg((void *)&" << var_name << ", sizeof ("
+            << c_type_str << "));";
+
+        worker_recv_loop_size
+            << "_RecvInputMsg2((void *)&" << var_name << ");";
+        worker_scatter_loop_size
+            << create_mpi_bcast(var_name, "1", mpi_type_str);
+    }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
     std::string local_idx_var = "_local_" + induction_var.prettyprint();
@@ -276,8 +308,17 @@ TL::Source ParallelFor::do_parallel_for()
         }
         else
         {
-            worker_var_decl
-                << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
+            if (var_info._is_reduction)
+            {
+                worker_var_decl
+                    << c_type_str << " " << var_name << " = "
+                    << reduction_op_init_value(var_info._reduction_type) << ";";
+            }
+            else
+            {
+                worker_var_decl
+                    << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
+            }
         }
 
         /* Declaration generated variable */
@@ -394,10 +435,10 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 send_input
                     << "_SendInputMsg((void*)&" << var_name
-                    << "," << size_str << ");";
+                    << "," << c_type_str << ");";
 
                 worker_recv_input
-                    << "_RecvInputMsg2((void*)" << var_name << ");";
+                    << "_RecvInputMsg2((void*)&" << var_name << ");";
 
                 worker_scatter_input
                     << create_mpi_bcast(var_name, "1", mpi_type_str);
@@ -450,9 +491,11 @@ TL::Source ParallelFor::do_parallel_for()
             std::string local_reduce_var_name = "_local_" + var_name;
             worker_gen_var_decl
                 // TODO: initialize value
-                << c_type_str << " " << local_reduce_var_name << " = 0;";
+                << c_type_str << " " << local_reduce_var_name << " = "
+                << reduction_op_init_value(var_info._reduction_type) << ";";
 
             worker_gather_output
+                << local_reduce_var_name << " = " << var_name << ";"
                 << create_mpi_reduce(local_reduce_var_name, var_name,
                        "1", mpi_type_str, op_to_mpi_op(var_info._reduction_type));
         }
@@ -568,6 +611,10 @@ TL::Source ParallelFor::do_parallel_for()
             /* GPU */ << cl_var_decl
         << comment("Generated variable")
         << worker_gen_var_decl
+
+        << create_run_only_root_stmt( worker_recv_loop_size )
+        << worker_scatter_loop_size
+
         << create_run_only_root_stmt( worker_recv_input )
         << comment("Init generated variable")
         << worker_init_gen_var
@@ -605,7 +652,10 @@ TL::Source ParallelFor::do_parallel_for()
     _function_def->get_ast().prepend_sibling_function(worker_func_tree);
 
 
-    send_call_func << send_input << recv_output;
+    send_call_func
+        << send_loop_size
+        << send_input
+        << recv_output;
 
     return send_call_func;
 

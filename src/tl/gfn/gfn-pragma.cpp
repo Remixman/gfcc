@@ -456,6 +456,7 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
                     if (kernel_info->_var_info[k]._name == var_name)
                     {
                         kernel_info->_var_info[k]._is_reduction = true;
+                        kernel_info->_var_info[k]._is_output = true;
                         kernel_info->_var_info[k]._reduction_type = op_to_op_type(opr);
                     }
                 }

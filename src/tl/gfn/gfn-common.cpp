@@ -179,8 +179,6 @@ REDUCTION_T op_to_op_type(std::string op)
 
 std::string reduction_op_init_value(REDUCTION_T rt)
 {
-    return "";
-
     if (rt == REDUCTION_MAX)
         return "";
     else if (rt == REDUCTION_MIN)
@@ -205,7 +203,8 @@ std::string reduction_op_init_value(REDUCTION_T rt)
         return "";
     else if (rt == REDUCTION_MINLOC)
         return "";
-    else {
+    else
+    {
         std::cerr << "Don't support operator : " << (int)rt << std::endl;
         return "";
     }
@@ -216,29 +215,29 @@ std::string op_to_mpi_op(REDUCTION_T rt)
     std::string mpi_op;
 
     if (rt == REDUCTION_MAX)
-        mpi_op = "MPI_MAX";
+        mpi_op = "_get_mpi_max()";
     else if (rt == REDUCTION_MIN)
-        mpi_op = "MPI_MIN";
+        mpi_op = "_get_mpi_min()";
     else if (rt == REDUCTION_SUM)
-        mpi_op = "MPI_SUM";
+        mpi_op = "_get_mpi_sum()";
     else if (rt == REDUCTION_PROD)
-        mpi_op = "MPI_PROD";
+        mpi_op = "_get_mpi_prod()";
     else if (rt == REDUCTION_BAND)
-        mpi_op = "MPI_BAND";
+        mpi_op = "_get_mpi_band()";
     else if (rt == REDUCTION_BOR)
-        mpi_op = "MPI_BOR";
+        mpi_op = "_get_mpi_bor()";
     else if (rt == REDUCTION_BXOR)
-        mpi_op = "MPI_BXOR";
+        mpi_op = "_get_mpi_bxor()";
     else if (rt == REDUCTION_LAND)
-        mpi_op = "MPI_LAND";
+        mpi_op = "_get_mpi_land()";
     else if (rt == REDUCTION_LOR)
-        mpi_op = "MPI_LOR";
+        mpi_op = "_get_mpi_lor()";
     else if (rt == REDUCTION_LXOR)
-        mpi_op = "MPI_LXOR";
+        mpi_op = "_get_mpi_lxor()";
     else if (rt == REDUCTION_MAXLOC)
-        mpi_op = "MPI_MAXLOC";
+        mpi_op = "_get_mpi_maxloc()";
     else if (rt == REDUCTION_MINLOC)
-        mpi_op = "MPI_MINLOC";
+        mpi_op = "_get_mpi_minloc()";
     else {
         std::cerr << "Don't support operator : " << (int)rt << std::endl;
     }
@@ -279,6 +278,10 @@ std::string source_to_kernel_str(TL::Source src)
 TL::Source create_run_only_root_stmt(TL::Source src)
 {
     TL::Source result;
+    if (src.empty())
+    {
+        return result;
+    }
     result << "if (_gfn_rank == 0) {" << src << "}";
     return result;
 }
