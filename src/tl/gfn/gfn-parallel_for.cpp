@@ -176,6 +176,10 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source cl_kernel_var_init;
     int kernel_arg_num = 0;
 
+    // OpenCL reduction sources
+    TL::Source cl_kernel_reduce_init_if, cl_kernel_reduce_init_else;
+    TL::Source cl_kernel_reduce_local_reduce, cl_kernel_reduce_global_reduce;
+
     //
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
 
@@ -194,7 +198,9 @@ TL::Source ParallelFor::do_parallel_for()
     Statement loop_body = _for_stmt.get_loop_body();
 
     /*== ---------- Create source about loop size ------------------==*/
-    loop_size_var_list = upper_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
+    loop_size_var_list.append( upper_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
+    // TODO: eliminate duplicate variable in loop_size_var_list
     for (int i = 0; i < loop_size_var_list.size(); ++i)
     {
         DataReference data_ref(loop_size_var_list[i].get_expression());
@@ -222,11 +228,14 @@ TL::Source ParallelFor::do_parallel_for()
     std::string local_idx_var = "_local_" + induction_var.prettyprint();
     std::string local_start_idx_var = "_local_" + induction_var.prettyprint() + "_start";
     std::string local_end_idx_var = "_local_" + induction_var.prettyprint() + "_end";
+    std::string loop_step_var = "_loop_step";
     std::string local_cl_start_idx_var = "_local_cl_" + induction_var.prettyprint() + "_start";
     std::string local_cl_end_idx_var = "_local_cl_" + induction_var.prettyprint() + "_end";
+    std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
     worker_gen_var_decl
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
+        << "int " << loop_step_var << ";"
         << "int " << loop_size_var << ";";
     worker_init_gen_var
         << local_start_idx_var << " = _CalcLocalStartIndex("
@@ -238,7 +247,8 @@ TL::Source ParallelFor::do_parallel_for()
         << loop_size_var << " = _CalcLoopSize("
         << lower_bound.prettyprint() << ","
         << upper_bound.prettyprint() << ","
-        << step.prettyprint() << ");";
+        << step.prettyprint() << ");"
+        << loop_step_var << " = " << step_str << ";";
 
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (step_str[0] == '-')? false : true;
@@ -274,6 +284,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
         std::string var_cl_name = "_cl_mem_" + var_name;
         std::string var_local_buf_name = "_local_buffer_" + var_name;
+        std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
 
         std::string var_cl_mem_type;
         if (var_info._is_input && var_info._is_output)
@@ -298,7 +309,11 @@ TL::Source ParallelFor::do_parallel_for()
         }
         std::cout << "Type of " << var_info._name << " is " << c_type_str << std::endl;
 
-        std::string full_expr_sub_size = "sizeof(" + c_type_str + ") * " + var_sub_size;
+        std::string full_expr_sub_size = "sizeof(" + c_type_str + ")";
+        if (var_info._is_array_or_pointer)
+        {
+            full_expr_sub_size += " * " + var_sub_size;
+        }
 
         /* Declaration necessary variable */
         if (var_info._is_array_or_pointer)
@@ -324,6 +339,7 @@ TL::Source ParallelFor::do_parallel_for()
         /* Declaration generated variable */
         if (var_info._is_input || var_info._is_output)
         {
+            // About size code (only array or pointer)
             if (var_info._is_array_or_pointer)
             {
                 worker_gen_var_decl
@@ -360,7 +376,11 @@ TL::Source ParallelFor::do_parallel_for()
 
                 worker_free_gen_var
                     << "free(" << var_local_buf_name << ");";
+            }
 
+            // About OpenCL parameter code
+            if (var_info._is_array_or_pointer || var_info._is_output)
+            {
                 cl_var_decl
                     << "cl_mem " << var_cl_name << ";";
 
@@ -388,10 +408,16 @@ TL::Source ParallelFor::do_parallel_for()
                 kernel_actual_param.append_with_separator(actual_param, ",");
                 kernel_formal_param.append_with_separator(formal_param, ",");
 
-                cl_kernel_var_decl
-                    << c_type_str << " * " << var_name << " = "
-                    << "((void *)" << var_local_buf_name
-                    << ") - (_local_i_start * sizeof(" << c_type_str << "));";
+                /* Map between real buffer and pointer variable
+                 *(because we don't want to rename variable in loop)
+                 */
+                if (var_info._is_array_or_pointer)
+                {
+                    cl_kernel_var_decl
+                        << c_type_str << " * " << var_name << " = "
+                        << "((void *)" << var_local_buf_name
+                        << ") - (_local_i_start * sizeof(" << c_type_str << "));";
+                }
             }
             else
             {
@@ -498,6 +524,39 @@ TL::Source ParallelFor::do_parallel_for()
                 << local_reduce_var_name << " = " << var_name << ";"
                 << create_mpi_reduce(local_reduce_var_name, var_name,
                        "1", mpi_type_str, op_to_mpi_op(var_info._reduction_type));
+
+            cl_kernel_var_decl
+                << c_type_str << " " << var_name << " = "
+                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+
+            cl_kernel_reduce_init_if
+                << var_cl_local_mem_name << "[get_local_id(0)] = "
+                << var_name << ";\n";
+
+            cl_kernel_reduce_init_else
+                << var_cl_local_mem_name << "[get_local_id(0)] = "
+                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+
+            cl_kernel_reduce_local_reduce
+                << var_cl_local_mem_name << "[get_local_id(0)] += "
+                << var_cl_local_mem_name << "[get_local_id(0)+_stride];\n";
+
+            cl_kernel_reduce_global_reduce
+                << create_cl_help_atomic_call(var_local_buf_name, var_cl_local_mem_name,
+                                              var_info._reduction_type, type);
+#if 0
+            cl_set_kernel_arg
+                << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, "0");
+
+            TL::Source cl_actual_param;
+            cl_actual_param
+                << "__local " << c_type_str << " * " << var_cl_local_mem_name;
+            cl_actual_params.append_with_separator(cl_actual_param, ",");
+#endif
+
+            cl_read_output
+                << create_cl_enqueue_read_buffer("_gfn_cmd_queue",
+                    var_cl_name, true, "0", full_expr_sub_size, ("&" + var_name));
         }
     }
 
@@ -514,13 +573,17 @@ TL::Source ParallelFor::do_parallel_for()
         << "size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank);"
         << "size_t _work_group_item_num = 64;"
         << "cl_int " + local_cl_start_idx_var + " = " << local_start_idx_var << ";"
-        << "cl_int " + local_cl_end_idx_var + " = " << local_end_idx_var << ";";
+        << "cl_int " + local_cl_end_idx_var + " = " << local_end_idx_var << ";"
+        << "cl_int " + cl_loop_step_var + " = " << loop_step_var << ";";
 
     // Add new start and end index to kernel argument
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_cl_start_idx_var);
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_cl_end_idx_var);
+    cl_set_kernel_arg
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", cl_loop_step_var);
+
     // TODO: Refactor this
     TL::Source tmp_src_1;
     tmp_src_1 << "int " << local_start_idx_var;
@@ -528,24 +591,52 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source tmp_src_2;
     tmp_src_2 << "int " << local_end_idx_var;
     cl_actual_params.append_with_separator(tmp_src_2, ",");
+    TL::Source tmp_src_3;
+    tmp_src_3 << "int " << loop_step_var;
+    cl_actual_params.append_with_separator(tmp_src_3, ",");
 
     cl_kernel_var_decl
-        << "int _thread_id_dim_0 = get_global_id(0);"
+        << "int _thread_id_dim_0 = get_global_id(0);\n"
+        << "int " << loop_size_var << " = ("
+            << local_cl_end_idx_var << " - " << local_cl_start_idx_var
+            << ") / " << cl_loop_step_var << ";\n"
         //<< "int _thread_id_dim_1 = get_global_id(1);"
         //<< "int _thread_id_dim_2 = get_global_id(2);"
-
-        << "int " << induction_var << " = get_global_id(0) + "
-        << local_start_idx_var << ";";
+        << "int " << induction_var << " = (get_global_id(0) * _loop_step) + "
+        << local_start_idx_var << ";\n";
     // Kernel helper function
     cl_kernel
-        << "void _GfnBarrier() {barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);}\n";
-    // Kernel funcion
+        << create_cl_help_barrier() // TODO: insert if use
+        << create_cl_help_atomic_add_int() // TODO: insert if use
+        << create_cl_help_atomic_add_float(); // TODO: insert if use
+
+    // Kernel main funcion
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
         << "(" << cl_actual_params << ") {" << "\n"
         << cl_kernel_var_decl << "\n"
         << loop_body << "\n"
+
+        // [Reduction Step] -
+        << "if (get_global_id(0) < " << loop_size_var << ") {\n"
+        << cl_kernel_reduce_init_if
+        << "} else {\n"
+        << cl_kernel_reduce_init_else
+        << "}\n"
+        // [Reduction Step] -
+        << "for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n"
+        << "barrier(CLK_LOCAL_MEM_FENCE);\n"
+        << "if (get_local_id(0) < _stride) {\n"
+        << cl_kernel_reduce_local_reduce
+        << "}\n"
+        << "}\n"
+        // [Reduction Step] - Set subsum of local memory to global memory
+        << "if (get_local_id(0) == 0) {\n"
+        << cl_kernel_reduce_global_reduce
+        << "}\n"
+
         << "}";
+
     cl_kernel_src_str
         << "const char *_kernel_" << int_to_string(_kernel_info->kernel_id) << "_src = "
         << source_to_kernel_str(cl_kernel) << ";";

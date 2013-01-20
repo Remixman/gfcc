@@ -251,4 +251,14 @@ TL::Source create_cl_set_kernel_arg(std::string kernel,
 TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
 
+
+TL::Source create_cl_help_barrier();
+TL::Source create_cl_help_atomic_add_int();
+TL::Source create_cl_help_atomic_add_float();
+TL::Source create_cl_help_atomic_add_double();
+TL::Source create_cl_help_atomic_call(std::string global_var_name,
+                                      std::string local_var_name,
+                                      REDUCTION_T reduction_type,
+                                      TL::Type var_type);
+
 #endif // GFN_COMMON_HPP

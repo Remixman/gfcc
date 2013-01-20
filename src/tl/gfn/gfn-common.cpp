@@ -531,7 +531,11 @@ TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
     TL::Source result;
     result
         << "clSetKernelArg(" << kernel << "," << arg_no
-        << ",sizeof(" << type << "),(void*)&" << buffer << ");";
+        << ",sizeof(" << type << "),";
+    if (buffer == "0")
+        result << "0);";
+    else
+        result <<"(void*)&" << buffer << ");";
     return result;
 }
 
@@ -548,6 +552,106 @@ TL::Source create_cl_finish(std::string cmd_queue, std::string status)
     TL::Source result;
     if (status != "") result << status << " = ";
     result << "clFinish(" << cmd_queue << ");";
+    return result;
+}
+
+
+TL::Source create_cl_help_barrier()
+{
+    TL::Source result;
+    result
+        << "void _GfnBarrier() {\n"
+        << "    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n"
+        << "}\n";
+    return result;
+}
+
+TL::Source create_cl_help_atomic_add_int()
+{
+    TL::Source result;
+    result
+        << "int _GfnAtomicAddInt(__global int* const address, const int value) {\n"
+        << "    return atomic_add(address, value);\n"
+        << "}\n";
+    return result;
+}
+
+TL::Source create_cl_help_atomic_add_float()
+{
+    /* TODO: is following line is necessary?
+     * #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable */
+    TL::Source result;
+    result
+        << "float _GfnAtomicAddFloat(__global float* const address, const float value) {\n"
+        << "    uint oldval, newval, readback;\n"
+        << "    *(float*)&oldval = *address;\n"
+        << "    *(float*)&newval = (*(float*)&oldval + value);\n"
+        << "    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n"
+        << "        oldval = readback;\n"
+        << "        *(float*)&newval = (*(float*)&oldval + value);\n"
+        << "    }\n"
+        << "    return *(float*)&oldval;\n"
+        << "}\n";
+    return result;
+}
+
+TL::Source create_cl_help_atomic_add_double()
+{
+    /* TODO: is following line is necessary?
+     * #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+     * #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable */
+    TL::Source result;
+    result
+        << "double _GfnAtomicAddDouble(__global double* const address, const double value) {\n"
+        << "    long oldval, newval, readback;\n"
+        << "    *(double*)&oldval = *address;\n"
+        << "    *(double*)&newval = (*(double*)&oldval + value);\n"
+        << "    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n"
+        << "        oldval = readback;\n"
+        << "        *(double*)&newval = (*(double*)&oldval + value);\n"
+        << "    }\n"
+        << "    return *(double*)&oldval;\n"
+        << "}\n";
+    return result;
+}
+
+TL::Source create_cl_help_atomic_call(std::string global_var_name,
+                                      std::string local_var_name,
+                                      REDUCTION_T reduction_type,
+                                      TL::Type var_type)
+{
+    TL::Source result;
+    std::string atomic_name = "_GfnAtomic";//"AddFloat";
+
+    switch (reduction_type) {
+    case REDUCTION_MAX:     atomic_name += "Max"; break;
+    case REDUCTION_MIN:     atomic_name += "Min"; break;
+    case REDUCTION_SUM:     atomic_name += "Add"; break;
+    case REDUCTION_PROD:    atomic_name += "Mul"; break;
+    case REDUCTION_BAND:    atomic_name += "Band"; break;
+    case REDUCTION_BOR:     atomic_name += "Bor"; break;
+    case REDUCTION_BXOR:    atomic_name += "Bxor"; break;
+    case REDUCTION_LAND:    atomic_name += "Land"; break;
+    case REDUCTION_LOR:     atomic_name += "Lor"; break;
+    case REDUCTION_LXOR:    atomic_name += "Lxor"; break;
+    case REDUCTION_MAXLOC:  atomic_name += "Maxloc"; break;
+    case REDUCTION_MINLOC:  atomic_name += "MinLoc"; break;
+    default: // TODO: error
+        break;
+    }
+
+    // TODO: other type
+    if (var_type.is_char())        atomic_name += "Char";
+    else if (var_type.is_signed_int()) atomic_name += "Int";
+    else if (var_type.is_float())  atomic_name += "Float";
+    else if (var_type.is_double()) atomic_name += "Double";
+    else {
+        std::cerr << "Unsupport type " << __FILE__ << ":" << __LINE__ << "\n";
+    }
+
+    result
+        << atomic_name << "(" << global_var_name << ","
+        << local_var_name << ");\n";
     return result;
 }
 
