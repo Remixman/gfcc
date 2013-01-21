@@ -504,9 +504,10 @@ TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue, std::string buf
     TL::Source result;
     std::string block = ((is_block)? "_get_cl_true()" : "_get_cl_false()");
     result
-        << "clEnqueueWriteBuffer(" << cmd_queue << "," << buffer << ","
+        << "_gfn_status = clEnqueueWriteBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
-        << num_event_wait_list << "," << event_wait_list << "," << event << ");";
+        << num_event_wait_list << "," << event_wait_list << "," << event << ");"
+        << create_gfn_check_cl_status("_gfn_status", "WRITE BUFFER");
     return result;
 }
 
@@ -519,23 +520,35 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buff
     TL::Source result;
     std::string block = ((is_block)? "_get_cl_true()" : "_get_cl_false()");
     result
-        << "clEnqueueReadBuffer(" << cmd_queue << "," << buffer << ","
+        << "_gfn_status = clEnqueueReadBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
-        << num_event_wait_list << "," << event_wait_list << "," << event << ");";
+        << num_event_wait_list << "," << event_wait_list << "," << event << ");"
+        << create_gfn_check_cl_status("_gfn_status", "READ BUFFER");
     return result;
 }
 
 TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
                                     std::string type, std::string buffer)
 {
+    std::string size_str, offset_str, phase_name;
+    if (buffer == "0")
+    {
+        size_str = "_work_group_item_num";
+        offset_str = "0";
+        phase_name = "SET KERNEL ARG (LOCAL SIZE)";
+    }
+    else
+    {
+        size_str = "sizeof(" + type + ")";
+        offset_str = "(void*)&" + buffer;
+        phase_name = "SET KERNEL ARG";
+    }
+
     TL::Source result;
     result
-        << "clSetKernelArg(" << kernel << "," << arg_no
-        << ",sizeof(" << type << "),";
-    if (buffer == "0")
-        result << "0);";
-    else
-        result <<"(void*)&" << buffer << ");";
+        << "_gfn_status = clSetKernelArg(" << kernel << "," << arg_no << ","
+        << size_str << "," << offset_str << ");"
+        << create_gfn_check_cl_status("_gfn_status", phase_name);
     return result;
 }
 
@@ -652,6 +665,15 @@ TL::Source create_cl_help_atomic_call(std::string global_var_name,
     result
         << atomic_name << "(" << global_var_name << ","
         << local_var_name << ");\n";
+    return result;
+}
+
+
+TL::Source create_gfn_check_cl_status(std::string status_var,
+                                      std::string phase_name)
+{
+    TL::Source result;
+    result << "_GfnCheckCLStatus(" << status_var << ",\"" << phase_name << "\");";
     return result;
 }
 

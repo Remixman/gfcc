@@ -261,4 +261,7 @@ TL::Source create_cl_help_atomic_call(std::string global_var_name,
                                       REDUCTION_T reduction_type,
                                       TL::Type var_type);
 
+TL::Source create_gfn_check_cl_status(std::string status_var,
+                                      std::string phase_name);
+
 #endif // GFN_COMMON_HPP

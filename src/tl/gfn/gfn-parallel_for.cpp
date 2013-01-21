@@ -544,7 +544,7 @@ TL::Source ParallelFor::do_parallel_for()
             cl_kernel_reduce_global_reduce
                 << create_cl_help_atomic_call(var_local_buf_name, var_cl_local_mem_name,
                                               var_info._reduction_type, type);
-#if 0
+
             cl_set_kernel_arg
                 << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, "0");
 
@@ -552,7 +552,7 @@ TL::Source ParallelFor::do_parallel_for()
             cl_actual_param
                 << "__local " << c_type_str << " * " << var_cl_local_mem_name;
             cl_actual_params.append_with_separator(cl_actual_param, ",");
-#endif
+
 
             cl_read_output
                 << create_cl_enqueue_read_buffer("_gfn_cmd_queue",
@@ -598,12 +598,12 @@ TL::Source ParallelFor::do_parallel_for()
     cl_kernel_var_decl
         << "int _thread_id_dim_0 = get_global_id(0);\n"
         << "int " << loop_size_var << " = ("
-            << local_cl_end_idx_var << " - " << local_cl_start_idx_var
+            << local_end_idx_var << " - " << local_start_idx_var
             << ") / " << cl_loop_step_var << ";\n"
         //<< "int _thread_id_dim_1 = get_global_id(1);"
         //<< "int _thread_id_dim_2 = get_global_id(2);"
-        << "int " << induction_var << " = (get_global_id(0) * _loop_step) + "
-        << local_start_idx_var << ";\n";
+        << "int " << induction_var << " = (get_global_id(0) * "
+        << loop_step_var << ") + " << local_start_idx_var << ";\n";
     // Kernel helper function
     cl_kernel
         << create_cl_help_barrier() // TODO: insert if use
@@ -671,8 +671,10 @@ TL::Source ParallelFor::do_parallel_for()
         << loop_body << "}";
 
     cl_launch_kernel
+        << "_gfn_status = "
         << create_cl_enqueue_nd_range_kernel("_gfn_cmd_queue", "_kernel", "1", "0",
-                                             "&_work_item_num", "0", "0", "0", "0");
+            "&_work_item_num", "&_work_group_item_num", "0", "0", "0")
+        << create_gfn_check_cl_status("_gfn_status", "LAUNCH KERNEL");
 
 #if 0
     TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
