@@ -475,7 +475,9 @@ TL::Source create_cl_create_buffer(std::string context, std::string flags,
 TL::Source create_cl_release_mem_object(std::string buffer)
 {
     TL::Source result;
-    result << "clReleaseMemObject(" << buffer << ");";
+    result
+        << "_gfn_status = clReleaseMemObject(" << buffer << ");"
+        << create_gfn_check_cl_status("_gfn_status", "RELEASE BUFFER " + buffer);
     return result;
 }
 
@@ -664,7 +666,7 @@ TL::Source create_cl_help_atomic_call(std::string global_var_name,
 
     result
         << atomic_name << "(" << global_var_name << ","
-        << local_var_name << ");\n";
+        << local_var_name << "[0]);\n";
     return result;
 }
 

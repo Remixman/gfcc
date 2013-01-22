@@ -178,7 +178,8 @@ TL::Source ParallelFor::do_parallel_for()
 
     // OpenCL reduction sources
     TL::Source cl_kernel_reduce_init_if, cl_kernel_reduce_init_else;
-    TL::Source cl_kernel_reduce_local_reduce, cl_kernel_reduce_global_reduce;
+    TL::Source cl_kernel_reduce_local_reduce;
+    TL::Source cl_kernel_reduce_global_init, cl_kernel_reduce_global_reduce;
 
     //
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
@@ -541,6 +542,10 @@ TL::Source ParallelFor::do_parallel_for()
                 << var_cl_local_mem_name << "[get_local_id(0)] += "
                 << var_cl_local_mem_name << "[get_local_id(0)+_stride];\n";
 
+            cl_kernel_reduce_global_init
+                << "*" << var_local_buf_name << " = "
+                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+
             cl_kernel_reduce_global_reduce
                 << create_cl_help_atomic_call(var_local_buf_name, var_cl_local_mem_name,
                                               var_info._reduction_type, type);
@@ -572,6 +577,7 @@ TL::Source ParallelFor::do_parallel_for()
     cl_decl_init_work_item_var
         << "size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank);"
         << "size_t _work_group_item_num = 64;"
+        << "size_t _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
         << "cl_int " + local_cl_start_idx_var + " = " << local_start_idx_var << ";"
         << "cl_int " + local_cl_end_idx_var + " = " << local_end_idx_var << ";"
         << "cl_int " + cl_loop_step_var + " = " << loop_step_var << ";";
@@ -599,7 +605,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "int _thread_id_dim_0 = get_global_id(0);\n"
         << "int " << loop_size_var << " = ("
             << local_end_idx_var << " - " << local_start_idx_var
-            << ") / " << cl_loop_step_var << ";\n"
+            << ") / " << loop_step_var << ";\n"
         //<< "int _thread_id_dim_1 = get_global_id(1);"
         //<< "int _thread_id_dim_2 = get_global_id(2);"
         << "int " << induction_var << " = (get_global_id(0) * "
@@ -630,6 +636,10 @@ TL::Source ParallelFor::do_parallel_for()
         << cl_kernel_reduce_local_reduce
         << "}\n"
         << "}\n"
+        // [Reduction Step] - Initialize global sum
+        << "if (get_global_id(0) == 0) {\n"
+        << cl_kernel_reduce_global_init
+        << "}\nbarrier(CLK_GLOBAL_MEM_FENCE);\n"
         // [Reduction Step] - Set subsum of local memory to global memory
         << "if (get_local_id(0) == 0) {\n"
         << cl_kernel_reduce_global_reduce
@@ -673,7 +683,7 @@ TL::Source ParallelFor::do_parallel_for()
     cl_launch_kernel
         << "_gfn_status = "
         << create_cl_enqueue_nd_range_kernel("_gfn_cmd_queue", "_kernel", "1", "0",
-            "&_work_item_num", "&_work_group_item_num", "0", "0", "0")
+            "&_global_item_num", "&_work_group_item_num", "0", "0", "0")
         << create_gfn_check_cl_status("_gfn_status", "LAUNCH KERNEL");
 
 #if 0
