@@ -49,7 +49,7 @@ KernelInfo::~KernelInfo()
 {
 }
 
-int KernelInfo::get_var_info_index_from_var_name(std::string &var_name)
+int KernelInfo::get_var_info_index_from_var_name(std::string var_name)
 {
     for (int i = 0; i < _var_info.size(); ++i)
     {

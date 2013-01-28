@@ -226,6 +226,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     kernel_info->loop_index_var_name = for_statement.get_induction_variable()
             .get_symbol().get_name();
     find_use_and_def_list(loop_body, kernel_info);
+    collect_variable_info(loop_body, kernel_info);
 
     // get data from clauses
     get_kernelname_clause(construct, kernel_info);
@@ -698,6 +699,7 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
             stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
         }
 
+
         //
         for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
              iit != stmt_var_list.end();
@@ -708,5 +710,161 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
         }
     }
 }
+
+void GFNPragmaPhase::collect_variable_info(Statement stmt,
+                                           KernelInfo *kernel_info)
+{
+    if (stmt.is_declaration())
+    {
+
+    }
+    else if (ForStatement::predicate(stmt.get_ast()))
+    {
+        TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
+        // TODO: init, cond, incre ?
+        collect_variable_info(for_stmt.get_loop_body(), kernel_info);
+    }
+    else if (stmt.is_compound_statement())
+    {
+        ObjectList<Statement> statements = stmt.get_inner_statements();
+        for (ObjectList<Statement>::iterator it = statements.begin();
+             it != statements.end();
+             ++it)
+        {
+            collect_variable_info(*it, kernel_info);
+        }
+    }
+    else if (stmt.is_expression())
+    {
+        collect_variable_info(stmt.get_expression(), kernel_info);
+    }
+}
+
+void GFNPragmaPhase::collect_variable_info(Expression expr,
+                                           KernelInfo *kernel_info,
+                                           int found_idx_at)
+{
+    if (expr.is_id_expression())
+    {
+        IdExpression id_expr = expr.get_id_expression();
+        Symbol sym = id_expr.get_symbol();
+
+        if (found_idx_at > 0)
+        {
+            /*std::cout << "Found at index : " << found_idx_at
+                      << " for " << sym.get_name() << "\n";*/
+            int idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
+
+            if (kernel_info->_var_info[idx]._shared_dimension != 0)
+            {
+                std::cerr << "Conflict at " << __FILE__ << ":" << __LINE__ << "\n";
+            }
+
+            kernel_info->_var_info[idx]._shared_dimension = found_idx_at;
+        }
+
+        // Traverse child nodes
+        // TODO: collect_variable_info(, kernel_info); ??
+    }
+    else if (expr.is_array_subscript())
+    {
+        //std::cout << "Subscript : " << expr.get_subscript_expression() << "\n";
+        //std::cout << "Subscripted : " << expr.get_subscripted_expression() << "\n";
+
+        if (found_idx_at == 0)
+        {
+            bool found_idx = false;
+            TL::Expression subscript = expr.get_subscript_expression();
+            ObjectList<IdExpression> vars_in_subscript = subscript.all_symbol_occurrences(Expression::ONLY_VARIABLES);
+            for (ObjectList<IdExpression>::iterator it = vars_in_subscript.begin();
+                 it != vars_in_subscript.end();
+                 ++it)
+            {
+                Symbol sym = it->get_symbol();
+                if (sym.get_name() == kernel_info->loop_index_var_name)
+                {
+                    found_idx = true;
+                    found_idx_at = 1;
+                    break;
+                }
+            }
+        }
+        else
+        {
+            found_idx_at++;
+        }
+
+        // Traverse child nodes
+        collect_variable_info(expr.get_subscript_expression(), kernel_info);
+        collect_variable_info(expr.get_subscripted_expression(), kernel_info, found_idx_at);
+    }
+    else if (expr.is_member_access() || expr.is_pointer_member_access())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_accessed_entity(), kernel_info);
+    }
+    else if (expr.is_assignment())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_first_operand(), kernel_info);
+        collect_variable_info(expr.get_second_operand(), kernel_info);
+    }
+    else if (expr.is_operation_assignment())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_first_operand(), kernel_info);
+        collect_variable_info(expr.get_second_operand(), kernel_info);
+    }
+    else if (expr.is_binary_operation())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_first_operand(), kernel_info);
+        collect_variable_info(expr.get_second_operand(), kernel_info);
+    }
+    else if (expr.is_unary_operation())
+    {
+        Expression::OperationKind kind = expr.get_operation_kind();
+
+        switch ((int)kind)
+        {
+            case Expression::PREINCREMENT:
+            case Expression::PREDECREMENT:
+            case Expression::POSTINCREMENT:
+            case Expression::POSTDECREMENT:
+            case Expression::MINUS :
+            case Expression::BITWISE_NOT :
+            case Expression::LOGICAL_NOT :
+            case Expression::DERREFERENCE :
+            default:
+                break;
+        }
+
+        // Traverse child nodes
+        collect_variable_info(expr.get_unary_operand(), kernel_info);
+    }
+    else if (expr.is_conditional())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_condition_expression(), kernel_info);
+        collect_variable_info(expr.get_true_expression(), kernel_info);
+        collect_variable_info(expr.get_false_expression(), kernel_info);
+    }
+    else if (expr.is_function_call())
+    {
+        // Traverse child nodes
+        // TODO:
+    }
+    else if (expr.is_casting())
+    {
+        // Traverse child nodes
+        collect_variable_info(expr.get_casted_expression(), kernel_info);
+    }
+    else
+    {
+        std::cerr << "Error in collect_variable_info, What type of this expr : "
+                  << expr << "\n";
+    }
+}
+
 
 EXPORT_PHASE(TL::GFN::GFNPragmaPhase)

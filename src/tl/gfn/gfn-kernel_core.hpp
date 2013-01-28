@@ -65,6 +65,9 @@ namespace TL
             VAR_ACCESS_T    _access_type;
             REDUCTION_T     _reduction_type;
             DimSize         _size;
+            // For multi-dimension var, what dimension that we must distributed
+            // (0 is shared and must boardcast to all node)
+            unsigned        _shared_dimension;
 
             // TODO: change to bit
             bool            _is_input;
@@ -77,7 +80,8 @@ namespace TL
             bool            _is_def;
 
             VariableInfo(std::string n) :
-                _name(n), _access_type(VAR_ACCESS_SHARED), _reduction_type(REDUCTION_UNKNOWN),
+                _name(n), _access_type(VAR_ACCESS_SHARED),
+                _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
                 _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
 
@@ -122,7 +126,7 @@ namespace TL
 
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;
-                int get_var_info_index_from_var_name(std::string &var_name);
+                int get_var_info_index_from_var_name(std::string var_name);
                 void sort_var_info();
 
                 KernelInfo();

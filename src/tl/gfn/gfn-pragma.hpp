@@ -87,8 +87,15 @@ namespace TL
                 void get_parallel_if_clause(PragmaCustomConstruct construct,
                                             KernelInfo *kernel_info);
 
+                // TODO: Change name to gather_data_for_analysis (and write data that it graps)
                 void find_use_and_def_list(Statement compound_stmt,
                                            KernelInfo *kernel_info);
+                void collect_variable_info(Statement stmt,
+                                           KernelInfo *kernel_info);
+                void collect_variable_info(Expression expr,
+                                           KernelInfo *kernel_info,
+                                           int found_idx_at = 0 // For _shared_dimension
+                        );
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;

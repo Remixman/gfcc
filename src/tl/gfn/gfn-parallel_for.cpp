@@ -341,7 +341,7 @@ TL::Source ParallelFor::do_parallel_for()
         if (var_info._is_input || var_info._is_output)
         {
             // About size code (only array or pointer)
-            if (var_info._is_array_or_pointer)
+            if (var_info._is_array_or_pointer /* TODO: change to shared_dimension != 0 */)
             {
                 worker_gen_var_decl
                     // ipc recv buffer variable
@@ -431,8 +431,7 @@ TL::Source ParallelFor::do_parallel_for()
 
         if (var_info._is_input)
         {
-            // TODO: How to classify scatter type
-            if (var_info._is_array_or_pointer)
+            if (var_info._is_array_or_pointer /* TODO: change to shared_dimension != 0 */)
             {
                 send_input
                     << "_SendInputMsg((void*)" << var_name
@@ -474,7 +473,7 @@ TL::Source ParallelFor::do_parallel_for()
 
         if (var_info._is_output)
         {
-            if (var_info._is_array_or_pointer)
+            if (var_info._is_array_or_pointer /* TODO: change to shared_dimension != 0 */)
             {
                 worker_recv_input
                     << var_buf_name << " = (" << c_type_str
