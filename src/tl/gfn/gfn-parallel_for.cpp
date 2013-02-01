@@ -779,7 +779,9 @@ TL::Source ParallelFor::do_parallel_for()
         << "}"
         << comment("*/ #endif /*");
 
-    //std::cout << (std::string) worker_func_def << "\n";
+    std::cout << " ================= Worker Function ================\n";
+    std::cout << (std::string) worker_func_def << "\n";
+    std::cout << " ==================================================\n";
 
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
