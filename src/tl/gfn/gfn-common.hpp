@@ -109,6 +109,7 @@ std::string reduction_op_init_value(REDUCTION_T rt);
 std::string op_to_mpi_op(REDUCTION_T rt);
 std::string int_to_string(int num);
 std::string source_to_kernel_str(TL::Source src);
+TL::Source show_cl_source_in_comment(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
 #define DEFAULT_MPI_COMM "_get_mpi_comm_world()"  //"MPI_COMM_WORLD"

@@ -36,11 +36,12 @@ using namespace GFN;
 int KernelInfo::kernel_count = 0;
 
 KernelInfo::KernelInfo() : 
-    _accurate(ACCURATE_HIGH)
+    _accurate(ACCURATE_HIGH), _has_reduction_clause(false)
 {
 }
 
-KernelInfo::KernelInfo(std::string &kernel_name)
+KernelInfo::KernelInfo(std::string &kernel_name) :
+    _has_reduction_clause(false)
 {
   
 }
@@ -210,11 +211,11 @@ std::string VariableInfo::get_mem_size()
     result += "(" + _size._dim1_size + ")";
     if (_size._dim2_size != "1")
     {
-        result += "(" + _size._dim2_size + ")";
+        result += " * (" + _size._dim2_size + ")";
     }
     if (_size._dim3_size != "1")
     {
-        result += "(" + _size._dim3_size + ")";
+        result += " * (" + _size._dim3_size + ")";
     }
     result += ")";
 

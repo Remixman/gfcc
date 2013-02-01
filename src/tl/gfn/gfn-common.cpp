@@ -258,7 +258,7 @@ std::string source_to_kernel_str(TL::Source src)
     result += "\"";
 
     std::string src_str = (std::string)src;
-    std::cout << "src_str = " << src_str << std::endl;
+    //std::cout << "src_str = " << src_str << std::endl;
     for (int i = 0; i < src_str.size(); ++i)
     {
         if (src_str[i] == '\n')
@@ -272,6 +272,30 @@ std::string source_to_kernel_str(TL::Source src)
     }
 
     result += "\"";
+    return result;
+}
+
+TL::Source show_cl_source_in_comment(TL::Source src)
+{
+    TL::Source result;
+    std::string buffer = "";
+    std::string src_str = (std::string)src;
+
+    for (int i = 0; i < src_str.size(); ++i)
+    {
+        if (src_str[i] == '\n')
+        {
+            //std::cout << "Find \\n at " << i << "\n";
+            result << TL::comment(buffer);
+            buffer = "";
+        }
+        else
+        {
+            buffer += src_str[i];
+        }
+    }
+    result << TL::comment(buffer);
+
     return result;
 }
 
@@ -347,7 +371,7 @@ TL::Source create_mpi_bcast(std::string buf_name, std::string cnt,
 {
     TL::Source result;
     result
-        << "MPI_Bcast(&" << buf_name << ", " << cnt << ", " << mpi_type << ","
+        << "MPI_Bcast(" << buf_name << ", " << cnt << ", " << mpi_type << ","
         << root << ", " << comm << ");";
     return result;
 }
@@ -468,7 +492,8 @@ TL::Source create_cl_create_buffer(std::string context, std::string flags,
     TL::Source result;
     result
         << "clCreateBuffer(" << context << "," << flags << ","
-        << size << "," << host_ptr << ",&" << status << ");";
+        << size << "," << host_ptr << ",&" << status << ");"
+        << create_gfn_check_cl_status(status, ("CREATE BUFFER "+host_ptr));
     return result;
 }
 
@@ -509,7 +534,7 @@ TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue, std::string buf
         << "_gfn_status = clEnqueueWriteBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
         << num_event_wait_list << "," << event_wait_list << "," << event << ");"
-        << create_gfn_check_cl_status("_gfn_status", "WRITE BUFFER");
+        << create_gfn_check_cl_status("_gfn_status", ("WRITE BUFFER "+var_ptr));
     return result;
 }
 
@@ -525,7 +550,7 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buff
         << "_gfn_status = clEnqueueReadBuffer(" << cmd_queue << "," << buffer << ","
         << block << "," << offset << "," << size << "," << var_ptr << ","
         << num_event_wait_list << "," << event_wait_list << "," << event << ");"
-        << create_gfn_check_cl_status("_gfn_status", "READ BUFFER");
+        << create_gfn_check_cl_status("_gfn_status", ("READ BUFFER "+var_ptr));
     return result;
 }
 
@@ -577,7 +602,7 @@ TL::Source create_cl_help_barrier()
     result
         << "void _GfnBarrier() {\n"
         << "    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n"
-        << "}\n";
+        << "}\n\n";
     return result;
 }
 
@@ -587,7 +612,7 @@ TL::Source create_cl_help_atomic_add_int()
     result
         << "int _GfnAtomicAddInt(__global int* const address, const int value) {\n"
         << "    return atomic_add(address, value);\n"
-        << "}\n";
+        << "}\n\n";
     return result;
 }
 
@@ -606,7 +631,7 @@ TL::Source create_cl_help_atomic_add_float()
         << "        *(float*)&newval = (*(float*)&oldval + value);\n"
         << "    }\n"
         << "    return *(float*)&oldval;\n"
-        << "}\n";
+        << "}\n\n";
     return result;
 }
 
@@ -626,7 +651,7 @@ TL::Source create_cl_help_atomic_add_double()
         << "        *(double*)&newval = (*(double*)&oldval + value);\n"
         << "    }\n"
         << "    return *(double*)&oldval;\n"
-        << "}\n";
+        << "}\n\n";
     return result;
 }
 

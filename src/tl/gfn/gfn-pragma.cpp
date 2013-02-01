@@ -225,6 +225,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     Statement loop_body = for_statement.get_loop_body();
     kernel_info->loop_index_var_name = for_statement.get_induction_variable()
             .get_symbol().get_name();
+    collect_loop_info(for_statement, kernel_info);
     find_use_and_def_list(loop_body, kernel_info);
     collect_variable_info(loop_body, kernel_info);
 
@@ -459,6 +460,8 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
                         kernel_info->_var_info[k]._is_reduction = true;
                         kernel_info->_var_info[k]._is_output = true;
                         kernel_info->_var_info[k]._reduction_type = op_to_op_type(opr);
+
+                        kernel_info->_has_reduction_clause = true;
                     }
                 }
             }
@@ -863,6 +866,26 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     {
         std::cerr << "Error in collect_variable_info, What type of this expr : "
                   << expr << "\n";
+    }
+}
+
+void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
+                                       KernelInfo *kernel_info)
+{
+    TL::Expression lower_bound_expr = for_stmt.get_lower_bound();
+    TL::Expression upper_bound_expr = for_stmt.get_upper_bound();
+
+    TL::IdExpression induction_var = for_stmt.get_induction_variable();
+    TL::Symbol sym = induction_var.get_symbol();
+
+    /* Find index variable and set flag */
+    int idx_idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
+    kernel_info->_var_info[idx_idx]._is_index = true;
+
+    if (upper_bound_expr.is_constant())
+    {
+        kernel_info->_is_const_loop_upper_bound = true;
+        kernel_info->_const_upper_bound = (std::string)upper_bound_expr;
     }
 }
 

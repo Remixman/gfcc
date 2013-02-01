@@ -96,6 +96,8 @@ namespace TL
                                            KernelInfo *kernel_info,
                                            int found_idx_at = 0 // For _shared_dimension
                         );
+                void collect_loop_info(ForStatement for_stmt,
+                                       KernelInfo *kernel_info);
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;

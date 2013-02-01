@@ -152,6 +152,7 @@ TL::Source ParallelFor::do_parallel_for()
 
     // C/C++ and MPI sources
     TL::Source send_input, recv_output;
+    TL::Source worker_input_buffer_init, worker_input_buffer_free;
     TL::Source worker_func_def, worker_recv_input, worker_send_output;
     TL::Source worker_scatter_input, worker_gather_output;
     TL::Source worker_var_decl, worker_gen_var_decl;
@@ -222,7 +223,7 @@ TL::Source ParallelFor::do_parallel_for()
         worker_recv_loop_size
             << "_RecvInputMsg2((void *)&" << var_name << ");";
         worker_scatter_loop_size
-            << create_mpi_bcast(var_name, "1", mpi_type_str);
+            << create_mpi_bcast(("&"+var_name), "1", mpi_type_str);
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
@@ -306,9 +307,9 @@ TL::Source ParallelFor::do_parallel_for()
         }
         else
         {
-            size_str = "sizeof(" + var_info._name  + ")";
+            size_str = "sizeof(" + c_type_str  + ")";
         }
-        std::cout << "Type of " << var_info._name << " is " << c_type_str << std::endl;
+        //std::cout << "Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         std::string full_expr_sub_size = "sizeof(" + c_type_str + ")";
         if (var_info._is_array_or_pointer)
@@ -322,26 +323,30 @@ TL::Source ParallelFor::do_parallel_for()
             worker_var_decl
                 << c_type_str << " * " << var_name << ";";
         }
+        else if (var_info._is_reduction)
+        {
+            worker_var_decl
+                << c_type_str << " " << var_name << " = "
+                << reduction_op_init_value(var_info._reduction_type) << ";";
+        }
         else
         {
-            if (var_info._is_reduction)
+            worker_var_decl
+                << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
+
+            if (!var_info._is_index)
             {
-                worker_var_decl
-                    << c_type_str << " " << var_name << " = "
-                    << reduction_op_init_value(var_info._reduction_type) << ";";
-            }
-            else
-            {
-                worker_var_decl
-                    << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
+                cl_kernel_var_decl
+                    << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";\n";
             }
         }
+
 
         /* Declaration generated variable */
         if (var_info._is_input || var_info._is_output)
         {
             // About size code (only array or pointer)
-            if (var_info._is_array_or_pointer /* TODO: change to shared_dimension != 0 */)
+            if (var_info._shared_dimension != 0)
             {
                 worker_gen_var_decl
                     // ipc recv buffer variable
@@ -388,7 +393,7 @@ TL::Source ParallelFor::do_parallel_for()
                 cl_init_var
                     << var_cl_name << " = "
                     << create_cl_create_buffer("_gfn_context", var_cl_mem_type,
-                                               full_expr_sub_size, "0");
+                       (var_info._shared_dimension != 0) ? full_expr_sub_size : size_str, "0");
 
                 cl_free_var
                     << create_cl_release_mem_object(var_cl_name);
@@ -399,7 +404,8 @@ TL::Source ParallelFor::do_parallel_for()
                 TL::Source cl_actual_param;
                 cl_actual_param
                     << "__global " << ((!var_info._is_output)? "const " : "")
-                    << c_type_str << " * " << var_local_buf_name;
+                    << c_type_str << " * "
+                    << ((var_info._shared_dimension != 0) ? var_local_buf_name : var_name);
                 cl_actual_params.append_with_separator(cl_actual_param, ",");
 
                 TL::Source actual_param;
@@ -412,12 +418,12 @@ TL::Source ParallelFor::do_parallel_for()
                 /* Map between real buffer and pointer variable
                  *(because we don't want to rename variable in loop)
                  */
-                if (var_info._is_array_or_pointer)
+                if (var_info._is_array_or_pointer && var_info._shared_dimension != 0)
                 {
                     cl_kernel_var_decl
                         << c_type_str << " * " << var_name << " = "
                         << "((void *)" << var_local_buf_name
-                        << ") - (_local_i_start * sizeof(" << c_type_str << "));";
+                        << ") - (_local_i_start * sizeof(" << c_type_str << "));\n";
                 }
             }
             else
@@ -431,19 +437,19 @@ TL::Source ParallelFor::do_parallel_for()
 
         if (var_info._is_input)
         {
-            if (var_info._is_array_or_pointer /* TODO: change to shared_dimension != 0 */)
+            send_input
+                << "_SendInputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                << var_name << "," << size_str << ");";
+
+            if (var_info._shared_dimension != 0)
             {
-                send_input
-                    << "_SendInputMsg((void*)" << var_name
-                    << "," << size_str << ");";
+                /* use VAR_BUF_NAME that name of buffer before scatter */
 
                 worker_recv_input
                     << var_buf_name << " = (" << c_type_str
                     <<"*)malloc(" << size_str << ");";
                 worker_recv_input
                     << "_RecvInputMsg2((void*)" << var_buf_name << ");";
-                    //<< "_RecvInputMsg((void*)" << var_buf_name
-                    //<< "," << size_str << ");";
 
                 worker_root_free_gen_var
                     << "free(" << var_buf_name << ");";
@@ -459,15 +465,30 @@ TL::Source ParallelFor::do_parallel_for()
             }
             else
             {
-                send_input
-                    << "_SendInputMsg((void*)&" << var_name
-                    << "," << c_type_str << ");";
+                /* use VAR_NAME because we don't create new buffer for scatter */
+
+                if (var_info._is_array_or_pointer)
+                {
+                    worker_input_buffer_init
+                        << var_name << " = (" << c_type_str <<"*)malloc(" << size_str << ");";
+
+                    worker_input_buffer_free
+                        << "free(" << var_name << ");";
+                }
 
                 worker_recv_input
-                    << "_RecvInputMsg2((void*)&" << var_name << ");";
+                    << "_RecvInputMsg2((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                    << var_name << ");";
 
+                std::string bcast_vname = ((var_info._is_array_or_pointer)? "" : "&") + var_name;
                 worker_scatter_input
-                    << create_mpi_bcast(var_name, "1", mpi_type_str);
+                    << create_mpi_bcast(bcast_vname, var_info.get_mem_size(), mpi_type_str);
+
+                // TODO: cl_write_input for shared all thread variable
+                // if constant write to constant
+                cl_write_input
+                    << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
+                           var_cl_name, true, "0", size_str, var_name);
             }
         }
 
@@ -615,38 +636,48 @@ TL::Source ParallelFor::do_parallel_for()
         << create_cl_help_atomic_add_int() // TODO: insert if use
         << create_cl_help_atomic_add_float(); // TODO: insert if use
 
+    // Kernel reduction implement
+    TL::Source cl_kernel_reduction;
+    if (_kernel_info->_has_reduction_clause)
+    {
+        cl_kernel_reduction
+            // [Reduction Step] -
+            << "if (get_global_id(0) < " << loop_size_var << ") {\n"
+            << cl_kernel_reduce_init_if
+            << "} else {\n"
+            << cl_kernel_reduce_init_else
+            << "}\n"
+            // [Reduction Step] -
+            << "for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n"
+            << "barrier(CLK_LOCAL_MEM_FENCE);\n"
+            << "if (get_local_id(0) < _stride) {\n"
+            << cl_kernel_reduce_local_reduce
+            << "}\n"
+            << "}\n"
+            // [Reduction Step] - Initialize global sum
+            << "if (get_global_id(0) == 0) {\n"
+            << cl_kernel_reduce_global_init
+            << "}\nbarrier(CLK_GLOBAL_MEM_FENCE);\n"
+            // [Reduction Step] - Set subsum of local memory to global memory
+            << "if (get_local_id(0) == 0) {\n"
+            << cl_kernel_reduce_global_reduce
+            << "}\n";
+    }
+
     // Kernel main funcion
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
         << "(" << cl_actual_params << ") {" << "\n"
-        << cl_kernel_var_decl << "\n"
-        << loop_body << "\n"
-
-        // [Reduction Step] -
-        << "if (get_global_id(0) < " << loop_size_var << ") {\n"
-        << cl_kernel_reduce_init_if
-        << "} else {\n"
-        << cl_kernel_reduce_init_else
-        << "}\n"
-        // [Reduction Step] -
-        << "for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n"
-        << "barrier(CLK_LOCAL_MEM_FENCE);\n"
-        << "if (get_local_id(0) < _stride) {\n"
-        << cl_kernel_reduce_local_reduce
-        << "}\n"
-        << "}\n"
-        // [Reduction Step] - Initialize global sum
-        << "if (get_global_id(0) == 0) {\n"
-        << cl_kernel_reduce_global_init
-        << "}\nbarrier(CLK_GLOBAL_MEM_FENCE);\n"
-        // [Reduction Step] - Set subsum of local memory to global memory
-        << "if (get_local_id(0) == 0) {\n"
-        << cl_kernel_reduce_global_reduce
-        << "}\n"
-
+        << cl_kernel_var_decl
+            << "if (" << induction_var << " <= "
+            << ((_kernel_info->_is_const_loop_upper_bound)? _kernel_info->_const_upper_bound : "ERRORVAR" ) << ") {\n"
+                << loop_body << "\n"
+            << "}\n"
+        << cl_kernel_reduction
         << "}";
 
     cl_kernel_src_str
+        << show_cl_source_in_comment(cl_kernel)
         << "const char *_kernel_" << int_to_string(_kernel_info->kernel_id) << "_src = "
         << source_to_kernel_str(cl_kernel) << ";";
     cl_var_decl
@@ -717,6 +748,7 @@ TL::Source ParallelFor::do_parallel_for()
         << create_run_only_root_stmt( worker_recv_loop_size )
         << worker_scatter_loop_size
 
+        << worker_input_buffer_init
         << create_run_only_root_stmt( worker_recv_input )
         << comment("Init generated variable")
         << worker_init_gen_var
@@ -741,6 +773,7 @@ TL::Source ParallelFor::do_parallel_for()
         << worker_gather_output
         << create_run_only_root_stmt( worker_send_output )
         << worker_free_gen_var
+        << worker_input_buffer_free
         << create_run_only_root_stmt( worker_root_free_gen_var )
             /* GPU */ << cl_free_var
         << "}"

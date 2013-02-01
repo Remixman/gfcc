@@ -154,9 +154,14 @@ namespace TL
                 static std::map< std::string, KernelInfo > _kernel_map;
 
                 std::string loop_index_var_name;
+                bool _has_reduction_clause;
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
                 std::map< std::string, DimSize > _dim_size_list;
+
+                // Loop iterator
+                bool _is_const_loop_upper_bound;
+                std::string _const_upper_bound; // if const
         };
         //! @}
     }
