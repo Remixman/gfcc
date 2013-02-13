@@ -86,6 +86,7 @@ namespace TL
                 _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
 
             std::string get_mem_size();
+            std::string get_pointer_starts();
             std::string get_array_index_in_1D(std::string idx_name1,
                                               std::string idx_name2 = "",
                                               std::string idx_name3 = "");

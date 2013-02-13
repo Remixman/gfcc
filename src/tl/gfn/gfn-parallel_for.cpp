@@ -287,6 +287,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_cl_name = "_cl_mem_" + var_name;
         std::string var_local_buf_name = "_local_buffer_" + var_name;
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
+        std::string ptr_stars = var_info.get_pointer_starts();
 
         std::string var_cl_mem_type;
         if (var_info._is_input && var_info._is_output)
@@ -585,6 +586,11 @@ TL::Source ParallelFor::do_parallel_for()
         }
     }
 
+    /*== --------------- Replace code in loop body -----------------==*/
+    std::vector<bool> replace_types(GFN_REPLACE_LAST_TYPE, false);
+    replace_types[GFN_REPLACE_ARRAY_ND] = true;
+    replace_parallel_loop_body(loop_body, replace_types);
+
     /*== ----- Create MPI block distribution for statement ---------==*/
     std::cout << "Create MPI Block\n";
     mpi_block_dist_for_stmt
@@ -622,7 +628,6 @@ TL::Source ParallelFor::do_parallel_for()
     cl_actual_params.append_with_separator(tmp_src_3, ",");
 
     cl_kernel_var_decl
-        << "int _thread_id_dim_0 = get_global_id(0);\n"
         << "int " << loop_size_var << " = ("
             << local_end_idx_var << " - " << local_start_idx_var
             << ") / " << loop_step_var << ";\n"
@@ -950,6 +955,179 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
 }
 #endif
 
+// Replace function
+void ParallelFor::replace_parallel_loop_body(Statement stmt,
+                                             std::vector<bool> &replace_types)
+{
+    if (stmt.is_declaration())
+    {
+
+    }
+    else if (ForStatement::predicate(stmt.get_ast()))
+    {
+        TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
+        // TODO: init, cond, incre ?
+        replace_parallel_loop_body(for_stmt.get_loop_body(), replace_types);
+    }/*
+    else if (IfStatement::predicate(stmt.get_ast()))
+    {
+
+    }*/
+    else if (stmt.is_compound_statement())
+    {
+        ObjectList<Statement> statements = stmt.get_inner_statements();
+        for (ObjectList<Statement>::iterator it = statements.begin();
+             it != statements.end();
+             ++it)
+        {
+            replace_parallel_loop_body(*it, replace_types);
+        }
+    }
+    else if (stmt.is_expression())
+    {
+        replace_parallel_loop_body(stmt.get_expression(), replace_types);
+    }
+    else
+    {
+        std::cerr << "Error in replace_parallel_loop_body, What type of this stmt : "
+                  << stmt << "\n";
+    }
+}
+
+void ParallelFor::replace_parallel_loop_body(Expression expr,
+                                             std::vector<bool> &replace_types)
+{
+    if (expr.is_id_expression())
+    {
+        // Traverse child nodes
+        // TODO: collect_variable_info(, kernel_info); ??
+    }
+    else if (expr.is_array_subscript())
+    {
+        // XXX: replace multi-dimension array to 1D array
+        if (replace_types[GFN_REPLACE_ARRAY_ND] == true)
+        {
+            Expression tmp_expr = expr;
+            std::string new_subscript = "";
+            std::vector< std::string > subscript_list;
+            int subscript_count = 0;
+
+            // Counts subscript
+            while (!tmp_expr.is_id_expression())
+            {
+                subscript_count++;
+                subscript_list.push_back( (std::string)tmp_expr.get_subscript_expression() );
+                tmp_expr = tmp_expr.get_subscripted_expression();
+            }
+
+            std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
+            int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
+            //std::string dim1_size = _kernel_info->_var_info[idx]._size._dim1_size;
+            std::string dim2_size = _kernel_info->_var_info[idx]._size._dim2_size;
+            std::string dim3_size = _kernel_info->_var_info[idx]._size._dim3_size;
+
+            // FIXME:
+            if (subscript_count >= 1)
+            {
+                new_subscript = "(" + subscript_list[0] + ")";
+            }
+            if (subscript_count >= 2)
+            {
+                new_subscript = "((" + subscript_list[1] + ") * " +
+                        dim3_size + ") + " + new_subscript;
+            }
+            if (subscript_count >= 3)
+            {
+                new_subscript = "((" + subscript_list[2] + ") * " +
+                        dim3_size + "*" + dim2_size + ") + " + new_subscript;
+            }
+            // TODO: multi dimensions array
+
+
+            TL::Source new_array_expr;
+            new_array_expr << var_name << "[" << new_subscript << "]";
+
+            std::cout << "REPLACE {" << (std::string)expr << "} with {" << (std::string)new_array_expr << "}\n";
+
+            // Replace
+            AST_t new_array_expr_tree = new_array_expr.parse_expression(
+                        expr.get_ast(), expr.get_scope_link());
+            expr.get_ast().replace(new_array_expr_tree);
+        }
+
+        // Traverse child nodes
+        //replace_parallel_loop_body(expr.get_subscript_expression(), replace_types);
+        //replace_parallel_loop_body(expr.get_subscripted_expression(), replace_types);
+    }
+    else if (expr.is_member_access() || expr.is_pointer_member_access())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_accessed_entity(), replace_types);
+    }
+    else if (expr.is_assignment())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+    }
+    else if (expr.is_operation_assignment())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+    }
+    else if (expr.is_binary_operation())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+    }
+    else if (expr.is_unary_operation())
+    {
+        Expression::OperationKind kind = expr.get_operation_kind();
+
+        switch ((int)kind)
+        {
+            case Expression::PREINCREMENT:
+            case Expression::PREDECREMENT:
+            case Expression::POSTINCREMENT:
+            case Expression::POSTDECREMENT:
+            case Expression::MINUS :
+            case Expression::BITWISE_NOT :
+            case Expression::LOGICAL_NOT :
+            case Expression::DERREFERENCE :
+            default:
+                break;
+        }
+
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_unary_operand(), replace_types);
+    }
+    else if (expr.is_conditional())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_condition_expression(), replace_types);
+        replace_parallel_loop_body(expr.get_true_expression(), replace_types);
+        replace_parallel_loop_body(expr.get_false_expression(), replace_types);
+    }
+    else if (expr.is_function_call())
+    {
+        // Traverse child nodes
+        // TODO:
+    }
+    else if (expr.is_casting())
+    {
+        // Traverse child nodes
+        replace_parallel_loop_body(expr.get_casted_expression(), replace_types);
+    }
+    else
+    {
+        std::cerr << "Error in replace_parallel_loop_body, What type of this expr : "
+                  << expr << "\n";
+    }
+}
+
+
 TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
                                                   TL::Expression loop_increment,
                                                   TL::Expression loop_lowerbound)
@@ -988,64 +1166,6 @@ TL::Source ParallelFor::do_thread_id_declaration()
     }
     
     return thread_id_decl;
-}
-
-TL::Source ParallelFor::do_gfn_malloc(std::string &identifier,
-                                      TL::Source &malloc_size)
-{
-    TL::Source malloc_call;
-    malloc_call
-        << "_gfn_malloc("
-        << GFN_DEVICE_PREFIX << identifier
-        << ","
-        << malloc_size
-        << ");";
-
-    return malloc_call;
-}
-
-// TODO: potential_malloc
-
-// TODO: if variable's declaration is in function (not function args)
-TL::Source ParallelFor::do_gfn_mfree(std::string &identifier)
-{
-    TL::Source potential_mfree;
-    potential_mfree
-        << "_gfn_potential_mfree("
-        << GFN_DEVICE_PREFIX << identifier
-        << ");";
-
-    return potential_mfree;
-}
-
-TL::Source ParallelFor::do_gfn_memcpy_h2d(std::string &identifier,
-                                          std::string &copy_size)
-{
-    TL::Source memcpy_call;
-    memcpy_call
-        << "_gfn_memcpy_h2d("
-        << identifier
-        << ","
-        << GFN_DEVICE_PREFIX << identifier
-        << ","
-        << copy_size
-        << ");";
-    return memcpy_call;
-}
-
-TL::Source ParallelFor::do_gfn_memcpy_d2h(std::string &identifier,
-                                          std::string &copy_size)
-{
-    TL::Source memcpy_call;
-    memcpy_call
-        << "_gfn_memcpy_d2h("
-        << GFN_DEVICE_PREFIX << identifier
-        << ","
-        << identifier
-        << ","
-        << copy_size
-        << ");";
-    return memcpy_call;
 }
 
 bool ParallelFor::contain(ObjectList<DataReference> &list, DataReference &obj)

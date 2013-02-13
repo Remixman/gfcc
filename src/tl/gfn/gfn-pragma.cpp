@@ -654,14 +654,22 @@ void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
                                            KernelInfo *kernel_info)
 {
 
-    if (!compound_stmt.is_compound_statement())
+    /*if (!compound_stmt.is_compound_statement())
     {
         std::cerr
             << "Error at gfn-parallel_for.cpp:find_use_and_def_list\n";
         return;
-    }
+    }*/
 
-    ObjectList<Statement> statements = compound_stmt.get_inner_statements();
+    ObjectList<Statement> statements;
+    if (compound_stmt.is_compound_statement())
+    {
+        statements = compound_stmt.get_inner_statements();
+    }
+    else
+    {
+        statements.push_back(compound_stmt);
+    }
 
     /* FIXME: if def before use eg.
      * A[i] = 6;
@@ -861,6 +869,10 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     {
         // Traverse child nodes
         collect_variable_info(expr.get_casted_expression(), kernel_info);
+    }
+    else if (expr.is_constant())
+    {
+
     }
     else
     {

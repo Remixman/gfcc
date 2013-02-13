@@ -222,6 +222,15 @@ std::string VariableInfo::get_mem_size()
     return result;
 }
 
+std::string VariableInfo::get_pointer_starts()
+{
+    // TODO: check dimension from variable TL::Type
+    if (_size._dim3_size != "1") return " *** ";
+    if (_size._dim2_size != "1") return " ** ";
+    if (_is_array_or_pointer) return " * ";
+    return " ";
+}
+
 std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
                                                 std::string idx_name2,
                                                 std::string idx_name3)

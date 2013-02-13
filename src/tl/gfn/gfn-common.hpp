@@ -100,6 +100,12 @@ enum CUDA_MEMCPY_KIND
     CUDA_MEMCPY_D2D
 };
 
+enum GFN_REPLACE_TYPE
+{
+    GFN_REPLACE_ARRAY_ND          = 0,
+    GFN_REPLACE_LAST_TYPE
+};
+
 
 /*==--------------- Utility Function ----------------==*/
 std::string type_to_mpi_type(TL::Type type);
