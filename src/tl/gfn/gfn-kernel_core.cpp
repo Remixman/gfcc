@@ -222,6 +222,48 @@ std::string VariableInfo::get_mem_size()
     return result;
 }
 
+std::string VariableInfo::get_distributed_mem_size()
+{
+    std::string result = "";
+
+    if (_shared_dimension == 1)
+    {
+        result = "(" + _size._dim1_size + ")";
+    }
+    else if (_shared_dimension == 2)
+    {
+        result = "(" + _size._dim2_size + ")";
+    }
+    else if (_shared_dimension == 3)
+    {
+        result = "(" + _size._dim3_size + ")";
+    }
+
+    return result;
+}
+
+std::string VariableInfo::get_distributed_mem_block()
+{
+    std::string result = "";
+
+    result += "(";
+    if (_shared_dimension == 1)
+    {
+        result += "(" + _size._dim2_size + ") * (" + _size._dim3_size + ")";
+    }
+    else if (_shared_dimension == 2)
+    {
+        result += "(" + _size._dim1_size + ") * (" + _size._dim3_size + ")";
+    }
+    else if (_shared_dimension == 3)
+    {
+        result += "(" + _size._dim1_size + ") * (" + _size._dim2_size + ")";
+    }
+    result += ")";
+
+    return (result == "()")? "1" : result;
+}
+
 std::string VariableInfo::get_pointer_starts()
 {
     // TODO: check dimension from variable TL::Type

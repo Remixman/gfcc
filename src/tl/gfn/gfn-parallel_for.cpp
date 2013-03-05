@@ -217,11 +217,12 @@ TL::Source ParallelFor::do_parallel_for()
         }
 
         send_loop_size
-            << "_SendInputMsg((void *)&" << var_name << ", sizeof ("
-            << c_type_str << "));";
+            << "_SendInputMsg((void *)&" << var_name
+            << ", sizeof (" << c_type_str << "));";
 
         worker_recv_loop_size
-            << "_RecvInputMsg2((void *)&" << var_name << ");";
+            << "_RecvInputMsg((void *)&" << var_name
+            << ", sizeof (" << c_type_str << "));";
         worker_scatter_loop_size
             << create_mpi_bcast(("&"+var_name), "1", mpi_type_str);
     }
@@ -363,7 +364,8 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_init_gen_var
                     // init sub size
                     << var_sub_size << " = _CalcSubSize("
-                    << var_info.get_mem_size() <<",_gfn_num_proc,_gfn_rank);"
+                    << var_info.get_distributed_mem_size() << ",_gfn_num_proc,_gfn_rank"
+                    << "," << var_info.get_distributed_mem_block() << ");"
 
                     // allocate sub array buffer
                     << var_local_buf_name << " = (" << c_type_str
@@ -375,11 +377,13 @@ TL::Source ParallelFor::do_parallel_for()
                     << local_start_idx_var << " * sizeof(" << c_type_str << "));"
 
                     // init counts
-                    << "_CalcCnts(" << var_info.get_mem_size()
-                    << ",_gfn_num_proc," << var_cnts << ");"
+                    << "_CalcCnts(" << var_info.get_distributed_mem_size()
+                    << ",_gfn_num_proc," << var_cnts
+                    << "," << var_info.get_distributed_mem_block() << ");"
                     // init displacement
-                    << "_CalcDisp(" << var_info.get_mem_size()
-                    << ",_gfn_num_proc," << var_disp << ");";
+                    << "_CalcDisp(" << var_info.get_distributed_mem_size()
+                    << ",_gfn_num_proc," << var_disp
+                    << "," << var_info.get_distributed_mem_block() << ");";
 
                 worker_free_gen_var
                     << "free(" << var_local_buf_name << ");";
@@ -450,7 +454,8 @@ TL::Source ParallelFor::do_parallel_for()
                     << var_buf_name << " = (" << c_type_str
                     <<"*)malloc(" << size_str << ");";
                 worker_recv_input
-                    << "_RecvInputMsg2((void*)" << var_buf_name << ");";
+                    << "_RecvInputMsg((void*)" << var_buf_name << ","
+                    << size_str << ");";
 
                 worker_root_free_gen_var
                     << "free(" << var_buf_name << ");";
@@ -478,8 +483,8 @@ TL::Source ParallelFor::do_parallel_for()
                 }
 
                 worker_recv_input
-                    << "_RecvInputMsg2((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                    << var_name << ");";
+                    << "_RecvInputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                    << var_name << "," << size_str << ");";
 
                 std::string bcast_vname = ((var_info._is_array_or_pointer)? "" : "&") + var_name;
                 worker_scatter_input
@@ -504,11 +509,9 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_root_free_gen_var
                     << "free(" << var_buf_name << ");";
 
-                //recv_output
-                    //<< "_RecvOutputMsg((void*)" << var_name
-                    //<< "," << size_str << ");";
                 recv_output
-                    << "_RecvOutputMsg2((void*)" << var_name << ");";
+                    << "_RecvOutputMsg((void*)" << var_name
+                    << "," << size_str << ");";
 
                 worker_send_output
                     << "_SendOutputMsg((void*)" << var_buf_name
@@ -526,7 +529,8 @@ TL::Source ParallelFor::do_parallel_for()
             else
             {
                 recv_output
-                    << "_RecvOutputMsg2((void*)&" << var_name << ");";
+                    << "_RecvOutputMsg((void*)&" << var_name
+                    << "," << size_str << ");";
 
                 worker_send_output
                     << "_SendOutputMsg((void*)&" << var_name
@@ -601,7 +605,7 @@ TL::Source ParallelFor::do_parallel_for()
 
     /*== ---------------- Create OpenCL kernel ---------------------==*/
     cl_decl_init_work_item_var
-        << "size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank);"
+        << "size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);"
         << "size_t _work_group_item_num = 64;"
         << "size_t _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
         << "cl_int " + local_cl_start_idx_var + " = " << local_start_idx_var << ";"
