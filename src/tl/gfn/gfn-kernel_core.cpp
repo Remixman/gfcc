@@ -38,12 +38,17 @@ int KernelInfo::kernel_count = 0;
 KernelInfo::KernelInfo() : 
     _accurate(ACCURATE_HIGH), _has_reduction_clause(false)
 {
+    // Loop bound
+    _is_const_loop_upper_bound = false;
+    _const_upper_bound = "";
 }
 
 KernelInfo::KernelInfo(std::string &kernel_name) :
     _has_reduction_clause(false)
 {
-  
+    // Loop bound
+    _is_const_loop_upper_bound = false;
+    _const_upper_bound = "";
 }
 
 KernelInfo::~KernelInfo()

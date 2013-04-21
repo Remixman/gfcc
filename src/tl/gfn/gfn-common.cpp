@@ -595,6 +595,17 @@ TL::Source create_cl_finish(std::string cmd_queue, std::string status)
     return result;
 }
 
+TL::Source create_cl_ext_pragma()
+{
+    TL::Source result;
+    result
+        // #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+        /* Enable ??? */
+        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n"
+        /* Enable atom_cmpxchg() */
+        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n";
+    return result;
+}
 
 TL::Source create_cl_help_barrier()
 {
@@ -618,8 +629,6 @@ TL::Source create_cl_help_atomic_add_int()
 
 TL::Source create_cl_help_atomic_add_float()
 {
-    /* TODO: is following line is necessary?
-     * #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable */
     TL::Source result;
     result
         << "float _GfnAtomicAddFloat(__global float* const address, const float value) {\n"
@@ -637,9 +646,6 @@ TL::Source create_cl_help_atomic_add_float()
 
 TL::Source create_cl_help_atomic_add_double()
 {
-    /* TODO: is following line is necessary?
-     * #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-     * #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable */
     TL::Source result;
     result
         << "double _GfnAtomicAddDouble(__global double* const address, const double value) {\n"

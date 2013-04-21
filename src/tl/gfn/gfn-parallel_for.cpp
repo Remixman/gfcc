@@ -372,9 +372,10 @@ TL::Source ParallelFor::do_parallel_for()
                     <<"*)malloc(sizeof(" << c_type_str << ") * "
                     << var_sub_size << ");"
 
-                    // A = ((void*)_local_buffer_A) - (_local_i_start * sizeof(int));
-                    << var_name << " = ((void*)" << var_local_buf_name << ") - ("
-                    << local_start_idx_var << " * sizeof(" << c_type_str << "));"
+                    // A = ((void*)_local_buffer_A) - ((_local_i_start * (1 * 1)) * sizeof(int));
+                    << var_name << " = ((void*)" << var_local_buf_name << ") - (("
+                    << local_start_idx_var << "*" << var_info.get_distributed_mem_block()
+                    << ") * sizeof(" << c_type_str << "));"
 
                     // init counts
                     << "_CalcCnts(" << var_info.get_distributed_mem_size()
@@ -490,11 +491,20 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_scatter_input
                     << create_mpi_bcast(bcast_vname, var_info.get_mem_size(), mpi_type_str);
 
-                // TODO: cl_write_input for shared all thread variable
-                // if constant write to constant
-                cl_write_input
-                    << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
-                           var_cl_name, true, "0", size_str, var_name);
+                if (var_info._is_array_or_pointer)
+                {
+                    // TODO: cl_write_input for shared all thread variable
+                    // if constant write to constant
+                    cl_write_input
+                        << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
+                               var_cl_name, true, "0", size_str, var_name);
+                }
+                else
+                {
+                    // TODO: Pass to kernel parameter
+                    cl_set_kernel_arg
+                        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, var_name);
+                }
             }
         }
 
@@ -641,9 +651,11 @@ TL::Source ParallelFor::do_parallel_for()
         << loop_step_var << ") + " << local_start_idx_var << ";\n";
     // Kernel helper function
     cl_kernel
+        << create_cl_ext_pragma()
         << create_cl_help_barrier() // TODO: insert if use
         << create_cl_help_atomic_add_int() // TODO: insert if use
-        << create_cl_help_atomic_add_float(); // TODO: insert if use
+        << create_cl_help_atomic_add_float() // TODO: insert if use
+        << create_cl_help_atomic_add_double(); // TODO: insert if use
 
     // Kernel reduction implement
     TL::Source cl_kernel_reduction;
@@ -1123,6 +1135,15 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
     {
         // Traverse child nodes
         replace_parallel_loop_body(expr.get_casted_expression(), replace_types);
+    }
+    else if (expr.is_constant())
+    {
+        // TODO: insert replace expression that want
+    }
+    else if (expr.is_literal())
+    {
+        // 0.5 4.0 is literal
+        // TODO: insert replace expression that want
     }
     else
     {

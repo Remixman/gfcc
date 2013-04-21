@@ -872,7 +872,12 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     }
     else if (expr.is_constant())
     {
-
+        // TODO: insert replace expression that want
+    }
+    else if (expr.is_literal())
+    {
+        // 0.5 4.0 is literal
+        // TODO: insert replace expression that want
     }
     else
     {
@@ -894,10 +899,11 @@ void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
     int idx_idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
     kernel_info->_var_info[idx_idx]._is_index = true;
 
-    if (upper_bound_expr.is_constant())
+    //if (upper_bound_expr.is_constant())
     {
         kernel_info->_is_const_loop_upper_bound = true;
         kernel_info->_const_upper_bound = (std::string)upper_bound_expr;
+        std::cout << "Upper bound expr : " << (std::string)upper_bound_expr << std::endl;
     }
 }
 
