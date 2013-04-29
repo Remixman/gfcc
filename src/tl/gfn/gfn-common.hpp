@@ -257,6 +257,7 @@ TL::Source create_cl_set_kernel_arg(std::string kernel,
                                     std::string buffer);
 TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
+TL::Source create_cl_ext_pragma();
 
 
 TL::Source create_cl_help_barrier();
