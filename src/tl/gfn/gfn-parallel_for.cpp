@@ -198,6 +198,9 @@ TL::Source ParallelFor::do_parallel_for()
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     Statement loop_body = _for_stmt.get_loop_body();
+	
+	std::string induction_var_name = (std::string)induction_var;
+	std::string new_induction_var_name = GFN_PREFIX_NEW_LOOP_INDEX + induction_var_name;
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
@@ -228,18 +231,19 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
-    std::string local_idx_var = "_local_" + induction_var.prettyprint();
-    std::string local_start_idx_var = "_local_" + induction_var.prettyprint() + "_start";
-    std::string local_end_idx_var = "_local_" + induction_var.prettyprint() + "_end";
+    std::string local_idx_var = "_local_" + induction_var_name;
+    std::string local_start_idx_var = "_local_" + induction_var_name + "_start";
+    std::string local_end_idx_var = "_local_" + induction_var_name + "_end";
     std::string loop_step_var = "_loop_step";
-    std::string local_cl_start_idx_var = "_local_cl_" + induction_var.prettyprint() + "_start";
-    std::string local_cl_end_idx_var = "_local_cl_" + induction_var.prettyprint() + "_end";
+    std::string local_cl_start_idx_var = "_local_cl_" + induction_var_name + "_start";
+    std::string local_cl_end_idx_var = "_local_cl_" + induction_var_name + "_end";
     std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
     worker_gen_var_decl
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
         << "int " << loop_step_var << ";"
-        << "int " << loop_size_var << ";";
+        << "int " << loop_size_var << ";"
+		<< "int " << new_induction_var_name << " = 0;";
     worker_init_gen_var
         << local_start_idx_var << " = _CalcLocalStartIndex("
         << lower_bound.prettyprint() << ","
@@ -286,7 +290,6 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_sub_size = "_sub_size_" + var_name;
         std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
         std::string var_cl_name = "_cl_mem_" + var_name;
-        std::string var_local_buf_name = "_local_buffer_" + var_name;
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
         std::string ptr_stars = var_info.get_pointer_starts();
 
@@ -352,7 +355,6 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 worker_gen_var_decl
                     // ipc recv buffer variable
-                    << c_type_str << " * " << var_local_buf_name << ";"
                     << c_type_str << " * " << var_buf_name << ";"
                     // sub size of variable
                     << "int " << var_sub_size << ";"
@@ -367,15 +369,10 @@ TL::Source ParallelFor::do_parallel_for()
                     << var_info.get_distributed_mem_size() << ",_gfn_num_proc,_gfn_rank"
                     << "," << var_info.get_distributed_mem_block() << ");"
 
-                    // allocate sub array buffer
-                    << var_local_buf_name << " = (" << c_type_str
+                    // allocate sub array
+                    << var_name << " = (" << c_type_str
                     <<"*)malloc(sizeof(" << c_type_str << ") * "
                     << var_sub_size << ");"
-
-                    // A = ((void*)_local_buffer_A) - ((_local_i_start * (1 * 1)) * sizeof(int));
-                    << var_name << " = ((void*)" << var_local_buf_name << ") - (("
-                    << local_start_idx_var << "*" << var_info.get_distributed_mem_block()
-                    << ") * sizeof(" << c_type_str << "));"
 
                     // init counts
                     << "_CalcCnts(" << var_info.get_distributed_mem_size()
@@ -387,7 +384,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << "," << var_info.get_distributed_mem_block() << ");";
 
                 worker_free_gen_var
-                    << "free(" << var_local_buf_name << ");";
+                    << "free(" << var_name << ");";
             }
 
             // About OpenCL parameter code
@@ -411,7 +408,7 @@ TL::Source ParallelFor::do_parallel_for()
                 cl_actual_param
                     << "__global " << ((!var_info._is_output)? "const " : "")
                     << c_type_str << " * "
-                    << ((var_info._shared_dimension != 0) ? var_local_buf_name : var_name);
+                    << var_name;
                 cl_actual_params.append_with_separator(cl_actual_param, ",");
 
                 TL::Source actual_param;
@@ -420,17 +417,6 @@ TL::Source ParallelFor::do_parallel_for()
                 formal_param << GFN_DEVICE_PREFIX << var_name;
                 kernel_actual_param.append_with_separator(actual_param, ",");
                 kernel_formal_param.append_with_separator(formal_param, ",");
-
-                /* Map between real buffer and pointer variable
-                 *(because we don't want to rename variable in loop)
-                 */
-                if (var_info._is_array_or_pointer && var_info._shared_dimension != 0)
-                {
-                    cl_kernel_var_decl
-                        << c_type_str << " * " << var_name << " = "
-                        << "((void *)" << var_local_buf_name
-                        << ") - (_local_i_start * sizeof(" << c_type_str << "));\n";
-                }
             }
             else
             {
@@ -463,12 +449,12 @@ TL::Source ParallelFor::do_parallel_for()
 
                 worker_scatter_input
                     << create_mpi_scatterv(var_buf_name, var_cnts, var_disp,
-                                           mpi_type_str, var_local_buf_name,
+                                           mpi_type_str, var_name,
                                            var_sub_size, mpi_type_str);
 
                 cl_write_input
                     << create_cl_enqueue_write_buffer("_gfn_cmd_queue",
-                           var_cl_name, true, "0", full_expr_sub_size, var_local_buf_name);
+                           var_cl_name, true, "0", full_expr_sub_size, var_name);
             }
             else
             {
@@ -528,13 +514,13 @@ TL::Source ParallelFor::do_parallel_for()
                     << "," << size_str << ");";
 
                 worker_gather_output
-                    << create_mpi_gatherv(var_local_buf_name, var_sub_size, mpi_type_str,
+                    << create_mpi_gatherv(var_name, var_sub_size, mpi_type_str,
                                           var_buf_name, var_cnts, var_disp,
                                           mpi_type_str);
 
                 cl_read_output
                     << create_cl_enqueue_read_buffer("_gfn_cmd_queue",
-                           var_cl_name, true, "0", full_expr_sub_size, var_local_buf_name);
+                           var_cl_name, true, "0", full_expr_sub_size, var_name);
             }
             else
             {
@@ -578,11 +564,11 @@ TL::Source ParallelFor::do_parallel_for()
                 << var_cl_local_mem_name << "[get_local_id(0)+_stride];\n";
 
             cl_kernel_reduce_global_init
-                << "*" << var_local_buf_name << " = "
+                << "*" << var_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";\n";
 
             cl_kernel_reduce_global_reduce
-                << create_cl_help_atomic_call(var_local_buf_name, var_cl_local_mem_name,
+                << create_cl_help_atomic_call(var_name, var_cl_local_mem_name,
                                               var_info._reduction_type, type);
 
             cl_set_kernel_arg
@@ -603,7 +589,8 @@ TL::Source ParallelFor::do_parallel_for()
     /*== --------------- Replace code in loop body -----------------==*/
     std::vector<bool> replace_types(GFN_REPLACE_LAST_TYPE, false);
     replace_types[GFN_REPLACE_ARRAY_ND] = true;
-    replace_parallel_loop_body(loop_body, replace_types);
+	replace_types[GFN_REPLACE_ARRAY_INDEX] = true;
+    replace_parallel_loop_body(loop_body, replace_types, induction_var_name, new_induction_var_name);
 
     /*== ----- Create MPI block distribution for statement ---------==*/
     std::cout << "Create MPI Block\n";
@@ -611,7 +598,8 @@ TL::Source ParallelFor::do_parallel_for()
         << "for(" << induction_var.prettyprint() << " = "
         << local_start_idx_var << ";" << induction_var.prettyprint()
         << ((is_incre_loop)? "<" : ">") << local_end_idx_var << ";"
-        << _for_stmt.get_iterating_expression() << ")" << loop_body;
+        << _for_stmt.get_iterating_expression() << ", "
+        << new_induction_var_name << "+=_loop_step)" << loop_body;
 
     /*== ---------------- Create OpenCL kernel ---------------------==*/
     cl_decl_init_work_item_var
@@ -647,8 +635,10 @@ TL::Source ParallelFor::do_parallel_for()
             << ") / " << loop_step_var << ";\n"
         //<< "int _thread_id_dim_1 = get_global_id(1);"
         //<< "int _thread_id_dim_2 = get_global_id(2);"
-        << "int " << induction_var << " = (get_global_id(0) * "
-        << loop_step_var << ") + " << local_start_idx_var << ";\n";
+		<< "int " << new_induction_var_name << " = "
+		<< "get_global_id(0) * " << loop_step_var << ";\n"
+        << "int " << induction_var << " = " << new_induction_var_name 
+        <<" + " << local_start_idx_var << ";\n";
     // Kernel helper function
     cl_kernel
         << create_cl_ext_pragma()
@@ -973,7 +963,9 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
 
 // Replace function
 void ParallelFor::replace_parallel_loop_body(Statement stmt,
-                                             std::vector<bool> &replace_types)
+                                             std::vector<bool> &replace_types,
+											 std::string old_idx_name,
+											 std::string new_idx_name)
 {
     if (stmt.is_declaration())
     {
@@ -983,7 +975,7 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
     {
         TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: init, cond, incre ?
-        replace_parallel_loop_body(for_stmt.get_loop_body(), replace_types);
+        replace_parallel_loop_body(for_stmt.get_loop_body(), replace_types, old_idx_name, new_idx_name);
     }/*
     else if (IfStatement::predicate(stmt.get_ast()))
     {
@@ -996,12 +988,12 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
              it != statements.end();
              ++it)
         {
-            replace_parallel_loop_body(*it, replace_types);
+            replace_parallel_loop_body(*it, replace_types, old_idx_name, new_idx_name);
         }
     }
     else if (stmt.is_expression())
     {
-        replace_parallel_loop_body(stmt.get_expression(), replace_types);
+        replace_parallel_loop_body(stmt.get_expression(), replace_types, old_idx_name, new_idx_name);
     }
     else
     {
@@ -1011,7 +1003,9 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
 }
 
 void ParallelFor::replace_parallel_loop_body(Expression expr,
-                                             std::vector<bool> &replace_types)
+                                             std::vector<bool> &replace_types,
+											 std::string old_idx_name,
+											 std::string new_idx_name)
 {
     if (expr.is_id_expression())
     {
@@ -1032,7 +1026,12 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             while (!tmp_expr.is_id_expression())
             {
                 subscript_count++;
-                subscript_list.push_back( (std::string)tmp_expr.get_subscript_expression() );
+				Expression subscript_expr = tmp_expr.get_subscript_expression();
+				if (replace_types[GFN_REPLACE_ARRAY_INDEX] == true)
+				{
+					replace_loop_index_name(subscript_expr, old_idx_name, new_idx_name);
+				}
+                subscript_list.push_back( (std::string)subscript_expr );
                 tmp_expr = tmp_expr.get_subscripted_expression();
             }
 
@@ -1070,7 +1069,7 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
                         expr.get_ast(), expr.get_scope_link());
             expr.get_ast().replace(new_array_expr_tree);
         }
-
+        
         // Traverse child nodes
         //replace_parallel_loop_body(expr.get_subscript_expression(), replace_types);
         //replace_parallel_loop_body(expr.get_subscripted_expression(), replace_types);
@@ -1078,25 +1077,25 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
     else if (expr.is_member_access() || expr.is_pointer_member_access())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_accessed_entity(), replace_types);
+        replace_parallel_loop_body(expr.get_accessed_entity(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_assignment())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
-        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_operation_assignment())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
-        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_binary_operation())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_first_operand(), replace_types);
-        replace_parallel_loop_body(expr.get_second_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_first_operand(), replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(expr.get_second_operand(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_unary_operation())
     {
@@ -1117,14 +1116,14 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
         }
 
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_unary_operand(), replace_types);
+        replace_parallel_loop_body(expr.get_unary_operand(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_conditional())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_condition_expression(), replace_types);
-        replace_parallel_loop_body(expr.get_true_expression(), replace_types);
-        replace_parallel_loop_body(expr.get_false_expression(), replace_types);
+        replace_parallel_loop_body(expr.get_condition_expression(), replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(expr.get_true_expression(), replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(expr.get_false_expression(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_function_call())
     {
@@ -1134,7 +1133,7 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
     else if (expr.is_casting())
     {
         // Traverse child nodes
-        replace_parallel_loop_body(expr.get_casted_expression(), replace_types);
+        replace_parallel_loop_body(expr.get_casted_expression(), replace_types, old_idx_name, new_idx_name);
     }
     else if (expr.is_constant())
     {
@@ -1152,6 +1151,68 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
     }
 }
 
+void ParallelFor::replace_loop_index_name(Expression expr, 
+										  std::string old_name, 
+										  std::string new_name)
+{
+	if (expr.is_id_expression())
+    {
+		std::string var_name = expr.get_id_expression().get_symbol().get_name();
+		if (var_name == old_name)
+		{
+			TL::Source new_name_expr;
+            new_name_expr << new_name;
+
+            std::cout << "REPLACE {" << (std::string)var_name << "} with {" << (std::string)new_name_expr << "}\n";
+
+            // Replace
+            AST_t new_name_expr_tree = new_name_expr.parse_expression(
+                        expr.get_ast(), expr.get_scope_link());
+            expr.get_ast().replace(new_name_expr_tree);
+		}
+    }
+    else if (expr.is_array_subscript())
+    {
+        // TODO: SHOW ERROR : regular application ???
+
+        // Traverse child nodes
+        //replace_loop_index_name(expr.get_subscript_expression(), old_name, new_name);
+        //replace_loop_index_name(expr.get_subscripted_expression(), old_name, new_name);
+    }
+    else if (expr.is_member_access() || expr.is_pointer_member_access())
+    {
+        // Traverse child nodes
+        // TODO: ???
+        //replace_loop_index_name(expr.get_accessed_entity(), old_name, new_name);
+    }
+    else if (expr.is_assignment())
+    {
+        // TODO: SHOW ERROR
+    }
+    else if (expr.is_operation_assignment())
+    {
+        // TODO: SHOW ERROR
+    }
+    else if (expr.is_binary_operation())
+    {
+        // Traverse child nodes
+        replace_loop_index_name(expr.get_first_operand(), old_name, new_name);
+        replace_loop_index_name(expr.get_second_operand(), old_name, new_name);
+    }
+    else if (expr.is_unary_operation())
+    {
+        // Traverse child nodes
+        replace_loop_index_name(expr.get_unary_operand(), old_name, new_name);
+    }
+    else if (expr.is_conditional())
+    {
+        // TODO: SHOW ERROR
+    }
+    else
+    {
+        // TODO:
+    }
+}
 
 TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
                                                   TL::Expression loop_increment,

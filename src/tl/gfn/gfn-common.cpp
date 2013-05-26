@@ -597,13 +597,14 @@ TL::Source create_cl_finish(std::string cmd_queue, std::string status)
 
 TL::Source create_cl_ext_pragma()
 {
+	// XXX: '\n' always must be insert
     TL::Source result;
     result
         // #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
         /* Enable ??? */
-        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n"
+        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n\n"
         /* Enable atom_cmpxchg() */
-        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n";
+        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\\n\n";
     return result;
 }
 

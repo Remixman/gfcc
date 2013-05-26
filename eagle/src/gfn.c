@@ -29,12 +29,26 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 			_gfn_rank, phase_name);
 
 		switch(status) {
+		// program is not a valid program object
+		case CL_INVALID_PROGRAM:
+		    fprintf(stderr, "Error : CL_INVALID_PROGRAM\n"); break;
+		// there is a failure to build the program executable
+		case CL_BUILD_PROGRAM_FAILURE:
+		    fprintf(stderr, "Error : CL_BUILD_PROGRAM_FAILURE\n"); break;
 		case CL_INVALID_PROGRAM_EXECUTABLE:
 			fprintf(stderr, "Error : CL_INVALID_PROGRAM_EXECUTABLE\n"); break;
+		case CL_INVALID_BINARY:
+		    fprintf(stderr, "Error : CL_INVALID_BINARY\n"); break;
+		case CL_INVALID_BUILD_OPTIONS:
+		    fprintf(stderr, "Error : CL_INVALID_BUILD_OPTIONS\n"); break;
 		case CL_INVALID_COMMAND_QUEUE:
 			fprintf(stderr, "Error : CL_INVALID_COMMAND_QUEUE\n"); break;
 		case CL_INVALID_KERNEL:
 			fprintf(stderr, "Error : CL_INVALID_KERNEL\n"); break;
+		case CL_INVALID_KERNEL_NAME:
+		    fprintf(stderr, "Error : CL_INVALID_KERNEL_NAME\n"); break;
+		case CL_INVALID_KERNEL_DEFINITION:
+		    fprintf(stderr, "Error : CL_INVALID_KERNEL_DEFINITION\n"); break;
 		case CL_INVALID_CONTEXT:
 			fprintf(stderr, "Error : CL_INVALID_CONTEXT\n"); break;
 		case CL_INVALID_KERNEL_ARGS:
@@ -51,6 +65,10 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 			fprintf(stderr, "Error : CL_INVALID_MEM_OBJECT\n"); break;
 		case CL_INVALID_VALUE:
 			fprintf(stderr, "Error : CL_INVALID_VALUE\n"); break;
+		case CL_INVALID_DEVICE:
+		    fprintf(stderr, "Error : CL_INVALID_DEVICE\n"); break;
+		case CL_INVALID_OPERATION:
+		    fprintf(stderr, "Error : CL_INVALID_OPERATION\n"); break;
 		case CL_OUT_OF_RESOURCES:
 			fprintf(stderr, "Error : CL_OUT_OF_RESOURCES\n"); break;
 		case CL_MEM_OBJECT_ALLOCATION_FAILURE:
@@ -59,6 +77,10 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 			fprintf(stderr, "Error : CL_INVALID_EVENT_WAIT_LIST\n"); break;
 		case CL_OUT_OF_HOST_MEMORY:
 			fprintf(stderr, "Error : CL_OUT_OF_HOST_MEMORY\n"); break;
+		case CL_COMPILER_NOT_AVAILABLE:
+		    fprintf(stderr, "Error : CL_COMPILER_NOT_AVAILABLE\n"); break;
+		default:
+		    fprintf(stderr, "Error : CL unknown error value = %d\n", status); break;
 		}
 	}
 }
@@ -228,7 +250,11 @@ cl_kernel _CreateKernelFromSource(const char *name, const char *src,
                                    param_value_size,
                                    param_value,
                                    &param_value_size_ret);
-    printf("Message from kerel compiler : \n%s\n", param_value);
+
+    // TODO: why length 2 for success build
+    if (param_value_size_ret != 2) {
+        printf("Message from kernel compiler : \n%s\n", param_value);
+    }
 
     kernel = clCreateKernel(program, name, &status);
     _GfnCheckCLStatus(status, "CREATE KERNEL");

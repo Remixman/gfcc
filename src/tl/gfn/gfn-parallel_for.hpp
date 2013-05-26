@@ -73,9 +73,16 @@ namespace TL
 
                 void extract_define_device_function(AST_t gpu_function);
                 void replace_parallel_loop_body(Statement stmt,
-                                                std::vector<bool> &replace_types);
+                                                std::vector<bool> &replace_types,
+												std::string old_idx_name="", 
+												std::string new_idx_name="");
                 void replace_parallel_loop_body(Expression expr,
-                                                std::vector<bool> &replace_types);
+                                                std::vector<bool> &replace_types,
+												std::string old_idx_name="", 
+												std::string new_idx_name="");
+				
+				void replace_loop_index_name(Expression expr, 
+											 std::string old_name, std::string new_name);
                 
                 Source do_loop_index_declaration(Symbol loop_index,
                                                  Expression loop_increment,
