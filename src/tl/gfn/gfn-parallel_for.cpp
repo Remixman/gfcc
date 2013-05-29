@@ -200,7 +200,7 @@ TL::Source ParallelFor::do_parallel_for()
     Statement loop_body = _for_stmt.get_loop_body();
 	
 	std::string induction_var_name = (std::string)induction_var;
-	std::string new_induction_var_name = GFN_PREFIX_NEW_LOOP_INDEX + induction_var_name;
+	std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
@@ -231,9 +231,9 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
-    std::string local_idx_var = "_local_" + induction_var_name;
-    std::string local_start_idx_var = "_local_" + induction_var_name + "_start";
-    std::string local_end_idx_var = "_local_" + induction_var_name + "_end";
+    std::string local_idx_var = GFN_PREFIX_LOCAL + induction_var_name;
+    std::string local_start_idx_var = GFN_PREFIX_LOCAL + induction_var_name + "_start";
+    std::string local_end_idx_var = GFN_PREFIX_LOCAL + induction_var_name + "_end";
     std::string loop_step_var = "_loop_step";
     std::string local_cl_start_idx_var = "_local_cl_" + induction_var_name + "_start";
     std::string local_cl_end_idx_var = "_local_cl_" + induction_var_name + "_end";
@@ -290,6 +290,8 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_sub_size = "_sub_size_" + var_name;
         std::string var_buf_name = "_buffer_" + var_name;// for array or pointer
         std::string var_cl_name = "_cl_mem_" + var_name;
+		std::string var_cl_global_reduction = "_global_reduction_" + var_name;
+		std::string var_local_name = GFN_PREFIX_LOCAL + var_name;
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
         std::string ptr_stars = var_info.get_pointer_starts();
 
@@ -331,7 +333,7 @@ TL::Source ParallelFor::do_parallel_for()
         else if (var_info._is_reduction)
         {
             worker_var_decl
-                << c_type_str << " " << var_name << " = "
+                << c_type_str << " " << var_local_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";";
         }
         else
@@ -404,12 +406,20 @@ TL::Source ParallelFor::do_parallel_for()
                 cl_set_kernel_arg
                     << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_mem", var_cl_name);
 
-                TL::Source cl_actual_param;
-                cl_actual_param
-                    << "__global " << ((!var_info._is_output)? "const " : "")
-                    << c_type_str << " * "
-                    << var_name;
-                cl_actual_params.append_with_separator(cl_actual_param, ",");
+				TL::Source cl_actual_param;
+				if (var_info._is_reduction)
+				{
+					cl_actual_param
+						<< "__global " << c_type_str << " * "
+						<< var_cl_global_reduction;
+				}
+				else
+				{
+					cl_actual_param
+						<< "__global " << ((!var_info._is_output)? "const " : "")
+						<< c_type_str << " * " << var_name;
+				}
+				cl_actual_params.append_with_separator(cl_actual_param, ",");
 
                 TL::Source actual_param;
                 actual_param << c_type_str << " * " << var_name;
@@ -539,7 +549,7 @@ TL::Source ParallelFor::do_parallel_for()
             std::string local_reduce_var_name = "_local_" + var_name;
             worker_gen_var_decl
                 // TODO: initialize value
-                << c_type_str << " " << local_reduce_var_name << " = "
+                << c_type_str << " " << var_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";";
 
             worker_gather_output
@@ -564,11 +574,11 @@ TL::Source ParallelFor::do_parallel_for()
                 << var_cl_local_mem_name << "[get_local_id(0)+_stride];\n";
 
             cl_kernel_reduce_global_init
-                << "*" << var_name << " = "
+                << "*" << var_cl_global_reduction << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";\n";
 
             cl_kernel_reduce_global_reduce
-                << create_cl_help_atomic_call(var_name, var_cl_local_mem_name,
+                << create_cl_help_atomic_call(var_cl_global_reduction, var_cl_local_mem_name,
                                               var_info._reduction_type, type);
 
             cl_set_kernel_arg

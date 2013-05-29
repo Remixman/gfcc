@@ -63,7 +63,7 @@
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
 
-#define GFN_PREFIX_NEW_LOOP_INDEX   "_local_"
+#define GFN_PREFIX_LOCAL   "_local_"
 
 enum VAR_ACCESS_T
 {

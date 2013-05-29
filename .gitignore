@@ -27,6 +27,5 @@ config.h.in~
 *.la
 *.a
 *.so
-Makefile
 .deps/
 .libs/

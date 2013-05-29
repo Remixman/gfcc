@@ -560,7 +560,7 @@ TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
     std::string size_str, offset_str, phase_name;
     if (buffer == "0")
     {
-        size_str = "_work_group_item_num";
+        size_str = "sizeof(" + type + ") * _work_group_item_num";
         offset_str = "0";
         phase_name = "SET KERNEL ARG (LOCAL SIZE)";
     }
