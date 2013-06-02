@@ -341,7 +341,8 @@ TL::Source ParallelFor::do_parallel_for()
             worker_var_decl
                 << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
 
-            if (!var_info._is_index)
+            if (!var_info._is_index && 
+				!var_info._is_input /* Scalar input is function parameters, not need to declare again */)
             {
                 cl_kernel_var_decl
                     << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";\n";
@@ -559,23 +560,23 @@ TL::Source ParallelFor::do_parallel_for()
 
             cl_kernel_var_decl
                 << c_type_str << " " << var_name << " = "
-                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+                << reduction_op_init_value(var_info._reduction_type) << ";" << CL_EOL;
 
             cl_kernel_reduce_init_if
                 << var_cl_local_mem_name << "[get_local_id(0)] = "
-                << var_name << ";\n";
+                << var_name << ";" << CL_EOL;
 
             cl_kernel_reduce_init_else
                 << var_cl_local_mem_name << "[get_local_id(0)] = "
-                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+                << reduction_op_init_value(var_info._reduction_type) << ";" << CL_EOL;
 
             cl_kernel_reduce_local_reduce
                 << var_cl_local_mem_name << "[get_local_id(0)] += "
-                << var_cl_local_mem_name << "[get_local_id(0)+_stride];\n";
+                << var_cl_local_mem_name << "[get_local_id(0)+_stride];" << CL_EOL;
 
             cl_kernel_reduce_global_init
                 << "*" << var_cl_global_reduction << " = "
-                << reduction_op_init_value(var_info._reduction_type) << ";\n";
+                << reduction_op_init_value(var_info._reduction_type) << ";" << CL_EOL;
 
             cl_kernel_reduce_global_reduce
                 << create_cl_help_atomic_call(var_cl_global_reduction, var_cl_local_mem_name,
@@ -642,13 +643,13 @@ TL::Source ParallelFor::do_parallel_for()
     cl_kernel_var_decl
         << "int " << loop_size_var << " = ("
             << local_end_idx_var << " - " << local_start_idx_var
-            << ") / " << loop_step_var << ";\n"
+            << ") / " << loop_step_var << ";" << CL_EOL
         //<< "int _thread_id_dim_1 = get_global_id(1);"
         //<< "int _thread_id_dim_2 = get_global_id(2);"
 		<< "int " << new_induction_var_name << " = "
-		<< "get_global_id(0) * " << loop_step_var << ";\n"
+		<< "get_global_id(0) * " << loop_step_var << ";" << CL_EOL
         << "int " << induction_var << " = " << new_induction_var_name 
-        <<" + " << local_start_idx_var << ";\n";
+        <<" + " << local_start_idx_var << ";" << CL_EOL;
     // Kernel helper function
     cl_kernel
         << create_cl_ext_pragma()
@@ -663,39 +664,40 @@ TL::Source ParallelFor::do_parallel_for()
     {
         cl_kernel_reduction
             // [Reduction Step] -
-            << "if (get_global_id(0) < " << loop_size_var << ") {\n"
+            << "if (get_global_id(0) < " << loop_size_var << ") {" << CL_EOL
             << cl_kernel_reduce_init_if
-            << "} else {\n"
+            << "} else {" << CL_EOL
             << cl_kernel_reduce_init_else
-            << "}\n"
+            << "}" << CL_EOL
             // [Reduction Step] -
-            << "for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n"
-            << "barrier(CLK_LOCAL_MEM_FENCE);\n"
-            << "if (get_local_id(0) < _stride) {\n"
+            << "for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {" << CL_EOL
+            << "barrier(CLK_LOCAL_MEM_FENCE);" << CL_EOL
+            << "if (get_local_id(0) < _stride) {" << CL_EOL
             << cl_kernel_reduce_local_reduce
-            << "}\n"
-            << "}\n"
+            << "}" << CL_EOL
+            << "}" << CL_EOL
             // [Reduction Step] - Initialize global sum
-            << "if (get_global_id(0) == 0) {\n"
+            << "if (get_global_id(0) == 0) {" << CL_EOL
             << cl_kernel_reduce_global_init
-            << "}\nbarrier(CLK_GLOBAL_MEM_FENCE);\n"
+            << "}" << CL_EOL 
+            << "barrier(CLK_GLOBAL_MEM_FENCE);" << CL_EOL
             // [Reduction Step] - Set subsum of local memory to global memory
-            << "if (get_local_id(0) == 0) {\n"
+            << "if (get_local_id(0) == 0) {" << CL_EOL
             << cl_kernel_reduce_global_reduce
-            << "}\n";
+            << "}" << CL_EOL;
     }
 
     // Kernel main funcion
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
-        << "(" << cl_actual_params << ") {" << "\n"
+        << "(" << cl_actual_params << ") {" << CL_EOL
         << cl_kernel_var_decl
             << "if (" << induction_var << " <= "
-            << ((_kernel_info->_is_const_loop_upper_bound)? _kernel_info->_const_upper_bound : "ERRORVAR" ) << ") {\n"
-                << loop_body << "\n"
-            << "}\n"
+            << ((_kernel_info->_is_const_loop_upper_bound)? _kernel_info->_const_upper_bound : "ERRORVAR" ) << ") {" << CL_EOL
+                << loop_body << CL_EOL
+            << "}" << CL_EOL
         << cl_kernel_reduction
-        << "}";
+        << "}" << CL_EOL;
 
     cl_kernel_src_str
         << show_cl_source_in_comment(cl_kernel)

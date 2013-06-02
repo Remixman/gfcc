@@ -65,6 +65,8 @@
 
 #define GFN_PREFIX_LOCAL   "_local_"
 
+#define CL_EOL "\\n\n"
+
 enum VAR_ACCESS_T
 {
     VAR_ACCESS_SHARED,

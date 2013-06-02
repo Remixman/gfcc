@@ -602,9 +602,9 @@ TL::Source create_cl_ext_pragma()
     result
         // #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
         /* Enable ??? */
-        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n\n"
+        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable" << CL_EOL
         /* Enable atom_cmpxchg() */
-        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\\n\n";
+        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable" << CL_EOL;
     return result;
 }
 
@@ -612,9 +612,9 @@ TL::Source create_cl_help_barrier()
 {
     TL::Source result;
     result
-        << "void _GfnBarrier() {\n"
-        << "    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n"
-        << "}\n\n";
+        << "void _GfnBarrier() {" << CL_EOL
+        << "    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);" << CL_EOL
+        << "}" << CL_EOL;
     return result;
 }
 
@@ -622,9 +622,9 @@ TL::Source create_cl_help_atomic_add_int()
 {
     TL::Source result;
     result
-        << "int _GfnAtomicAddInt(__global int* const address, const int value) {\n"
-        << "    return atomic_add(address, value);\n"
-        << "}\n\n";
+        << "int _GfnAtomicAddInt(__global int* const address, const int value) {" << CL_EOL
+        << "    return atomic_add(address, value);" << CL_EOL
+        << "}" << CL_EOL;
     return result;
 }
 
@@ -632,16 +632,16 @@ TL::Source create_cl_help_atomic_add_float()
 {
     TL::Source result;
     result
-        << "float _GfnAtomicAddFloat(__global float* const address, const float value) {\n"
-        << "    uint oldval, newval, readback;\n"
-        << "    *(float*)&oldval = *address;\n"
-        << "    *(float*)&newval = (*(float*)&oldval + value);\n"
-        << "    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n"
-        << "        oldval = readback;\n"
-        << "        *(float*)&newval = (*(float*)&oldval + value);\n"
-        << "    }\n"
-        << "    return *(float*)&oldval;\n"
-        << "}\n\n";
+        << "float _GfnAtomicAddFloat(__global float* const address, const float value) {" << CL_EOL
+        << "    uint oldval, newval, readback;" << CL_EOL
+        << "    *(float*)&oldval = *address;" << CL_EOL
+        << "    *(float*)&newval = (*(float*)&oldval + value);" << CL_EOL
+        << "    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {" << CL_EOL
+        << "        oldval = readback;" << CL_EOL
+        << "        *(float*)&newval = (*(float*)&oldval + value);" << CL_EOL
+        << "    }" << CL_EOL
+        << "    return *(float*)&oldval;" << CL_EOL
+        << "}" << CL_EOL;
     return result;
 }
 
@@ -649,16 +649,16 @@ TL::Source create_cl_help_atomic_add_double()
 {
     TL::Source result;
     result
-        << "double _GfnAtomicAddDouble(__global double* const address, const double value) {\n"
-        << "    long oldval, newval, readback;\n"
-        << "    *(double*)&oldval = *address;\n"
-        << "    *(double*)&newval = (*(double*)&oldval + value);\n"
-        << "    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n"
-        << "        oldval = readback;\n"
-        << "        *(double*)&newval = (*(double*)&oldval + value);\n"
-        << "    }\n"
-        << "    return *(double*)&oldval;\n"
-        << "}\n\n";
+        << "double _GfnAtomicAddDouble(__global double* const address, const double value) {" << CL_EOL
+        << "    long oldval, newval, readback;" << CL_EOL
+        << "    *(double*)&oldval = *address;" << CL_EOL
+        << "    *(double*)&newval = (*(double*)&oldval + value);" << CL_EOL
+        << "    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {" << CL_EOL
+        << "        oldval = readback;" << CL_EOL
+        << "        *(double*)&newval = (*(double*)&oldval + value);" << CL_EOL
+        << "    }" << CL_EOL
+        << "    return *(double*)&oldval;" << CL_EOL
+        << "}" << CL_EOL;
     return result;
 }
 
