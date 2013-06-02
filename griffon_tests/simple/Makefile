@@ -1,13 +1,12 @@
+GFN_INCLUDE_PATH = ../../eagle/include
+GFN_LIB_PATH = ../../eagle/lib
+
 # maeka config
-#GFN_INCLUDE_PATH = /san01/home/pisit_m/griffon/eagle/include
-#GFN_LIB_PATH = /san01/home/pisit_m/griffon/eagle/lib
 #MPI_PATH = /opt/openmpi/include/
 #CL_INC_PATH = /san01/home/pisit_m/OpenCL/common/inc
 #CL_LIB_PATH = /san01/home/pisit_m/OpenCL/common/lib
 
 # yggdrasil config
-GFN_INCLUDE_PATH = ../../eagle/include
-GFN_LIB_PATH = ../../eagle/lib
 MPI_PATH = /usr/lib/openmpi/include
 CL_INC_PATH = /usr/include
 CL_LIB_PATH = 
@@ -33,4 +32,4 @@ worker:
 	
 	
 clean:
-	@rm -rf simple_worker.o simple worker a.out
+	@rm -rf simple worker a.out

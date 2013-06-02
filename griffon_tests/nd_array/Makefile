@@ -1,6 +1,21 @@
-CFLAGS = -I/home/remixman/Desktop/griffon_runtime_library/ipc/ -I/usr/include \
- -I/usr/lib/openmpi/include -I/home/remixman/Desktop/griffon_runtime_library \
- /home/remixman/Desktop/griffon_runtime_library/ipc/myipc.o
+GFN_INCLUDE_PATH = ../../eagle/include
+GFN_LIB_PATH = ../../eagle/lib
+
+# maeka config
+#MPI_PATH = /opt/openmpi/include/
+#CL_INC_PATH = /san01/home/pisit_m/OpenCL/common/inc
+#CL_LIB_PATH = /san01/home/pisit_m/OpenCL/common/lib
+
+# yggdrasil config
+MPI_PATH = /usr/lib/openmpi/include
+CL_INC_PATH = /usr/include
+CL_LIB_PATH = 
+
+
+CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
+-I$(GFN_INCLUDE_PATH) $(GFN_LIB_PATH)/gfn.o
+
+all: worker master
 
 #--pass-through    Disables preprocessing
 trans:
@@ -9,16 +24,12 @@ trans:
 
 test: worker master
 
-gfnlib:
-	mpicc -c $(CFLAGS) -o gfn.o /home/remixman/Desktop/griffon_runtime_library/gfn.c -lrt -lOpenCL  
-
-master: gfnlib
-	gcc -o nd_array $(CFLAGS) plaincc_nd_array.c -lrt
+master:
+	mpicc -o nd_array $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL
 	
-worker: gfnlib
-	mpicc -DGFN_WORKER -c -o nd_array_worker.o $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL  
-	mpicc -DGFN_WORKER -o worker $(CFLAGS) gfn.o nd_array_worker.o ../worker.c -lrt -lOpenCL  
+worker:
+	mpicc -DGFN_WORKER -o worker $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL  
 	
 	
 clean:
-	@rm -rf gfn.o nd_array_worker.o nd_array worker a.out
+	@rm -rf nd_array worker a.out
