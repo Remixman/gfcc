@@ -19,17 +19,17 @@ all: worker master
 
 #--pass-through    Disables preprocessing
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON pi_num.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON matmul.c -lrt
 	
 
 test: worker master
 
 master:
-	mpicc -o pi_num $(CFLAGS) plaincc_pi_num.c -lrt -lOpenCL
+	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL
 	
 worker:
-	mpicc -DGFN_WORKER -o worker $(CFLAGS) plaincc_pi_num.c ../worker.c -lrt -lOpenCL  
+	mpicc -DGFN_WORKER -o worker $(CFLAGS) plaincc_matmul.c ../worker.c -lrt -lOpenCL  
 	
 	
 clean:
-	@rm -rf pi_num worker a.out
+	@rm -rf matmul worker a.out
