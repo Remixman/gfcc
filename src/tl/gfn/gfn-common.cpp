@@ -275,6 +275,28 @@ std::string source_to_kernel_str(TL::Source src)
     return result;
 }
 
+std::string get_1d_reference(std::string var_name, unsigned dim_num)
+{
+    return var_name;
+    
+    // TODO: use when remove 2D>1D convertion
+  
+    std::string buf_reference;
+    if (dim_num == 0)
+    {
+        buf_reference = var_name;
+    }
+    else
+    {
+        // cast to contiguous 1D array, Ex. &(A[0][0])
+        buf_reference = "&(" + var_name;
+        for (int i = 0; i < dim_num; ++i)
+            buf_reference += "[0]";
+        buf_reference += ")";
+    }
+    return buf_reference;
+}
+
 TL::Source show_cl_source_in_comment(TL::Source src)
 {
     TL::Source result;
@@ -366,21 +388,21 @@ TL::Source create_mpi_barrier(std::string comm)
 }
 
 TL::Source create_mpi_bcast(std::string buf_name, std::string cnt,
-                            std::string mpi_type, std::string root,
-                            std::string comm)
+                            std::string mpi_type, unsigned dim_num,
+                            std::string root, std::string comm)
 {
     TL::Source result;
     result
-        << "MPI_Bcast(" << buf_name << ", " << cnt << ", " << mpi_type << ","
-        << root << ", " << comm << ");";
+        << "MPI_Bcast(" << get_1d_reference(buf_name, dim_num) << ", " << cnt << ", " 
+        << mpi_type << "," << root << ", " << comm << ");";
     return result;
 }
 
 TL::Source create_mpi_gatherv(std::string send_buf_name, std::string send_cnt,
                               std::string send_mpi_type, std::string recv_buf_name,
                               std::string recv_cnt, std::string disps,
-                              std::string recv_mpi_type, std::string root,
-                              std::string comm)
+                              std::string recv_mpi_type, unsigned dim_num,
+                              std::string root, std::string comm)
 {
     TL::Source result;
     result

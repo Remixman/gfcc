@@ -82,7 +82,7 @@ namespace TL
 
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
-                _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0),
+                _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0), _dimension_num(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
                 _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
 

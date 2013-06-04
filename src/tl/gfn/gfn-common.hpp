@@ -120,6 +120,7 @@ std::string reduction_op_init_value(REDUCTION_T rt);
 std::string op_to_mpi_op(REDUCTION_T rt);
 std::string int_to_string(int num);
 std::string source_to_kernel_str(TL::Source src);
+std::string get_1d_reference(std::string var_name, unsigned dim_num);
 TL::Source show_cl_source_in_comment(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
 
@@ -153,6 +154,7 @@ TL::Source create_mpi_barrier(std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_bcast(std::string buf_name,
                             std::string cnt,
                             std::string mpi_type,
+                            unsigned dim_num = 0,
                             std::string root = DEFAULT_MPI_ROOT,
                             std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_gatherv(std::string send_buf_name,
@@ -162,6 +164,7 @@ TL::Source create_mpi_gatherv(std::string send_buf_name,
                               std::string recv_cnt,
                               std::string disps,
                               std::string recv_mpi_type,
+                              unsigned dim_num = 0,
                               std::string root = DEFAULT_MPI_ROOT,
                               std::string comm = DEFAULT_MPI_COMM);
 TL::Source create_mpi_iprobe(std::string src,

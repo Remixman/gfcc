@@ -486,7 +486,8 @@ TL::Source ParallelFor::do_parallel_for()
 
                 std::string bcast_vname = ((var_info._is_array_or_pointer)? "" : "&") + var_name;
                 worker_scatter_input
-                    << create_mpi_bcast(bcast_vname, var_info.get_mem_size(), mpi_type_str);
+                    << create_mpi_bcast(bcast_vname, var_info.get_mem_size(), 
+                                        mpi_type_str, var_info._dimension_num);
 
                 if (var_info._is_array_or_pointer)
                 {
