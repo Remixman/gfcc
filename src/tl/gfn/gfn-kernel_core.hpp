@@ -68,6 +68,7 @@ namespace TL
             // For multi-dimension var, what dimension that we must distributed
             // (0 is shared and must boardcast to all node)
             unsigned        _shared_dimension;
+            unsigned        _dimension_num; // for scalar dim num equal 0
 
             // TODO: change to bit
             bool            _is_input;

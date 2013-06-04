@@ -34,7 +34,7 @@ void init() {
 void matmul_kernel() {
 	int i, j, k;
 	
-	#pragma gfn parallel_for input(A,B) output(C) size(A,B,C:n,n)
+	#pragma gfn parallel_for input(A[n][n],B[n][n]) output(C[n][n])
 	for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			C[i][j] = 0.f;
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 
 	printf("TEST 02 - Matrix Matrix Multiplication\n");
 	printf("\tProblem size = %d x %d\n", n, n);
-	printf("\tRun iteration = %d\n", ite);
+	printf("\tRunning iteration = %d\n", ite);
 	printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
 	
 	return 0;

@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+
+#ifdef _GFN
 #include <gfn.h>
+#endif
 
 long long get_time() {
 	struct timeval tv;
@@ -26,6 +29,7 @@ int main(int argc, char *argv[]) {
 	int n, ite, i, elapse;
 	double PI25DT = 3.14159265358;
 	double pi;
+	long long time0, time1;
 
 	n = 2000000;
 	ite = 10;
@@ -48,8 +52,8 @@ int main(int argc, char *argv[]) {
 
 	printf("TEST 01 - Numerical Integration PI\n");
 	printf("\tProblem size N = %d\n", n);
-	printf("\tRun iteration = %d\n", ite);
-	printf("\tAverage time = %d sec.\n", ((float)(time1-time0)/1000000)/ite);
+	printf("\tRunning iteration = %d\n", ite);
+	printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
 	
 	return 0;
 }

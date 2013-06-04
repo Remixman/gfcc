@@ -1,0 +1,17 @@
+#!/bin/bash
+
+echo "Building sequential test."
+gcc -O3 -o pi_num_seq pi_num.c
+
+
+echo "Running sequential."
+./pi_num_seq 1000000 10
+./pi_num_seq 2000000 10
+./pi_num_seq 4000000 10
+./pi_num_seq 8000000 10
+./pi_num_seq 16000000 10
+
+
+echo "Deleting binary."
+rm -rf pi_num_seq
+

@@ -76,12 +76,12 @@ GFNPragmaPhase::GFNPragmaPhase()
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
     // XXX: on_directive_pre ???
     
+    register_construct("use_in_parallel");
+    on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));
+    
     register_construct("overlapcompute");
     on_directive_post["overlapcompute"].connect(functor(&GFNPragmaPhase::overlapcompute, *this));
-    
-    register_construct("barrier");
-    on_directive_pre["barrier"].connect(functor(&GFNPragmaPhase::barrier, *this));
-    
+
     register_construct("atomic");
     on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));
 }
@@ -235,9 +235,10 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_private_clause(construct, kernel_info, symbol_list);
     get_accurate_clause(construct, kernel_info);
     get_reduction_clause(construct, kernel_info);
-    get_size_clause(construct, kernel_info);
     get_input_clause(construct, kernel_info);
     get_output_clause(construct, kernel_info);
+    get_inout_clause(construct, kernel_info);
+    get_temp_clause(construct, kernel_info);
     get_parallel_if_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
@@ -268,6 +269,22 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     construct.get_ast().replace(statement.get_ast());
 }
 
+void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
+{
+    // Add define GFN_WORKER
+    Source result;
+    
+    result
+        << comment("*/ #ifdef GFN_WORKER /*")
+        << construct.get_statement()
+        << comment("*/ #endif /*");
+        
+    AST_t use_par_tree = result.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+        
+    construct.get_ast().replace(use_par_tree);
+}
+
 void GFNPragmaPhase::overlapcompute(PragmaCustomConstruct construct)
 {
     TL::PragmaCustomClause kernelname_clause = construct.get_clause("kernelname");
@@ -285,23 +302,6 @@ void GFNPragmaPhase::overlapcompute(PragmaCustomConstruct construct)
     {
         // get last kernelname in overlapcompute scope
     }
-}
-
-void GFNPragmaPhase::barrier(PragmaCustomConstruct construct)
-{
-    Source result;
-
-    // "MPI_Barrier(" << GFN_COMM << ");";
-    // "__threadfence();"
-
-    result
-        << "_GfnBarrier();"
-        << construct.get_statement(); // XXX: get startment of construct before replace
-
-    AST_t threadfence_tree = result.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-
-    construct.get_ast().replace(threadfence_tree);
 }
 
 static void atomic_fun(TL::Statement assign_stmt)
@@ -469,113 +469,6 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
     }
 }
 
-void GFNPragmaPhase::get_size_clause(PragmaCustomConstruct construct,
-                                     KernelInfo *kernel_info)
-{
-    TL::PragmaCustomClause size_clause = construct.get_clause("size");
-    if (size_clause.is_defined())
-    {
-        ObjectList<std::string> list_arg = size_clause.get_arguments();
-        for (ObjectList<std::string>::iterator it = list_arg.begin();
-             it != list_arg.end();
-             ++it)
-        {
-            // var,var2,var3,... : dim_size1, dim_size2, dim_size3
-            size_t colon_pos = it->find(":");
-            if (colon_pos == std::string::npos)
-            {
-                std::cerr << "size clause must have \':\' before size\n";
-                // TODO: throw
-            }
-
-            std::string var_list_str = it->substr(0, colon_pos);
-            std::string size_list_str = it->substr(colon_pos+1);
-
-            if (var_list_str.size() == 0 || size_list_str.size() == 0)
-            {
-                std::cerr << "size clause syntax error";
-            }
-
-            ObjectList<std::string> var_list, size_list;
-            size_t start_pos = 0, comma_pos = 0;
-            while ((comma_pos = var_list_str.find(",", start_pos)) != std::string::npos) {
-                std::string var = var_list_str.substr(start_pos, comma_pos - start_pos);
-                if (var.size() != 0)
-                {
-                    var_list.push_back(var);
-                }
-                start_pos = comma_pos + 1;
-            }
-            if (start_pos != var_list_str.size())
-            {
-                std::string var = var_list_str.substr(start_pos, var_list_str.size() - start_pos);
-                var_list.push_back(var);
-            }
-
-            // parse size list
-            start_pos = 0, comma_pos = 0;
-            while ((comma_pos = size_list_str.find(",", start_pos)) != std::string::npos) {
-                std::string size = size_list_str.substr(start_pos, comma_pos - start_pos);
-                if (size.size() != 0)
-                {
-                    size_list.push_back(size);
-                }
-                start_pos = comma_pos + 1;
-            }
-            if (start_pos != size_list_str.size())
-            {
-                std::string size = size_list_str.substr(start_pos, size_list_str.size() - start_pos);
-                size_list.push_back(size);
-            }
-            while (size_list.size() < 3)
-            {
-                size_list.push_back("1");
-            }
-
-            // set size data to kernel
-            for (ObjectList<std::string>::iterator it = var_list.begin();
-                 it != var_list.end();
-                 ++it)
-            {
-                /* Set size to var info list */
-                ObjectList<VariableInfo>::iterator viit = kernel_info->_var_info.begin();
-                ObjectList<DataReference>::iterator vrit = kernel_info->_var_ref.begin();
-                for (;viit != kernel_info->_var_info.end();
-                     ++viit, ++vrit)
-                {
-                    if (*it == vrit->get_id_expression().get_symbol().get_name())
-                    {
-                        std::cout << "Size of " << *it << " = "
-                                  << size_list[0] << ":"
-                                  << size_list[1] << ":"
-                                  << size_list[2] << std::endl;
-
-                        viit->_size._dim1_size = size_list[0];
-                        viit->_size._dim2_size = size_list[1];
-                        viit->_size._dim3_size = size_list[2];
-                    }
-                }
-
-
-
-                if (kernel_info->get_use_list_index(*it) == -1 &&
-                    kernel_info->get_def_list_index(*it) == -1)
-                {
-                    std::cerr << "cannot find " << *it << " in kernel\n";
-                    continue;
-                }
-
-                DimSize &dim_size = kernel_info->_dim_size_list[*it];
-                dim_size._dim1_size = size_list[0];
-                dim_size._dim2_size = size_list[1];
-                dim_size._dim3_size = size_list[2];
-            }
-
-
-        }
-    }
-}
-
 void GFNPragmaPhase::get_input_clause(TL::PragmaCustomConstruct construct,
                                       KernelInfo *kernel_info)
 {
@@ -588,6 +481,20 @@ void GFNPragmaPhase::get_output_clause(TL::PragmaCustomConstruct construct,
 {
     TL::PragmaCustomClause output_clause = construct.get_clause("output");
     get_copy_clause(output_clause, kernel_info, "output");
+}
+
+void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct, 
+                                      KernelInfo* kernel_info)
+{
+    TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
+    get_copy_clause(inout_clause, kernel_info, "inout");
+}
+
+void GFNPragmaPhase::get_temp_clause(PragmaCustomConstruct construct,
+                                     KernelInfo* kernel_info)
+{
+    TL::PragmaCustomClause temp_clause = construct.get_clause("temp");
+    get_copy_clause(temp_clause, kernel_info, "temp");
 }
 
 void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
@@ -603,6 +510,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
              it != list_arg.end();
              ++it)
         {
+            
             parse_var_list_and_append(*it, var_list);
         }
 
@@ -610,7 +518,32 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
              it != var_list.end();
              ++it)
         {
-            int idx = kernel_info->get_var_info_index_from_var_name(*it);
+            std::string var_str = *it;
+            unsigned dim_num = 0;
+            size_t start_pos = 0, obrac_pos = 0, cbrac_pos = 0;
+            ObjectList<std::string> size_list;
+            
+            // Extract 'var name' and 'size' , Ex. A[i][j]
+            obrac_pos = var_str.find("[", start_pos);
+            std::string var_name = var_str.substr(start_pos, obrac_pos - start_pos);
+          
+            while (obrac_pos != std::string::npos)
+            {
+                cbrac_pos = var_str.find("]", obrac_pos);
+                std::string size_str = var_str.substr(obrac_pos+1, cbrac_pos-obrac_pos-1);
+                obrac_pos = var_str.find("[", cbrac_pos);
+                
+                if (size_str.size() == 0)
+                {
+                    std::cerr << "warning : " << __LINE__
+                              << " at " << __FILE__ << std::endl;
+                }
+
+                size_list.push_back(size_str);
+                dim_num++;
+            }
+
+            int idx = kernel_info->get_var_info_index_from_var_name(var_name);
             if (idx != -1)
             {
                 //std::cout << "Found " << copy_type_str << " : " << *it << std::endl;
@@ -618,9 +551,43 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                     kernel_info->_var_info[idx]._is_input = true;
                 else if (copy_type_str == "output")
                     kernel_info->_var_info[idx]._is_output = true;
+                else if (copy_type_str == "inout")
+                {
+                    kernel_info->_var_info[idx]._is_input = true;
+                    kernel_info->_var_info[idx]._is_output = true;
+                }
+                else if (copy_type_str == "temp")
+                {
+                    kernel_info->_var_info[idx]._is_input = false;
+                    kernel_info->_var_info[idx]._is_output = false;
+                }
                 else
                     std::cerr << "warning : " << __LINE__
                               << " at " << __FILE__ << std::endl;
+                              
+                // Save dimension size data
+                kernel_info->_var_info[idx]._dimension_num = dim_num;
+                DimSize &dim_size = kernel_info->_dim_size_list[var_name];
+                std::cout << "Size of " << var_name << " = ";
+                if (dim_num >= 1) 
+                {
+                    dim_size._dim1_size = size_list[0];
+                    kernel_info->_var_info[idx]._size._dim1_size = size_list[0];
+                    std::cout << size_list[0];
+                }
+                if (dim_num >= 2) 
+                {
+                    dim_size._dim2_size = size_list[1];
+                    kernel_info->_var_info[idx]._size._dim2_size = size_list[1];
+                    std::cout << ":" << size_list[1];
+                }
+                if (dim_num >= 3)
+                {
+                    dim_size._dim3_size = size_list[2];
+                    kernel_info->_var_info[idx]._size._dim3_size = size_list[2];
+                    std::cout << ":" << size_list[2];
+                }
+                std::cout << std::endl;
             }
             else
             {
@@ -903,7 +870,7 @@ void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
     {
         kernel_info->_is_const_loop_upper_bound = true;
         kernel_info->_const_upper_bound = (std::string)upper_bound_expr;
-        std::cout << "Upper bound expr : " << (std::string)upper_bound_expr << std::endl;
+        //std::cout << "Upper bound expr : " << (std::string)upper_bound_expr << std::endl;
     }
 }
 
