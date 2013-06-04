@@ -36,7 +36,7 @@ std::string type_to_mpi_type(TL::Type type)
     if (type.is_array())
         mpi_type_str = type_to_mpi_type(type.array_element());
     else if (type.is_pointer())
-        mpi_type_str = type_to_mpi_type(type.get_pointer_to());
+        mpi_type_str = type_to_mpi_type(type.points_to());
 
     /* Reference : https://computing.llnl.gov/tutorials/mpi/ */
     else if (type.is_char())
@@ -102,7 +102,7 @@ std::string type_to_ctype(TL::Type type)
     if (type.is_array())
         ctype = type_to_ctype(type.array_element());
     else if (type.is_pointer())
-        ctype = type_to_ctype(type.get_pointer_to());
+        ctype = type_to_ctype(type.points_to());
 
     else if (type.is_char())
         ctype = "char";
