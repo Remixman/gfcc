@@ -1,0 +1,15 @@
+#!/bin/bash
+
+echo "Building sequential test."
+gcc -O3 -o matmul_seq matmul.c
+
+
+echo "Running sequential."
+./matmul_seq 256 5
+./matmul_seq 512 5
+./matmul_seq 1024 5
+
+
+echo "Deleting binary."
+rm -rf matmul_seq
+

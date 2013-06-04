@@ -2,14 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#ifdef _GFN
 #include <gfn.h>
-
-#define N 500
-
-int n = N;
-float A[N][N]; 
-float B[N][N]; 
-float C[N][N];
+#endif
 
 long long get_time() {
 	struct timeval tv;
@@ -17,7 +12,7 @@ long long get_time() {
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
-void init() {
+void init(int n, float **A, float **B) {
 	int i, j;
 	
 	srand(time(NULL));
@@ -31,9 +26,9 @@ void init() {
 	}
 }
 
-void matmul_kernel() {
+void matmul_kernel(int n, float **A, float **B, float **C) {
 	int i, j, k;
-	
+
 	#pragma gfn parallel_for input(A[n][n],B[n][n]) output(C[n][n])
 	for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
@@ -46,9 +41,12 @@ void matmul_kernel() {
 }
 
 int main(int argc, char *argv[]) {
-	int ite, i;
+	int ite, i, j, k;
+	int n, pass = 1;
+	float **A, **B, **C, sum;
 	long long time0, time1;
 
+	n = 1000;
 	ite = 10;
 
 	if (argc > 1) n = atoi(argv[1]);
@@ -56,18 +54,48 @@ int main(int argc, char *argv[]) {
 	
 	#pragma gfn start
 	
-	init();
-  
+	// allocate memory for A, B and C
+	A = (float **) malloc(n * sizeof(float*));
+	A[0] = (float *) malloc(n * n * sizeof(float));
+	B = (float **) malloc(n * sizeof(float*));
+	B[0] = (float *) malloc(n * n * sizeof(float));
+	C = (float **) malloc(n * sizeof(float*));
+	C[0] = (float *) malloc(n * n * sizeof(float));
+	for (i = 1; i < n; i++) {
+		A[i] = A[i-1] + n;
+		B[i] = B[i-1] + n;
+		C[i] = C[i-1] + n;
+	}
+	
+	init(n, A, B);
+	
 	// warm up
-	matmul_kernel();
+	matmul_kernel(n, A, B, C);
 
 	time0 = get_time();
-	for(i = 0; i < ite; i++) matmul_kernel();
+	for (i = 0; i < ite; i++) matmul_kernel(n, A, B, C);
 	time1 = get_time();
+	
+	// assert with sequential solution
+	for (i = 0; i < n; i++) {
+		for (j = 0; j < n; j++) {
+			sum = 0.f;
+			for (k = 0; k < n; k++) {
+				sum += A[i][k] * B[k][j];
+			}
+			if (sum != C[i][j]) {
+				pass = 0;
+				break;
+			}
+		}
+		if (!pass) break;
+	}
 	
 	#pragma gfn finish
 
 	printf("TEST 02 - Matrix Matrix Multiplication\n");
+	printf("\tTest result = ");
+	if (pass) printf("SUCCESSFUL\n"); else printf("FAILURE\n");
 	printf("\tProblem size = %d x %d\n", n, n);
 	printf("\tRunning iteration = %d\n", ite);
 	printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
