@@ -19,7 +19,7 @@ all: worker master
 
 #--pass-through    Disables preprocessing
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON matmul.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON matmul.c -lrt -D_GFN
 	
 
 test: worker master
