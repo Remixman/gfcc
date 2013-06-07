@@ -13,3 +13,6 @@ CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) -O2
 
 all:
 	mpicc $(CFLAGS) -o platform_explorer platform_explorer.c -lOpenCL
+	
+clean:
+	rm platform_explorer
