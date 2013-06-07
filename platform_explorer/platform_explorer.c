@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <mpi.h>
 #include <CL/cl.h>
 
 long long get_time() {
@@ -22,8 +23,8 @@ int main(int argc, char *argv[])
 	int crank, csize;
 
 	long long time0, time1;
-	size_t max_mem_size = sizeof(float) * 10000000;
-	size_t transfer_size = sizeof(float) * 1;
+	size_t max_mem_size = sizeof(float) *  2500000;
+	size_t transfer_size = sizeof(float) * 2500000;
 	float *host_buffer = (float*) malloc(max_mem_size);
 	cl_mem device_buffer;
 	
@@ -33,6 +34,7 @@ int main(int argc, char *argv[])
 
 	/* Test boardcast time */
 	time0 = get_time();
+	
 
 	/* Initial platform on each node */
 	status = clGetPlatformIDs(1, &platform, NULL);
