@@ -3,7 +3,7 @@
 #include <math.h>
 #include <time.h>
 
-#ifdef _GFN
+#ifdef _GRIFFON
 #include <gfn.h>
 #endif
 

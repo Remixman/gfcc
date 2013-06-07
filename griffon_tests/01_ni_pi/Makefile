@@ -19,7 +19,7 @@ all: worker master
 
 #--pass-through    Disables preprocessing
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON pi_num.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON pi_num.c -lrt -D_GRIFFON
 	
 
 test: worker master
