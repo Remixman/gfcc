@@ -1,80 +1,77 @@
 /* */ #ifdef GFN_WORKER /* */
 /* #pragma OPENCL EXTENSION cl_khr_fp64 : enable\n */
 /* #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n */
-/* void _GfnBarrier() { */
-/*     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
-/* } */
-/*  */
-/* int _GfnAtomicAddInt(__global int* const address, const int value) { */
-/*     return atomic_add(address, value); */
-/* } */
-/*  */
-/* float _GfnAtomicAddFloat(__global float* const address, const float value) { */
-/*     uint oldval, newval, readback; */
-/*     *(float*)&oldval = *address; */
-/*     *(float*)&newval = (*(float*)&oldval + value); */
-/*     while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) { */
-/*         oldval = readback; */
-/*         *(float*)&newval = (*(float*)&oldval + value); */
-/*     } */
-/*     return *(float*)&oldval; */
-/* } */
-/*  */
-/* double _GfnAtomicAddDouble(__global double* const address, const double value) { */
-/*     long oldval, newval, readback; */
-/*     *(double*)&oldval = *address; */
-/*     *(double*)&newval = (*(double*)&oldval + value); */
-/*     while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) { */
-/*         oldval = readback; */
-/*         *(double*)&newval = (*(double*)&oldval + value); */
-/*     } */
-/*     return *(double*)&oldval; */
-/* } */
-/*  */
-/* __kernel void _kernel_1(__global int * s1,__local int * _cl_local_mem_s1,__global float * s2,__local float * _cl_local_mem_s2,int _local_i_start,int _local_i_end,int _loop_step) { */
+/* void _GfnBarrier() {\n */
+/*     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n */
+/* }\n */
+/* int _GfnAtomicAddInt(__global int* const address, const int value) {\n */
+/*     return atomic_add(address, value);\n */
+/* }\n */
+/* float _GfnAtomicAddFloat(__global float* const address, const float value) {\n */
+/*     uint oldval, newval, readback;\n */
+/*     *(float*)&oldval = *address;\n */
+/*     *(float*)&newval = (*(float*)&oldval + value);\n */
+/*     while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n */
+/*         oldval = readback;\n */
+/*         *(float*)&newval = (*(float*)&oldval + value);\n */
+/*     }\n */
+/*     return *(float*)&oldval;\n */
+/* }\n */
+/* double _GfnAtomicAddDouble(__global double* const address, const double value) {\n */
+/*     long oldval, newval, readback;\n */
+/*     *(double*)&oldval = *address;\n */
+/*     *(double*)&newval = (*(double*)&oldval + value);\n */
+/*     while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n */
+/*         oldval = readback;\n */
+/*         *(double*)&newval = (*(double*)&oldval + value);\n */
+/*     }\n */
+/*     return *(double*)&oldval;\n */
+/* }\n */
+/* __kernel void _kernel_1(__global int * _global_reduction_s1,__local int * _cl_local_mem_s1,__global float * _global_reduction_s2,__local float * _cl_local_mem_s2,int _local_i_start,int _local_i_end,int _loop_step) {\n */
 /* int n; */
-/* int s1 = 0; */
-/* float s2 = 0; */
-/* int _loop_size = (_local_i_end - _local_i_start) / _loop_step; */
-/* int _local_i = get_global_id(0) * _loop_step; */
-/* int i = _local_i + _local_i_start; */
-/* if (i <= n) { */
+/* int s1 = 0;\n */
+/* float s2 = 0;\n */
+/* int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n */
+/* int _local_i = get_global_id(0) * _loop_step;\n */
+/* int i = _local_i + _local_i_start;\n */
+/* if (i <= n) {\n */
 /* { */
 /*     s1 += i; */
 /*     s2 += (float) i; */
-/* } */
-/* } */
-/* if (get_global_id(0) < _loop_size) { */
-/* _cl_local_mem_s1[get_local_id(0)] = s1; */
-/* _cl_local_mem_s2[get_local_id(0)] = s2; */
-/* } else { */
-/* _cl_local_mem_s1[get_local_id(0)] = 0; */
-/* _cl_local_mem_s2[get_local_id(0)] = 0; */
-/* } */
-/* for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) { */
-/* barrier(CLK_LOCAL_MEM_FENCE); */
-/* if (get_local_id(0) < _stride) { */
-/* _cl_local_mem_s1[get_local_id(0)] += _cl_local_mem_s1[get_local_id(0)+_stride]; */
-/* _cl_local_mem_s2[get_local_id(0)] += _cl_local_mem_s2[get_local_id(0)+_stride]; */
-/* } */
-/* } */
-/* if (get_global_id(0) == 0) { */
-/* *s1 = 0; */
-/* *s2 = 0; */
-/* } */
-/* barrier(CLK_GLOBAL_MEM_FENCE); */
-/* if (get_local_id(0) == 0) { */
-/* _GfnAtomicAddInt(s1,_cl_local_mem_s1[0]); */
-/* _GfnAtomicAddFloat(s2,_cl_local_mem_s2[0]); */
-/* } */
-/* } */
-const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);""}""""int _GfnAtomicAddInt(__global int* const address, const int value) {""    return atomic_add(address, value);""}""""float _GfnAtomicAddFloat(__global float* const address, const float value) {""    uint oldval, newval, readback;""    *(float*)&oldval = *address;""    *(float*)&newval = (*(float*)&oldval + value);""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {""        oldval = readback;""        *(float*)&newval = (*(float*)&oldval + value);""    }""    return *(float*)&oldval;""}""""double _GfnAtomicAddDouble(__global double* const address, const double value) {""    long oldval, newval, readback;""    *(double*)&oldval = *address;""    *(double*)&newval = (*(double*)&oldval + value);""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {""        oldval = readback;""        *(double*)&newval = (*(double*)&oldval + value);""    }""    return *(double*)&oldval;""}""""__kernel void _kernel_1(__global int * s1,__local int * _cl_local_mem_s1,__global float * s2,__local float * _cl_local_mem_s2,int _local_i_start,int _local_i_end,int _loop_step) {""int n;""int s1 = 0;""float s2 = 0;""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;""int _local_i = get_global_id(0) * _loop_step;""int i = _local_i + _local_i_start;""if (i <= n) {""{""    s1 += i;""    s2 += (float) i;""}""}""if (get_global_id(0) < _loop_size) {""_cl_local_mem_s1[get_local_id(0)] = s1;""_cl_local_mem_s2[get_local_id(0)] = s2;""} else {""_cl_local_mem_s1[get_local_id(0)] = 0;""_cl_local_mem_s2[get_local_id(0)] = 0;""}""for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {""barrier(CLK_LOCAL_MEM_FENCE);""if (get_local_id(0) < _stride) {""_cl_local_mem_s1[get_local_id(0)] += _cl_local_mem_s1[get_local_id(0)+_stride];""_cl_local_mem_s2[get_local_id(0)] += _cl_local_mem_s2[get_local_id(0)+_stride];""}""}""if (get_global_id(0) == 0) {""*s1 = 0;""*s2 = 0;""}""barrier(CLK_GLOBAL_MEM_FENCE);""if (get_local_id(0) == 0) {""_GfnAtomicAddInt(s1,_cl_local_mem_s1[0]);""_GfnAtomicAddFloat(s2,_cl_local_mem_s2[0]);""}""}";
+/* }\n */
+/* }\n */
+/* if (get_global_id(0) < _loop_size) {\n */
+/* _cl_local_mem_s1[get_local_id(0)] = s1;\n */
+/* _cl_local_mem_s2[get_local_id(0)] = s2;\n */
+/* } else {\n */
+/* _cl_local_mem_s1[get_local_id(0)] = 0;\n */
+/* _cl_local_mem_s2[get_local_id(0)] = 0;\n */
+/* }\n */
+/* for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n */
+/* barrier(CLK_LOCAL_MEM_FENCE);\n */
+/* if (get_local_id(0) < _stride) {\n */
+/* _cl_local_mem_s1[get_local_id(0)] += _cl_local_mem_s1[get_local_id(0)+_stride];\n */
+/* _cl_local_mem_s2[get_local_id(0)] += _cl_local_mem_s2[get_local_id(0)+_stride];\n */
+/* }\n */
+/* }\n */
+/* if (get_global_id(0) == 0) {\n */
+/* *_global_reduction_s1 = 0;\n */
+/* *_global_reduction_s2 = 0;\n */
+/* }\n */
+/* barrier(CLK_GLOBAL_MEM_FENCE);\n */
+/* if (get_local_id(0) == 0) {\n */
+/* _GfnAtomicAddInt(_global_reduction_s1,_cl_local_mem_s1[0]); */
+/* _GfnAtomicAddFloat(_global_reduction_s2,_cl_local_mem_s2[0]); */
+/* }\n */
+/* }\n */
+/*  */
+const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(__global int * _global_reduction_s1,__local int * _cl_local_mem_s1,__global float * _global_reduction_s2,__local float * _cl_local_mem_s2,int _local_i_start,int _local_i_end,int _loop_step) {\n""int n;""int s1 = 0;\n""float s2 = 0;\n""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= n) {\n""{""    s1 += i;""    s2 += (float) i;""}\n""}\n""if (get_global_id(0) < _loop_size) {\n""_cl_local_mem_s1[get_local_id(0)] = s1;\n""_cl_local_mem_s2[get_local_id(0)] = s2;\n""} else {\n""_cl_local_mem_s1[get_local_id(0)] = 0;\n""_cl_local_mem_s2[get_local_id(0)] = 0;\n""}\n""for (int _stride = get_local_size(0)/2; _stride > 0; _stride /= 2) {\n""barrier(CLK_LOCAL_MEM_FENCE);\n""if (get_local_id(0) < _stride) {\n""_cl_local_mem_s1[get_local_id(0)] += _cl_local_mem_s1[get_local_id(0)+_stride];\n""_cl_local_mem_s2[get_local_id(0)] += _cl_local_mem_s2[get_local_id(0)+_stride];\n""}\n""}\n""if (get_global_id(0) == 0) {\n""*_global_reduction_s1 = 0;\n""*_global_reduction_s2 = 0;\n""}\n""barrier(CLK_GLOBAL_MEM_FENCE);\n""if (get_local_id(0) == 0) {\n""_GfnAtomicAddInt(_global_reduction_s1,_cl_local_mem_s1[0]);""_GfnAtomicAddFloat(_global_reduction_s2,_cl_local_mem_s2[0]);""}\n""}\n""";
 void _Function_1()
 {
     int i;
     int n;
-    int s1 = 0;
-    float s2 = 0;
+    int _local_s1 = 0;
+    float _local_s2 = 0;
     cl_mem _cl_mem_s1;
     cl_mem _cl_mem_s2;
     cl_kernel _kernel;
@@ -83,8 +80,8 @@ void _Function_1()
     int _loop_step;
     int _loop_size;
     int _local_i = 0;
-    int _local_s1 = 0;
-    float _local_s2 = 0;
+    int s1 = 0;
+    float s2 = 0;
     if (_gfn_rank == 0)
     {
         _RecvInputMsg((void *) &n, sizeof(int));
@@ -118,11 +115,11 @@ void _Function_1()
         _kernel = _CreateKernelFromSource("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
         _gfn_status = clSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_s1);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 1, _work_group_item_num, 0);
+        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(int) * _work_group_item_num, 0);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG (LOCAL SIZE)");
         _gfn_status = clSetKernelArg(_kernel, 2, sizeof(cl_mem), (void *) &_cl_mem_s2);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, _work_group_item_num, 0);
+        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(float) * _work_group_item_num, 0);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG (LOCAL SIZE)");
         _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_local_cl_i_start);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");

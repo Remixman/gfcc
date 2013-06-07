@@ -1,49 +1,45 @@
 /* */ #ifdef GFN_WORKER /* */
 /* #pragma OPENCL EXTENSION cl_khr_fp64 : enable\n */
 /* #pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n */
-/* void _GfnBarrier() { */
-/*     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE); */
-/* } */
-/*  */
-/* int _GfnAtomicAddInt(__global int* const address, const int value) { */
-/*     return atomic_add(address, value); */
-/* } */
-/*  */
-/* float _GfnAtomicAddFloat(__global float* const address, const float value) { */
-/*     uint oldval, newval, readback; */
-/*     *(float*)&oldval = *address; */
-/*     *(float*)&newval = (*(float*)&oldval + value); */
-/*     while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) { */
-/*         oldval = readback; */
-/*         *(float*)&newval = (*(float*)&oldval + value); */
-/*     } */
-/*     return *(float*)&oldval; */
-/* } */
-/*  */
-/* double _GfnAtomicAddDouble(__global double* const address, const double value) { */
-/*     long oldval, newval, readback; */
-/*     *(double*)&oldval = *address; */
-/*     *(double*)&newval = (*(double*)&oldval + value); */
-/*     while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) { */
-/*         oldval = readback; */
-/*         *(double*)&newval = (*(double*)&oldval + value); */
-/*     } */
-/*     return *(double*)&oldval; */
-/* } */
-/*  */
-/* __kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) { */
-/* int _loop_size = (_local_i_end - _local_i_start) / _loop_step; */
-/* int _local_i = get_global_id(0) * _loop_step; */
-/* int i = _local_i + _local_i_start; */
-/* if (i <= (300) - 1) { */
+/* void _GfnBarrier() {\n */
+/*     barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n */
+/* }\n */
+/* int _GfnAtomicAddInt(__global int* const address, const int value) {\n */
+/*     return atomic_add(address, value);\n */
+/* }\n */
+/* float _GfnAtomicAddFloat(__global float* const address, const float value) {\n */
+/*     uint oldval, newval, readback;\n */
+/*     *(float*)&oldval = *address;\n */
+/*     *(float*)&newval = (*(float*)&oldval + value);\n */
+/*     while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n */
+/*         oldval = readback;\n */
+/*         *(float*)&newval = (*(float*)&oldval + value);\n */
+/*     }\n */
+/*     return *(float*)&oldval;\n */
+/* }\n */
+/* double _GfnAtomicAddDouble(__global double* const address, const double value) {\n */
+/*     long oldval, newval, readback;\n */
+/*     *(double*)&oldval = *address;\n */
+/*     *(double*)&newval = (*(double*)&oldval + value);\n */
+/*     while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n */
+/*         oldval = readback;\n */
+/*         *(double*)&newval = (*(double*)&oldval + value);\n */
+/*     }\n */
+/*     return *(double*)&oldval;\n */
+/* }\n */
+/* __kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n */
+/* int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n */
+/* int _local_i = get_global_id(0) * _loop_step;\n */
+/* int i = _local_i + _local_i_start;\n */
+/* if (i <= (300) - 1) {\n */
 /* { */
 /*     A[(_local_i)] = B[(_local_i)]; */
-/*     _GfnBarrier(); */
 /*     A[(_local_i)] *= - 1; */
-/* } */
-/* } */
-/* } */
-const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);""}""""int _GfnAtomicAddInt(__global int* const address, const int value) {""    return atomic_add(address, value);""}""""float _GfnAtomicAddFloat(__global float* const address, const float value) {""    uint oldval, newval, readback;""    *(float*)&oldval = *address;""    *(float*)&newval = (*(float*)&oldval + value);""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {""        oldval = readback;""        *(float*)&newval = (*(float*)&oldval + value);""    }""    return *(float*)&oldval;""}""""double _GfnAtomicAddDouble(__global double* const address, const double value) {""    long oldval, newval, readback;""    *(double*)&oldval = *address;""    *(double*)&newval = (*(double*)&oldval + value);""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {""        oldval = readback;""        *(double*)&newval = (*(double*)&oldval + value);""    }""    return *(double*)&oldval;""}""""__kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;""int _local_i = get_global_id(0) * _loop_step;""int i = _local_i + _local_i_start;""if (i <= (300) - 1) {""{""    A[(_local_i)] = B[(_local_i)];""    _GfnBarrier();""    A[(_local_i)] *= - 1;""}""}""}";
+/* }\n */
+/* }\n */
+/* }\n */
+/*  */
+const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (300) - 1) {\n""{""    A[(_local_i)] = B[(_local_i)];""    A[(_local_i)] *= - 1;""}\n""}\n""}\n""";
 void _Function_1()
 {
     int i;
@@ -133,7 +129,6 @@ void _Function_1()
             i++ , _local_i += _loop_step)
         {
             A[(_local_i)] = B[(_local_i)];
-            _GfnBarrier();
             A[(_local_i)] *= - 1;
         }
     }

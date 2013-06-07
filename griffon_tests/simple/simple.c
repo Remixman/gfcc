@@ -11,10 +11,9 @@ int main(int argc, char *argv[]) {
   	B[i] = i;
   }
   
-  #pragma gfn parallel_for size(A,B,C:300) size(D:4) input(B,b) output(A) reduction(+:s)
+  #pragma gfn parallel_for input(B[300]) output(A[300])
   for (i=0;i<300;i++) {
-    A[i] = B[i];                                         
-    #pragma gfn barrier
+    A[i] = B[i];
     A[i] *= -1;
   }
   
