@@ -50,8 +50,7 @@ void init(int n, float **A, float **B)
 /*     }\n */
 /*     return *(double*)&oldval;\n */
 /* }\n */
-/* __kernel void _kernel_1(__global float * C,__global const float * A,__global const float * B,int _local_i_start,int _local_i_end,int _loop_step) {\n */
-/* int n; */
+/* __kernel void _kernel_1(int n,__global float * C,__global const float * A,__global const float * B,int _local_i_start,int _local_i_end,int _loop_step) {\n */
 /* int j; */
 /* int k; */
 /* int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n */
@@ -75,7 +74,7 @@ void init(int n, float **A, float **B)
 /* }\n */
 /* }\n */
 /*  */
-const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(__global float * C,__global const float * A,__global const float * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int n;""int j;""int k;""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (n) - 1) {\n""{""    for (j = 0;""        j < n;""        j++)""    {""        C[((_local_i) * n) + (j)] = 0.f;""        for (k = 0;""            k < n;""            k++)""        {""            C[((_local_i) * n) + (j)] += A[((_local_i) * n) + (k)] * B[((k) * n) + (j)];""        }""    }""}\n""}\n""}\n""";
+const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(int n,__global float * C,__global const float * A,__global const float * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int j;""int k;""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (n) - 1) {\n""{""    for (j = 0;""        j < n;""        j++)""    {""        C[((_local_i) * n) + (j)] = 0.f;""        for (k = 0;""            k < n;""            k++)""        {""            C[((_local_i) * n) + (j)] += A[((_local_i) * n) + (k)] * B[((k) * n) + (j)];""        }""    }""}\n""}\n""}\n""";
 void _Function_1()
 {
     int i;
@@ -110,6 +109,7 @@ void _Function_1()
     B = (float *) malloc((sizeof(float) * ((n) * (n))));
     if (_gfn_rank == 0)
     {
+        _RecvInputMsg((void *) &n, sizeof(int));
         _buffer_C = (float *) malloc((sizeof(float) * ((n) * (n))));
         _buffer_A = (float *) malloc((sizeof(float) * ((n) * (n))));
         _RecvInputMsg((void *) _buffer_A, (sizeof(float) * ((n) * (n))));
@@ -135,10 +135,11 @@ void _Function_1()
     _cl_mem_B = clCreateBuffer(_gfn_context, _get_cl_mem_read_only(), (sizeof(float) * ((n) * (n))), 0, &_gfn_status);
     _GfnCheckCLStatus(_gfn_status, "CREATE BUFFER 0");
     /* Send data to all process */
+    MPI_Bcast(&n, ((1)), _get_mpi_int(), 0, _get_mpi_comm_world());
     MPI_Scatterv(_buffer_A, _A_cnts, _A_disp, _get_mpi_float(), A, _sub_size_A, _get_mpi_float(), 0, _get_mpi_comm_world());
     MPI_Bcast(B, ((n) * (n)), _get_mpi_float(), 0, _get_mpi_comm_world());
     /* Compute work-load */
-    if (0)
+    if (1)
     {
         size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
         size_t _work_group_item_num = 64;
@@ -152,17 +153,19 @@ void _Function_1()
         _gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, _cl_mem_B, _get_cl_true(), 0, (sizeof(float) * ((n) * (n))), B, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "WRITE BUFFER B");
         _kernel = _CreateKernelFromSource("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
-        _gfn_status = clSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_C);
+        _gfn_status = clSetKernelArg(_kernel, 0, sizeof(int), (void *) &n);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_A);
+        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_C);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(cl_mem), (void *) &_cl_mem_B);
+        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(cl_mem), (void *) &_cl_mem_A);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(cl_int), (void *) &_local_cl_i_start);
+        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(cl_mem), (void *) &_cl_mem_B);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_local_cl_i_end);
+        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_local_cl_i_start);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(cl_int), (void *) &_cl_loop_step);
+        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(cl_int), (void *) &_local_cl_i_end);
+        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
+        _gfn_status = clSetKernelArg(_kernel, 6, sizeof(cl_int), (void *) &_cl_loop_step);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
@@ -216,6 +219,7 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     int i, j, k;
     /* Send call function message */
     _SendCallFuncMsg(1);
+    _SendInputMsg((void *) &n, sizeof(int));
     _SendInputMsg((void *) &n, sizeof(int));
     _SendInputMsg((void *) A[0], (sizeof(float) * ((n) * (n))));
     _SendInputMsg((void *) B[0], (sizeof(float) * ((n) * (n))));
@@ -273,7 +277,7 @@ int main(int argc, char *argv[])
             {
                 sum += A[i][k] * B[k][j];
             }
-            if (sum != C[i][j])
+            if (fabs(sum - C[i][j]) > 0.0001)
             {
                 pass = 0;
                 break;

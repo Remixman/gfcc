@@ -29,7 +29,7 @@ void init(int n, float **A, float **B) {
 void matmul_kernel(int n, float **A, float **B, float **C) {
 	int i, j, k;
 
-	#pragma gfn parallel_for input(A[n][n],B[n][n]) output(C[n][n])
+	#pragma gfn parallel_for input(A[n][n],B[n][n],n) output(C[n][n])
 	for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			C[i][j] = 0.f;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 			for (k = 0; k < n; k++) {
 				sum += A[i][k] * B[k][j];
 			}
-			if (sum != C[i][j]) {
+			if (fabs(sum-C[i][j]) > 0.0001) {
 				pass = 0;
 				break;
 			}
