@@ -90,6 +90,7 @@ namespace TL
             std::string get_distributed_mem_size();
             std::string get_distributed_mem_block();
             std::string get_pointer_starts();
+            std::string get_subscript_to_1d_buf();
             std::string get_array_index_in_1D(std::string idx_name1,
                                               std::string idx_name2 = "",
                                               std::string idx_name3 = "");

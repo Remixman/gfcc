@@ -271,11 +271,29 @@ std::string VariableInfo::get_distributed_mem_block()
 
 std::string VariableInfo::get_pointer_starts()
 {
-    // TODO: check dimension from variable TL::Type
-    if (_size._dim3_size != "1") return " *** ";
-    if (_size._dim2_size != "1") return " ** ";
-    if (_is_array_or_pointer) return " * ";
+    if ( ! _is_array_or_pointer ) return " ";
+
+    switch(_dimension_num)
+    {
+        case 1: return " * ";
+        case 2: return " ** ";
+        case 3: return " *** ";
+        default: std::cerr << "Unsupport multi-dimension\n";
+    }
+
     return " ";
+}
+
+std::string VariableInfo::get_subscript_to_1d_buf()
+{
+    switch(_dimension_num)
+    {
+        case 2: return "[0]";
+        case 3: return "[0][0]";
+        default: return "";
+    }
+
+    return "";
 }
 
 std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,

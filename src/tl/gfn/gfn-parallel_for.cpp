@@ -442,7 +442,7 @@ TL::Source ParallelFor::do_parallel_for()
         {
             send_input
                 << "_SendInputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                << var_name << "," << size_str << ");";
+                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
 
             if (var_info._shared_dimension != 0)
             {
@@ -519,7 +519,7 @@ TL::Source ParallelFor::do_parallel_for()
 
                 recv_output
                     << "_RecvOutputMsg((void*)" << var_name
-                    << "," << size_str << ");";
+                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
 
                 worker_send_output
                     << "_SendOutputMsg((void*)" << var_buf_name
@@ -1050,19 +1050,29 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
 
             std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
             int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
-            //std::string dim1_size = _kernel_info->_var_info[idx]._size._dim1_size;
+            VariableInfo var_info = _kernel_info->_var_info[idx];
+            std::string dim1_size = _kernel_info->_var_info[idx]._size._dim1_size;
             std::string dim2_size = _kernel_info->_var_info[idx]._size._dim2_size;
             std::string dim3_size = _kernel_info->_var_info[idx]._size._dim3_size;
 
-            // FIXME:
+            /*
+             * Declare A[d1][d2]
+             * Use A[i][j] => A[(i*d2)+j]
+             * 
+             * Declare A[d1][d2][d3]
+             * Use A[i][j][k] => A[(i*d2*d3)+(j*d3)+k]
+             * 
+             */
             if (subscript_count >= 1)
             {
                 new_subscript = "(" + subscript_list[0] + ")";
             }
             if (subscript_count >= 2)
             {
+                // TODO: Now support only 2D and 3D
+                std::string mul_size = (var_info._dimension_num == 2)? dim2_size : dim3_size;
                 new_subscript = "((" + subscript_list[1] + ") * " +
-                        dim3_size + ") + " + new_subscript;
+                        mul_size + ") + " + new_subscript;
             }
             if (subscript_count >= 3)
             {
