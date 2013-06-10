@@ -154,7 +154,8 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source send_input, recv_output;
     TL::Source worker_input_buffer_init, worker_input_buffer_free;
     TL::Source worker_func_def, worker_recv_input, worker_send_output;
-    TL::Source worker_scatter_input, worker_gather_output;
+    TL::Source worker_scatter_scalar_input, worker_scatter_input;
+    TL::Source worker_gather_output;
     TL::Source worker_var_decl, worker_gen_var_decl;
     TL::Source worker_init_gen_var, worker_free_gen_var;
     TL::Source worker_root_free_gen_var;
@@ -484,13 +485,12 @@ TL::Source ParallelFor::do_parallel_for()
                     << "_RecvInputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
                     << var_name << "," << size_str << ");";
 
-                std::string bcast_vname = ((var_info._is_array_or_pointer)? "" : "&") + var_name;
-                worker_scatter_input
-                    << create_mpi_bcast(bcast_vname, var_info.get_mem_size(), 
-                                        mpi_type_str, var_info._dimension_num);
-
                 if (var_info._is_array_or_pointer)
                 {
+                    worker_scatter_input
+                        << create_mpi_bcast("&" + var_name, var_info.get_mem_size(), 
+                                            mpi_type_str, var_info._dimension_num);
+                    
                     // TODO: cl_write_input for shared all thread variable
                     // if constant write to constant
                     cl_write_input
@@ -499,6 +499,10 @@ TL::Source ParallelFor::do_parallel_for()
                 }
                 else
                 {
+                    worker_scatter_scalar_input
+                        << create_mpi_bcast(var_name, var_info.get_mem_size(), 
+                                            mpi_type_str, var_info._dimension_num);
+                    
                     // TODO: Pass to kernel parameter
                     cl_set_kernel_arg
                         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, var_name);
@@ -777,14 +781,16 @@ TL::Source ParallelFor::do_parallel_for()
         << comment("Init generated variable")
         << worker_init_gen_var
             /* GPU */ << cl_init_var
-        << comment("Send data to all process")
+        << comment("Send scalar data to all process")
+        << worker_scatter_scalar_input
+        << comment("Init CL generated variable")
+        << cl_decl_init_work_item_var
+        
         << worker_scatter_input
+        << cl_write_input
 
         << comment("Compute work-load")
         << "if (0) {"
-            << cl_decl_init_work_item_var
-            << comment("TODO: Overlap node data transfer and device data transfer")
-            << cl_write_input
             << cl_create_kernel
             << cl_set_kernel_arg
             << cl_launch_kernel
