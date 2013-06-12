@@ -72,8 +72,6 @@ namespace TL
                 void get_private_clause(PragmaCustomConstruct construct,
                                         KernelInfo *kernel_info,
                                         ObjectList<IdExpression> &symbol_list);
-                void get_accurate_clause(PragmaCustomConstruct construct,
-                                         KernelInfo *kernel_info);
                 void get_reduction_clause(PragmaCustomConstruct construct,
                                           KernelInfo *kernel_info);
                 void get_size_clause(PragmaCustomConstruct construct,

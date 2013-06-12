@@ -40,36 +40,36 @@ std::string type_to_mpi_type(TL::Type type)
 
     /* Reference : https://computing.llnl.gov/tutorials/mpi/ */
     else if (type.is_char())
-        mpi_type_str = "_get_mpi_char()"; //"MPI_CHAR";
+        mpi_type_str = "_GFN_TYPE_CHAR()"; //"MPI_CHAR";
     //else if (type.is_wchar_t())
         //mpi_type_str = "MPI_WCHAR";
     else if (type.is_signed_short_int())
-        mpi_type_str = "_get_mpi_short()"; //"MPI_SHORT";
+        mpi_type_str = "_GFN_TYPE_SHORT()"; //"MPI_SHORT";
     else if (type.is_signed_int())
-        mpi_type_str = "_get_mpi_int()"; //"MPI_INT";
+        mpi_type_str = "_GFN_TYPE_INT()"; //"MPI_INT";
     else if (type.is_signed_long_int())
-        mpi_type_str = "_get_mpi_long()"; //"MPI_LONG";
+        mpi_type_str = "_GFN_TYPE_LONG()"; //"MPI_LONG";
     else if (type.is_signed_long_long_int())
-        mpi_type_str = "_get_mpi_long_long_int()"; //"MPI_LONG_LONG_INT";
+        mpi_type_str = "_GFN_TYPE_LONG_LONG_INT()"; //"MPI_LONG_LONG_INT";
     /* MPI_LONG_LONG */
     else if (type.is_signed_char())
-        mpi_type_str = "MPI_SIGNED_CHAR";
+        mpi_type_str = "_GFN_TYPE_CHAR()";
     else if (type.is_unsigned_char())
-        mpi_type_str = "_get_mpi_unsigned_char()"; //"MPI_UNSIGNED_CHAR";
+        mpi_type_str = "_GFN_TYPE_UNSIGNED_CHAR()"; //"MPI_UNSIGNED_CHAR";
     else if (type.is_unsigned_short_int())
-        mpi_type_str = "_get_mpi_unsigned_short()"; //"MPI_UNSIGNED_SHORT";
+        mpi_type_str = "_GFN_TYPE_UNSIGEND_SHORT()"; //"MPI_UNSIGNED_SHORT";
     else if (type.is_unsigned_int())
-        mpi_type_str = "_get_mpi_unsigned()"; //"MPI_UNSIGNED";
+        mpi_type_str = "_GFN_TYPE_UNSIGNED()"; //"MPI_UNSIGNED";
     else if (type.is_unsigned_long_int())
-        mpi_type_str = "_get_mpi_unsigned_long()"; //"MPI_UNSIGNED_LONG";
-    else if (type.is_unsigned_long_long_int())
-        mpi_type_str = "MPI_UNSIGNED_LONG_LONG";
+        mpi_type_str = "_GFN_TYPE_UNSIGNED_LONG()"; //"MPI_UNSIGNED_LONG";
+    //else if (type.is_unsigned_long_long_int())
+        //mpi_type_str = "MPI_UNSIGNED_LONG_LONG";
     else if (type.is_float())
-        mpi_type_str = "_get_mpi_float()"; //"MPI_FLOAT";
+        mpi_type_str = "_GFN_TYPE_FLOAT()"; //"MPI_FLOAT";
     else if (type.is_double())
-        mpi_type_str = "_get_mpi_double()"; //"MPI_DOUBLE";
+        mpi_type_str = "_GFN_TYPE_DOUBLE()"; //"MPI_DOUBLE";
     else if (type.is_long_double())
-        mpi_type_str = "_get_mpi_long_double()"; //"MPI_LONG_DOUBLE";
+        mpi_type_str = "_GFN_TYPE_LONG_DOUBLE()"; //"MPI_LONG_DOUBLE";
     else {
         std::cerr << "Don't support type : "
                   << type.get_symbol().get_name() << std::endl;
@@ -215,29 +215,29 @@ std::string op_to_mpi_op(REDUCTION_T rt)
     std::string mpi_op;
 
     if (rt == REDUCTION_MAX)
-        mpi_op = "_get_mpi_max()";
+        mpi_op = "_GFN_OP_MAX()";
     else if (rt == REDUCTION_MIN)
-        mpi_op = "_get_mpi_min()";
+        mpi_op = "_GFN_OP_MIN()";
     else if (rt == REDUCTION_SUM)
-        mpi_op = "_get_mpi_sum()";
+        mpi_op = "_GFN_OP_SUM()";
     else if (rt == REDUCTION_PROD)
-        mpi_op = "_get_mpi_prod()";
+        mpi_op = "_GFN_OP_PROD()";
     else if (rt == REDUCTION_BAND)
-        mpi_op = "_get_mpi_band()";
+        mpi_op = "_GFN_OP_BAND()";
     else if (rt == REDUCTION_BOR)
-        mpi_op = "_get_mpi_bor()";
+        mpi_op = "_GFN_OP_BOR()";
     else if (rt == REDUCTION_BXOR)
-        mpi_op = "_get_mpi_bxor()";
+        mpi_op = "_GFN_OP_BXOR()";
     else if (rt == REDUCTION_LAND)
-        mpi_op = "_get_mpi_land()";
+        mpi_op = "_GFN_OP_LAND()";
     else if (rt == REDUCTION_LOR)
-        mpi_op = "_get_mpi_lor()";
+        mpi_op = "_GFN_OP_LOR()";
     else if (rt == REDUCTION_LXOR)
-        mpi_op = "_get_mpi_lxor()";
+        mpi_op = "_GFN_OP_LXOR()";
     else if (rt == REDUCTION_MAXLOC)
-        mpi_op = "_get_mpi_maxloc()";
+        mpi_op = "_GFN_OP_MAXLOC()";
     else if (rt == REDUCTION_MINLOC)
-        mpi_op = "_get_mpi_minloc()";
+        mpi_op = "_GFN_OP_MINLOC()";
     else {
         std::cerr << "Don't support operator : " << (int)rt << std::endl;
     }
@@ -730,6 +730,157 @@ TL::Source create_gfn_check_cl_status(std::string status_var,
 {
     TL::Source result;
     result << "_GfnCheckCLStatus(" << status_var << ",\"" << phase_name << "\");";
+    return result;
+}
+
+TL::Source create_gfn_q_bcast_scalar(std::string var_name, 
+                                     std::string mpi_type)
+{
+    TL::Source result;
+    result << "_GfnEnqueueBoardcastScalar(&" << var_name << "," << mpi_type << ");";
+    return result;
+}
+
+TL::Source create_gfn_f_bcast_scalar()
+{
+    TL::Source result;
+    result << "_GfnFinishBoardcastScalar();";
+    return result;
+}
+
+TL::Source create_gfn_q_reduce_scalar(std::string var_name, 
+                                      std::string mpi_type,
+                                      std::string op_type)
+{
+    TL::Source result;
+    result << "_GfnEnqueueReduceScalar(" << var_name << "," << mpi_type << "," << op_type << ");";
+    return result;
+}
+
+TL::Source create_gfn_f_reduce_scalar()
+{
+    TL::Source result;
+    result << "_GfnFinishReduceScalar();";
+    return result;
+}
+
+TL::Source create_gfn_malloc_nd(std::string var_name,
+                                std::string var_cl_name,
+                                std::string var_unique_id_name,
+                                std::string mpi_type,
+                                int dim_num, std::string *dim_size,
+                                std::string cl_mem_flags,
+                                std::string level1_cond,
+                                std::string level2_cond)
+{
+    TL::Source result, func_name, size_params;
+    
+    func_name << "_GfnMalloc" << dim_num << "D";
+    for (int i = 1; i <= dim_num; ++i)
+    {
+        if (i != 1) size_params << ",";
+        size_params << dim_size[i];
+    }
+
+    result
+        << func_name << "(" << var_name << "," << var_cl_name << ","
+        << var_unique_id_name << "," << mpi_type << "," << size_params << ","
+        << cl_mem_flags << "," << level1_cond << "," << level2_cond << ");";
+    
+    return result;
+}
+
+TL::Source create_gfn_q_bcast_nd(std::string var_name,
+                                 std::string var_cl_name,
+                                 std::string mpi_type,
+                                 int dim_num, std::string *dim_size,
+                                 std::string level1_cond,
+                                 std::string level2_cond)
+{
+    TL::Source result, func_name, size_params;
+    
+    func_name << "_GfnEnqueueBoardcast" << dim_num << "D";
+    for (int i = 1; i <= dim_num; ++i)
+    {
+        if (i != 1) size_params << ",";
+        size_params << dim_size[i];
+    }
+    
+    result
+        << func_name << "(" << var_name << "," << var_cl_name << "," 
+        << mpi_type << "," << size_params << "," 
+        << level1_cond << "," << level2_cond << ");";
+    
+    return result;
+}
+
+TL::Source create_gfn_q_scatter_nd(std::string var_name,
+                                   std::string var_cl_name,
+                                   std::string mpi_type,
+                                   int dim_num, std::string *dim_size,
+                                   int partitioned_dim,
+                                   std::string pattern_array,
+                                   std::string pattern_type,
+                                   std::string level1_cond,
+                                   std::string level2_cond)
+{
+    TL::Source result, func_name, size_params;
+    
+    func_name << "_GfnEnqueueScatter" << dim_num << "D";
+    for (int i = 1; i <= dim_num; ++i)
+    {
+        if (i != 1) size_params << ",";
+        size_params << dim_size[i];
+    }
+    
+    result
+        << func_name << "(" << var_name << "," << var_cl_name << ","
+        << partitioned_dim << "," << size_params << ","
+        << pattern_array << "," << pattern_type << ","
+        << level1_cond << "," << level2_cond << ");";
+    
+    return result;
+}
+
+TL::Source create_gfn_f_dist_array()
+{
+    TL::Source result;
+    result << "_GfnFinishDistributeArray();";
+    return result;
+}
+
+TL::Source create_gfn_q_gather_nd(std::string var_name,
+                                  std::string var_cl_name,
+                                  std::string mpi_type,
+                                  int dim_num, std::string *dim_size,
+                                  int partitioned_dim,
+                                  std::string pattern_array,
+                                  std::string pattern_type,
+                                  std::string level1_cond,
+                                  std::string level2_cond)
+{
+    TL::Source result, func_name, size_params;
+    
+    func_name << "_GfnEnqueueGather" << dim_num << "D";
+    for (int i = 1; i <= dim_num; ++i)
+    {
+        if (i != 1) size_params << ",";
+        size_params << dim_size[i];
+    }
+
+    result
+        << func_name << "(" << var_name << "," << var_cl_name << ","
+        << mpi_type << "," << partitioned_dim << "," << size_params << ","
+        << pattern_array << "," << pattern_type << ","
+        << level1_cond << "," << level2_cond << ");";
+    
+    return result;
+}
+
+TL::Source create_gfn_f_gather_array()
+{
+    TL::Source result;
+    result << "_GfnFinishGatherArray();";
     return result;
 }
 

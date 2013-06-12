@@ -267,7 +267,6 @@ TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_ext_pragma();
 
-
 TL::Source create_cl_help_barrier();
 TL::Source create_cl_help_atomic_add_int();
 TL::Source create_cl_help_atomic_add_float();
@@ -279,5 +278,48 @@ TL::Source create_cl_help_atomic_call(std::string global_var_name,
 
 TL::Source create_gfn_check_cl_status(std::string status_var,
                                       std::string phase_name);
+
+
+TL::Source create_gfn_q_bcast_scalar(std::string var_name, 
+                                     std::string mpi_type);
+TL::Source create_gfn_f_bcast_scalar();
+TL::Source create_gfn_q_reduce_scalar(std::string var_name, 
+                                      std::string mpi_type,
+                                      std::string op_type);
+TL::Source create_gfn_f_reduce_scalar();
+TL::Source create_gfn_malloc_nd(std::string var_name,
+                                std::string var_cl_name,
+                                std::string var_unique_id_name,
+                                std::string mpi_type,
+                                int dim_num, std::string *dim_size,
+                                std::string cl_mem_flags,
+                                std::string level1_cond,
+                                std::string level2_cond);
+TL::Source create_gfn_q_bcast_nd(std::string var_name,
+                                 std::string var_cl_name,
+                                 std::string mpi_type,
+                                 int dim_num, std::string *dim_size,
+                                 std::string level1_cond,
+                                 std::string level2_cond);
+TL::Source create_gfn_q_scatter_nd(std::string var_name,
+                                   std::string var_cl_name,
+                                   std::string mpi_type,
+                                   int dim_num, std::string *dim_size,
+                                   int partitioned_dim,
+                                   std::string pattern_array,
+                                   std::string pattern_type,
+                                   std::string level1_cond,
+                                   std::string level2_cond);
+TL::Source create_gfn_f_dist_array();
+TL::Source create_gfn_q_gather_nd(std::string var_name,
+                                  std::string var_cl_name,
+                                  std::string mpi_type,
+                                  int dim_num, std::string *dim_size,
+                                  int partitioned_dim,
+                                  std::string pattern_array,
+                                  std::string pattern_type,
+                                  std::string level1_cond,
+                                  std::string level2_cond);
+TL::Source create_gfn_f_gather_array();
 
 #endif // GFN_COMMON_HPP

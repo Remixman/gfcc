@@ -37,6 +37,7 @@
 #include <string>
 #include <map>
 #include <iostream>
+#include <sstream>
 
 namespace TL
 {
@@ -46,29 +47,16 @@ namespace TL
         //! \addtogroup GFN Griffon
         //! @{
 
-        struct LIBGFN_CLASS DimSize
-        {
-            DimSize() { _dim1_size = _dim2_size = _dim3_size = "1"; }
-            std::string prettyprint()
-            {
-                return "{" + _dim1_size + "," + _dim2_size + "," + _dim3_size + "}";
-            }
-
-            std::string _dim1_size;
-            std::string _dim2_size;
-            std::string _dim3_size;
-        };
-
         struct LIBGFN_CLASS VariableInfo
         {
             std::string     _name;
             VAR_ACCESS_T    _access_type;
             REDUCTION_T     _reduction_type;
-            DimSize         _size;
             // For multi-dimension var, what dimension that we must distributed
             // (0 is shared and must boardcast to all node)
             unsigned        _shared_dimension;
             unsigned        _dimension_num; // for scalar dim num equal 0
+            std::string     _dim_size[7];
 
             // TODO: change to bit
             bool            _is_input;
@@ -84,8 +72,11 @@ namespace TL
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0), _dimension_num(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
-                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {}
+                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {
+                    for (int i = 0; i < 7; i++) _dim_size[i] = "1";
+                }
 
+            // Code generated function
             std::string get_mem_size();
             std::string get_distributed_mem_size();
             std::string get_distributed_mem_block();
@@ -94,6 +85,7 @@ namespace TL
             std::string get_array_index_in_1D(std::string idx_name1,
                                               std::string idx_name2 = "",
                                               std::string idx_name3 = "");
+            std::string get_allocate_size_in_byte(TL::Type vartype);
 
             void print();
         };
@@ -148,9 +140,6 @@ namespace TL
                 void set_private_list(ObjectList<DataReference> &private_list);
                 ObjectList<DataReference> get_private_list();
 
-                void set_accurate(GFN_ACCURATE accurate);
-                GFN_ACCURATE get_accurate();
-
                 int get_use_list_index(std::string var);
                 int get_def_list_index(std::string var);
                 void push_to_use_list(DataReference &data_ref);
@@ -162,7 +151,6 @@ namespace TL
                 bool _has_reduction_clause;
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
-                std::map< std::string, DimSize > _dim_size_list;
 
                 // Loop iterator
                 bool _is_const_loop_upper_bound;

@@ -3,13 +3,6 @@
 #include <gfn.h>
 #include "myipc.h"
 
-// GPU Device manipulate variable for each process
-cl_platform_id _gfn_platform_id;
-cl_device_id _gfn_device_id;
-cl_context _gfn_context;
-cl_command_queue _gfn_cmd_queue;
-cl_int _gfn_status;
-
 //#include "type_dec.def"
 void _Function_1();
 void _Function_2();

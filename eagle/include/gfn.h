@@ -7,20 +7,65 @@
 #include <CL/cl.h>
 
 
+extern int _gfn_rank;		/**/
+extern int _gfn_num_proc;	/**/
+extern cl_platform_id _gfn_platform_id;
+extern cl_device_id _gfn_device_id;
+extern cl_context _gfn_context;
+extern cl_command_queue _gfn_cmd_queue;
+extern cl_int _gfn_status;
+
 // API for user
 int gfn_get_num_process();
 int gfn_get_process_num();
+
+
+// Worker
+int _GfnInit();
+int _GfnFinalize();
+
+//int _GfnEnqueueBoardcastScalar(&n, _get_int_type()); /*-> recv, bcast*/
+int _GfnEnqueueBoardcastScalar(void *ptr, int type_id); /*-> recv, bcast*/
+int _GfnFinishBoardcastScalar();
+int _GfnEnqueueReduceScalar(void *ptr, int type_id, MPI_Op op_id);
+int _GfnFinishReduceScalar();
+// TODO: _GfnEnqueueReduce1D() ???
+    
+int _GfnMalloc1D(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc2D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc3D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc4D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc5D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc6D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+// TODO: add boardcast pattern as parameter
+int _GfnEnqueueBoardcast1D(void * ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast2D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast3D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast4D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast5D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast6D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer);
+
+int _GfnEnqueueScatter1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnFinishDistributeArray();
+
+int _GfnEnqueueGather1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnFinishGatherArray();
 
 
 // High Level function for trnsformation
 void _GfnBarrier();
 void _GfnCheckCLStatus(cl_int status, const char *phase_name);
 size_t _GfnCalcGlobalItemNum(size_t work_item_num, size_t work_group_item_num);
-
-
-// Variable for MPI
-extern int _gfn_rank;		/**/
-extern int _gfn_num_proc;	/**/
 
 // Function for MPI
 int _CalcLoopSize(int start, int end, int incre);
@@ -30,58 +75,54 @@ int _CalcLocalEndIndex(int old_start, int old_end, int num_proc, int rank);
 int _CalcOffset(int size, int num_proc, int rank);
 void _CalcCnts(int size, int num_proc, int *cnts /* OUTS */, int block_size);
 void _CalcDisp(int size, int num_proc, int *disp /* OUTS */, int block_size);
+size_t _CalcTypeSize(int type_id);
+void _CalcPartitionInfo(int size, int block_size, int * pattern_array, int pattern_type,
+                        int *cnts /* OUTS */, int *disp /* OUTS */, 
+                        int *sub_size /* OUTS */, int *elem_offset /* OUTS */);
 
 // Function for fix preprocessing of mcxx
-MPI_Datatype _get_mpi_char();
-MPI_Datatype _get_mpi_unsigned_char();
-MPI_Datatype _get_mpi_byte();
-MPI_Datatype _get_mpi_short();
-MPI_Datatype _get_mpi_unsigned_short();
-MPI_Datatype _get_mpi_int();
-MPI_Datatype _get_mpi_unsigned();
-MPI_Datatype _get_mpi_long();
-MPI_Datatype _get_mpi_unsigned_long();
-MPI_Datatype _get_mpi_float();
-MPI_Datatype _get_mpi_double();
-MPI_Datatype _get_mpi_long_double();
-MPI_Datatype _get_mpi_long_long_int();
+int _GFN_TYPE_CHAR();
+int _GFN_TYPE_UNSIGNED_CHAR();
+int _GFN_TYPE_SHORT();
+int _GFN_TYPE_UNSIGEND_SHORT();
+int _GFN_TYPE_INT();
+int _GFN_TYPE_UNSIGNED();
+int _GFN_TYPE_LONG();
+int _GFN_TYPE_UNSIGNED_LONG();
+int _GFN_TYPE_FLOAT();
+int _GFN_TYPE_DOUBLE();
+int _GFN_TYPE_LONG_DOUBLE();
+int _GFN_TYPE_LONG_LONG_INT();
 
-MPI_Op _get_mpi_max();
-MPI_Op _get_mpi_min();
-MPI_Op _get_mpi_sum();
-MPI_Op _get_mpi_prod();
-MPI_Op _get_mpi_land();
-MPI_Op _get_mpi_band();
-MPI_Op _get_mpi_lor();
-MPI_Op _get_mpi_bor();
-MPI_Op _get_mpi_lxor();
-MPI_Op _get_mpi_bxor();
-MPI_Op _get_mpi_minloc();
-MPI_Op _get_mpi_maxloc();
+MPI_Op _GFN_OP_MAX();
+MPI_Op _GFN_OP_MIN();
+MPI_Op _GFN_OP_SUM();
+MPI_Op _GFN_OP_PROD();
+MPI_Op _GFN_OP_LAND();
+MPI_Op _GFN_OP_BAND();
+MPI_Op _GFN_OP_LOR();
+MPI_Op _GFN_OP_BOR();
+MPI_Op _GFN_OP_LXOR();
+MPI_Op _GFN_OP_BXOR();
+MPI_Op _GFN_OP_MINLOC();
+MPI_Op _GFN_OP_MAXLOC();
 
-MPI_Comm _get_mpi_comm_world();
+cl_bool _GFN_TRUE();
+cl_bool _GFN_FALSE();
 
-// Variable for OpenCL
-extern cl_platform_id _gfn_platform_id;
-extern cl_device_id _gfn_device_id;
-extern cl_context _gfn_context;
-extern cl_command_queue _gfn_cmd_queue;
-extern cl_int _gfn_status;
+cl_mem_flags _GFN_MEM_READ_WRITE();
+cl_mem_flags _GFN_MEM_WRITE_ONLY();
+cl_mem_flags _GFN_MEM_READ_ONLY();
+cl_mem_flags _GFN_MEM_USE_HOST_PTR();
+cl_mem_flags _GFN_MEM_ALLOC_HOST_PTR();
+
+
 
 // Function for OpenCL
 void _InitOpenCL();
 void _FinalOpenCL();
 cl_kernel _CreateKernelFromSource(const char *name, const char *src,
                                   cl_context context, cl_device_id device_id);
-
-cl_bool _get_cl_true();
-cl_bool _get_cl_false();
-
-cl_mem_flags _get_cl_mem_read_write();
-cl_mem_flags _get_cl_mem_write_only();
-cl_mem_flags _get_cl_mem_read_only();
-cl_mem_flags _get_cl_mem_use_host_ptr();
-cl_mem_flags _get_cl_mem_alloc_host_ptr();
 
 /*----------------------------------------------------------------------------*\
                    IPC INTERFACE - source is in myipc_socket.c

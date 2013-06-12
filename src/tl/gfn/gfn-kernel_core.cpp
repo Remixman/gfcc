@@ -72,12 +72,12 @@ void KernelInfo::sort_var_info()
     for (int i = 0; i < _var_info.size(); ++i)
     {
         VariableInfo var_i = _var_info[i];
-        int min_size = (var_i._size._dim1_size == "1")? 1 : 100;//var_i._size._dim1_size;
+        int min_size = (var_i._dim_size[1] == "1")? 1 : 100;
         int min_idx = i;
         for (int j = i + 1; j < _var_info.size(); ++j)
         {
             VariableInfo var_j = _var_info[j];
-            int j_size = (var_j._size._dim1_size == "1")? 1 : 100;//var_j._size._dim1_size;
+            int j_size = (var_j._dim_size[1] == "1")? 1 : 100;
             if (j_size < min_size)
             {
                 min_size = j_size;
@@ -146,16 +146,6 @@ ObjectList<DataReference> KernelInfo::get_private_list()
     return _private_list;
 }
 
-void KernelInfo::set_accurate(GFN_ACCURATE accurate)
-{
-    _accurate = accurate;
-}
-
-GFN_ACCURATE KernelInfo::get_accurate() 
-{
-    return _accurate;
-}
-
 int KernelInfo::get_use_list_index(std::string var)
 {
     int i = 0;
@@ -210,38 +200,36 @@ void KernelInfo::push_to_def_list(DataReference &data_ref)
 
 std::string VariableInfo::get_mem_size()
 {
-    std::string result = "";
+    std::stringstream result;
 
-    result += "(";
-    result += "(" + _size._dim1_size + ")";
-    if (_size._dim2_size != "1")
-    {
-        result += " * (" + _size._dim2_size + ")";
-    }
-    if (_size._dim3_size != "1")
-    {
-        result += " * (" + _size._dim3_size + ")";
-    }
-    result += ")";
+    result << "(";
+    result << "(" << _dim_size[1] << ")";
+    if (_dimension_num >= 2) result << " * (" << _dim_size[2] << ")";
+    if (_dimension_num >= 3) result << " * (" << _dim_size[3] << ")";
+    if (_dimension_num >= 4) result << " * (" << _dim_size[4] << ")";
+    if (_dimension_num >= 5) result << " * (" << _dim_size[5] << ")";
+    if (_dimension_num >= 6) result << " * (" << _dim_size[6] << ")";
+    result << ")";
 
-    return result;
+    return result.str();
 }
 
 std::string VariableInfo::get_distributed_mem_size()
 {
     std::string result = "";
 
+    // FIXME:
     if (_shared_dimension == 1)
     {
-        result = "(" + _size._dim1_size + ")";
+        result = "(" + _dim_size[1] + ")";
     }
     else if (_shared_dimension == 2)
     {
-        result = "(" + _size._dim2_size + ")";
+        result = "(" + _dim_size[2] + ")";
     }
     else if (_shared_dimension == 3)
     {
-        result = "(" + _size._dim3_size + ")";
+        result = "(" + _dim_size[3] + ")";
     }
 
     return result;
@@ -249,24 +237,17 @@ std::string VariableInfo::get_distributed_mem_size()
 
 std::string VariableInfo::get_distributed_mem_block()
 {
-    std::string result = "";
-
-    result += "(";
-    if (_shared_dimension == 1)
+    std::stringstream result;
+    
+    result << "(";
+    for (int i = 1; i <= _dimension_num; ++i)
     {
-        result += "(" + _size._dim2_size + ") * (" + _size._dim3_size + ")";
+        if (i != 1) result << "*";
+        if (i != _shared_dimension) result << "(" << _dim_size[i] << ")";
     }
-    else if (_shared_dimension == 2)
-    {
-        result += "(" + _size._dim1_size + ") * (" + _size._dim3_size + ")";
-    }
-    else if (_shared_dimension == 3)
-    {
-        result += "(" + _size._dim1_size + ") * (" + _size._dim2_size + ")";
-    }
-    result += ")";
-
-    return (result == "()")? "1" : result;
+    result << ")";
+    
+    return (result.str() == "()")? "1" : result.str();
 }
 
 std::string VariableInfo::get_pointer_starts()
@@ -278,6 +259,9 @@ std::string VariableInfo::get_pointer_starts()
         case 1: return " * ";
         case 2: return " ** ";
         case 3: return " *** ";
+        case 4: return " **** ";
+        case 5: return " ***** ";
+        case 6: return " ****** ";
         default: std::cerr << "Unsupport multi-dimension\n";
     }
 
@@ -290,6 +274,9 @@ std::string VariableInfo::get_subscript_to_1d_buf()
     {
         case 2: return "[0]";
         case 3: return "[0][0]";
+        case 4: return "[0][0][0]";
+        case 5: return "[0][0][0][0]";
+        case 6: return "[0][0][0][0][0]";
         default: return "";
     }
 
@@ -308,7 +295,7 @@ std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
     }
     else if (idx_name2 != "")
     {
-        result = "(" + idx_name1 + ") * (" + _size._dim1_size
+        result = "(" + idx_name1 + ") * (" + _dim_size[1]
                + ") + (" + idx_name2 + ")";
     }
     else
@@ -317,6 +304,23 @@ std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
     }
 
     return result;
+}
+
+std::string VariableInfo::get_allocate_size_in_byte(TL::Type vartype)
+{
+    std::stringstream result;
+    std::string type_name = type_to_ctype(vartype);
+    
+    if (vartype.is_array() || vartype.is_pointer())
+    {
+        result << "(sizeof(" << type_name << ") * " << get_mem_size() << ")";
+    }
+    else
+    {
+        result << "sizeof(" << type_name << ")";
+    }
+    
+    return result.str();
 }
 
 void VariableInfo::print()

@@ -233,7 +233,6 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_kernelname_clause(construct, kernel_info);
     get_waitfor_clause(construct, kernel_info);
     get_private_clause(construct, kernel_info, symbol_list);
-    get_accurate_clause(construct, kernel_info);
     get_reduction_clause(construct, kernel_info);
     get_input_clause(construct, kernel_info);
     get_output_clause(construct, kernel_info);
@@ -249,8 +248,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
          ++it)
     {
         std::string var = it->prettyprint();
-        std::cout << " - " << var /*<< " , size = "
-                  << kernel_info->_dim_size_list[var].prettyprint()*/ << "\n";
+        std::cout << " - " << var << "\n";
     }
     std::cout << "====================================================\n";
     std::cout << "DEF LIST for kernel\n";
@@ -259,8 +257,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
          ++it)
     {
         std::string var = it->prettyprint();
-        std::cout << " - " << var /*<< " , size = "
-                  << kernel_info->_dim_size_list[var].prettyprint()*/ << "\n";
+        std::cout << " - " << var << "\n";
     }
     std::cout << "====================================================\n\n";
     
@@ -412,23 +409,6 @@ void GFNPragmaPhase::get_private_clause(PragmaCustomConstruct construct,
     }
 }
 
-void GFNPragmaPhase::get_accurate_clause(PragmaCustomConstruct construct,
-                                         KernelInfo *kernel_info)
-{
-    TL::PragmaCustomClause accurate_clause = construct.get_clause("accurate");
-    if (accurate_clause.is_defined())
-    {
-        ObjectList<std::string> accurate_arg = accurate_clause.get_arguments();
-
-        if (accurate_arg.size() != 1)
-        {
-            std::cerr << "" << std::endl;
-        }
-
-        accurate_arg[0];
-    }
-}
-
 void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
                                           KernelInfo *kernel_info)
 {
@@ -567,25 +547,13 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                               
                 // Save dimension size data
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
-                DimSize &dim_size = kernel_info->_dim_size_list[var_name];
+
                 std::cout << "Size of " << var_name << " = ";
-                if (dim_num >= 1) 
+                for (int i = 1; i <= dim_num; ++i)
                 {
-                    dim_size._dim1_size = size_list[0];
-                    kernel_info->_var_info[idx]._size._dim1_size = size_list[0];
-                    std::cout << size_list[0];
-                }
-                if (dim_num >= 2) 
-                {
-                    dim_size._dim2_size = size_list[1];
-                    kernel_info->_var_info[idx]._size._dim2_size = size_list[1];
-                    std::cout << ":" << size_list[1];
-                }
-                if (dim_num >= 3)
-                {
-                    dim_size._dim3_size = size_list[2];
-                    kernel_info->_var_info[idx]._size._dim3_size = size_list[2];
-                    std::cout << ":" << size_list[2];
+                    if (i != 1) std::cout << ":";
+                    std::cout << size_list[i-1];
+                    kernel_info->_var_info[idx]._dim_size[i] = size_list[i-1];
                 }
                 std::cout << std::endl;
             }
