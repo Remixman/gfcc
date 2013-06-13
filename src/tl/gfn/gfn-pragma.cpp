@@ -234,10 +234,12 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_waitfor_clause(construct, kernel_info);
     get_private_clause(construct, kernel_info, symbol_list);
     get_reduction_clause(construct, kernel_info);
+    
     get_input_clause(construct, kernel_info);
     get_output_clause(construct, kernel_info);
     get_inout_clause(construct, kernel_info);
     get_temp_clause(construct, kernel_info);
+    
     get_parallel_if_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
@@ -564,6 +566,73 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                           << "\" in parallel region " << std::endl;
             }
         }
+    }
+}
+
+void GFNPragmaPhase::get_in_pattern_clause(TL::PragmaCustomConstruct construct,
+                                           KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause in_pattern_clause = construct.get_clause("in_pattern");
+    
+    /* RANGE TYPE & SPECIFIC TYPE
+     * in_pattern(A:[-1,1], B:{-2,0,2}) */
+    if (in_pattern_clause.is_defined())
+    {
+        size_t start_pos, colon_pos, comma_pos;
+        ObjectList<std::string> list_arg = in_pattern_clause.get_arguments();
+        
+        for (ObjectList<std::string>::iterator it = list_arg.begin();
+             it != list_arg.end();
+             ++it)
+        {
+            std::string pattern = *it;
+            
+            // Extract var_name
+            colon_pos = pattern.find(":", start_pos);
+            std::string var_name = pattern.substr(start_pos, colon_pos - start_pos - 1);
+            start_pos = colon_pos + 1; // shift to pattern
+            
+            int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+            if (idx != -1)
+            {
+                if (pattern[start_pos] == '[') 
+                {
+                    kernel_info->_var_info[idx]._in_pattern_type = GFN_PATTERN_RANGE;
+                    comma_pos = pattern.find(",", start_pos);
+                    std::string lower_bound = pattern.substr(start_pos+1, comma_pos-(start_pos+2));
+                    std::string upper_bound = pattern.substr(comma_pos+1, pattern.size()-(comma_pos+2));
+                    kernel_info->_var_info[idx]._in_pattern_array.push_back(lower_bound);
+                    kernel_info->_var_info[idx]._in_pattern_array.push_back(upper_bound);
+                }
+                else if (pattern[start_pos] == '{')
+                {
+                    kernel_info->_var_info[idx]._in_pattern_type = GFN_PATTERN_SPEC;
+                    // TODO:
+                }
+                else 
+                {
+                    // TODO:
+                    //srd::cerr << 
+                }
+            }
+            else
+            {
+                std::cerr << "warning : clause \"" << "in_pattern" /* TODO: */
+                          << "\" unknown variable \"" << *it
+                          << "\" in parallel region " << std::endl;
+            }
+        }
+    }
+}
+
+void GFNPragmaPhase::get_out_pattern_clause(TL::PragmaCustomConstruct construct,
+                                            KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause out_pattern_clause = construct.get_clause("out_pattern");
+    
+    if (out_pattern_clause.is_defined())
+    {
+        
     }
 }
 

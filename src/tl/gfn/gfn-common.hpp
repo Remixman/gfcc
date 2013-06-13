@@ -63,6 +63,10 @@
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
 
+#define GFN_PATTERN_NONE   1
+#define GFN_PATTERN_RANGE  2
+#define GFN_PATTERN_SPEC   3
+
 #define GFN_PREFIX_LOCAL   "_local_"
 
 #define CL_EOL "\\n\n"

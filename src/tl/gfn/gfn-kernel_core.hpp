@@ -57,6 +57,12 @@ namespace TL
             unsigned        _shared_dimension;
             unsigned        _dimension_num; // for scalar dim num equal 0
             std::string     _dim_size[7];
+            
+            // Stencil pattern
+            int             _in_pattern_type;
+            int             _out_pattern_type;
+            ObjectList<std::string> _in_pattern_array;
+            ObjectList<std::string> _out_pattern_array;
 
             // TODO: change to bit
             bool            _is_input;
@@ -72,9 +78,10 @@ namespace TL
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0), _dimension_num(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
-                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0) {
-                    for (int i = 0; i < 7; i++) _dim_size[i] = "1";
-                }
+                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0),
+                _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
+                for (int i = 0; i < 7; i++) _dim_size[i] = "1";
+            }
 
             // Code generated function
             std::string get_mem_size();

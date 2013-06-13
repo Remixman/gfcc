@@ -229,15 +229,12 @@ TL::Source ParallelFor::do_parallel_for()
             std::cerr << "Error : Variable in loop expression must be scalar\n";
         }
 
-        send_loop_size
+        master_send_input
             << "_SendInputMsg((void *)&" << var_name
             << ", sizeof (" << c_type_str << "));";
 
-        worker_recv_loop_size
-            << "_RecvInputMsg((void *)&" << var_name
-            << ", sizeof (" << c_type_str << "));";
-        worker_scatter_loop_size
-            << create_mpi_bcast(("&"+var_name), "1", mpi_type_str);
+        worker_boardcast_scalar_src
+            << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
@@ -339,7 +336,7 @@ TL::Source ParallelFor::do_parallel_for()
         if (var_info._is_array_or_pointer)
         {
             worker_declare_variables_src
-                << c_type_str << " * " << var_name << ";";
+                << c_type_str << ptr_stars << var_name << ";";
         }
         /*else if (var_info._is_reduction)
         {
@@ -540,7 +537,7 @@ TL::Source ParallelFor::do_parallel_for()
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_end_idx_var);
     cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", cl_loop_step_var);
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", loop_step_var);
 
     // TODO: Refactor this
     TL::Source tmp_src_1;
@@ -690,10 +687,8 @@ TL::Source ParallelFor::do_parallel_for()
                 << cl_set_kernel_arg
                 << cl_launch_kernel
             // Cluster only
-            << "} else if (" << level1_cond << ") {"
-                << mpi_block_dist_for_stmt
-            // Sequential code
             << "} else {"
+                << mpi_block_dist_for_stmt
             << "}"
             
             << comment("Gather Array Memory")
@@ -706,9 +701,9 @@ TL::Source ParallelFor::do_parallel_for()
         << "}"
         << comment("*/ #endif /*");
 
-    /*std::cout << " ================= Worker Function ================\n";
+    std::cout << " ================= Worker Function ================\n";
     std::cout << (std::string) worker_func_def << "\n";
-    std::cout << " ==================================================\n";*/
+    std::cout << " ==================================================\n";
 
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),

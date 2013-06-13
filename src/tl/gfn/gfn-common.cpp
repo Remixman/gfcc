@@ -773,17 +773,18 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
                                 std::string level1_cond,
                                 std::string level2_cond)
 {
-    TL::Source result, func_name, size_params;
+    TL::Source result, func_name, size_params, stars;
     
     func_name << "_GfnMalloc" << dim_num << "D";
     for (int i = 1; i <= dim_num; ++i)
     {
         if (i != 1) size_params << ",";
         size_params << dim_size[i];
+        stars << "*";
     }
 
     result
-        << func_name << "(" << var_name << "," << var_cl_name << ","
+        << func_name << "((void" << stars << ")" << var_name << "," << var_cl_name << ","
         << var_unique_id_name << "," << mpi_type << "," << size_params << ","
         << cl_mem_flags << "," << level1_cond << "," << level2_cond << ");";
     
@@ -797,18 +798,19 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
                                  std::string level1_cond,
                                  std::string level2_cond)
 {
-    TL::Source result, func_name, size_params;
+    TL::Source result, func_name, size_params, stars;
     
     func_name << "_GfnEnqueueBoardcast" << dim_num << "D";
     for (int i = 1; i <= dim_num; ++i)
     {
         if (i != 1) size_params << ",";
         size_params << dim_size[i];
+        stars << "*";
     }
     
     result
-        << func_name << "(" << var_name << "," << var_cl_name << "," 
-        << mpi_type << "," << size_params << "," 
+        << func_name << "((void" << stars << ")" << var_name << "," 
+        << var_cl_name << "," << mpi_type << "," << size_params << "," 
         << level1_cond << "," << level2_cond << ");";
     
     return result;
@@ -824,19 +826,20 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    std::string level1_cond,
                                    std::string level2_cond)
 {
-    TL::Source result, func_name, size_params;
+    TL::Source result, func_name, size_params, stars;
     
     func_name << "_GfnEnqueueScatter" << dim_num << "D";
     for (int i = 1; i <= dim_num; ++i)
     {
         if (i != 1) size_params << ",";
         size_params << dim_size[i];
+        stars << "*";
     }
     
     result
-        << func_name << "(" << var_name << "," << var_cl_name << ","
-        << partitioned_dim << "," << size_params << ","
-        << pattern_array << "," << pattern_type << ","
+        << func_name << "((void" << stars << ")" << var_name << "," 
+        << var_cl_name << "," << mpi_type << "," << partitioned_dim << "," 
+        << size_params << "," << pattern_array << "," << pattern_type << ","
         << level1_cond << "," << level2_cond << ");";
     
     return result;
@@ -859,17 +862,18 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string level1_cond,
                                   std::string level2_cond)
 {
-    TL::Source result, func_name, size_params;
+    TL::Source result, func_name, size_params, stars;
     
     func_name << "_GfnEnqueueGather" << dim_num << "D";
     for (int i = 1; i <= dim_num; ++i)
     {
         if (i != 1) size_params << ",";
         size_params << dim_size[i];
+        stars << "*";
     }
 
     result
-        << func_name << "(" << var_name << "," << var_cl_name << ","
+        << func_name << "((void" << stars << ")" << var_name << "," << var_cl_name << ","
         << mpi_type << "," << partitioned_dim << "," << size_params << ","
         << pattern_array << "," << pattern_type << ","
         << level1_cond << "," << level2_cond << ");";
