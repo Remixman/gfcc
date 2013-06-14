@@ -210,7 +210,7 @@ TL::Source ParallelFor::do_parallel_for()
 	std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
     
     std::string level1_cond = "1";
-    std::string level2_cond = "1";
+    std::string level2_cond = "0";
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );

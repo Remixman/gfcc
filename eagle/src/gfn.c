@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include "variable_id_table.h"
 #include "gfn.h"
 
 
@@ -118,14 +119,14 @@ int _GfnFinishReduceScalar()
 	return 0;
 }
 
-int _GfnMalloc1D(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc1D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 
 #define SWITCH_MALLOC_1D(type,size1) \
 do { \
 	type * tmp_ptr; \
 	tmp_ptr = (type *) malloc(sizeof(type) * size1); \
-	ptr = (void *) tmp_ptr; \
+	*ptr = (void *) tmp_ptr; \
 	if (level2_malloc) { \
 		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
@@ -151,7 +152,7 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc2D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc2D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 	int i;
 
@@ -161,7 +162,7 @@ do { \
 	tmp_ptr = (type **) malloc(sizeof(type*) * size1); \
 	tmp_ptr[0] = (type *) malloc(sizeof(type) * size1 * size2); \
 	for (i = 1; i < size1; ++i) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
-	ptr = (void **) tmp_ptr; \
+	*ptr = (void **) tmp_ptr; \
 	if (level2_malloc) { \
 		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
@@ -187,27 +188,27 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc3D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc3D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 	// TODO:
 
 	return 0;
 }
 
-int _GfnMalloc4D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc4D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 { return 0; }
-int _GfnMalloc5D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc5D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 { return 0; }
-int _GfnMalloc6D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc6D(void ******* ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 { return 0; }
 
-int _GfnEnqueueBoardcast1D(void * ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer)
 {
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
 #define SWITCH_BCAST_1D(type,mpi_type,size1) \
 do { \
-	type * tmp_ptr = (type *) ptr; \
+	type * tmp_ptr = (type *) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * size1); \
 	MPI_Bcast((void *)(tmp_ptr), size1, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
@@ -247,15 +248,15 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueBoardcast2D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast2D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer)
 {
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
 #define SWITCH_BCAST_2D(type,mpi_type,size1,size2) \
 do { \
-	type ** tmp_ptr = (type **) ptr; \
-	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr[0]), sizeof(type) * size1 * size2); \
-	MPI_Bcast((void *)(tmp_ptr[0]), size1 * size2, mpi_type, 0, MPI_COMM_WORLD); \
+	type ** tmp_ptr = (type **) (*ptr); \
+	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
+	MPI_Bcast(tmp_ptr[0], size1 * size2, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1 * size2, tmp_ptr[0], 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
@@ -293,16 +294,16 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueBoardcast3D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueBoardcast4D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueBoardcast5D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueBoardcast6D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer)
 { return 0; }
 
-int _GfnEnqueueScatter1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	// TODO: level 2 transfer only used partition
 
@@ -314,7 +315,7 @@ int _GfnEnqueueScatter1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned
 
 #define SWITCH_SCATTER_1D(type,mpi_type,size1) \
 do { \
-	type * tmp_ptr = (type *) ptr; \
+	type * tmp_ptr = (type *) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr, sizeof(type) * size1); \
 	MPI_Scatterv(tmp_ptr, cnts, disp, mpi_type, tmp_ptr + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
@@ -353,7 +354,7 @@ do { \
 
 	return 0;
 }
-int _GfnEnqueueScatter2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	// TODO: level 2 transfer only used partition
 
@@ -373,7 +374,7 @@ int _GfnEnqueueScatter2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitione
     
 #define SWITCH_SCATTER_2D(type,mpi_type,size1,size2) \
 do { \
-	type ** tmp_ptr = (type **) ptr; \
+	type ** tmp_ptr = (type **) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
 	MPI_Scatterv(tmp_ptr[0], cnts, disp, mpi_type, tmp_ptr[0] + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
@@ -400,8 +401,8 @@ do { \
 		SWITCH_SCATTER_2D(long,MPI_LONG,dim1_size,dim2_size); break;
 	case TYPE_UNSIGNED_LONG:  
 		SWITCH_SCATTER_2D(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size); break;
-	case TYPE_FLOAT:          
-		SWITCH_SCATTER_2D(float,MPI_FLOAT,dim1_size,dim2_size); break;
+	case TYPE_FLOAT:
+		SWITCH_SCATTER_2D(float,MPI_FLOAT,dim1_size,dim2_size); break;          
 	case TYPE_DOUBLE:         
 		SWITCH_SCATTER_2D(double,MPI_DOUBLE,dim1_size,dim2_size); break;
 	case TYPE_LONG_DOUBLE:    
@@ -413,18 +414,18 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueScatter3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
 int _GfnFinishDistributeArray()
 { return 0; }
 
-int _GfnEnqueueGather1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -434,7 +435,7 @@ int _GfnEnqueueGather1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_
 
 #define SWITCH_GATHER_1D(type,mpi_type,size1) \
 do { \
-	type * tmp_ptr = (type *) ptr; \
+	type * tmp_ptr = (type *) (*ptr); \
 	if (level2_transfer) { \
 		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr, 0, 0, 0); \
         _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
@@ -474,7 +475,7 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -492,7 +493,7 @@ int _GfnEnqueueGather2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned
 
 #define SWITCH_GATHER_2D(type,mpi_type,size1,size2) \
 do { \
-	type ** tmp_ptr = (type **) ptr; \
+	type ** tmp_ptr = (type **) (*ptr); \
 	if (level2_transfer) { \
 		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr[0], 0, 0, 0); \
         _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
@@ -532,13 +533,13 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
 int _GfnFinishGatherArray()
 { return 0; }
@@ -845,4 +846,3 @@ cl_kernel _CreateKernelFromSource(const char *name, const char *src,
     
     return kernel;
 }
-

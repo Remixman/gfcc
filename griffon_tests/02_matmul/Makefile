@@ -12,7 +12,7 @@ CL_INC_PATH = /usr/include
 CL_LIB_PATH = 
 
 
-CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
+CFLAGS = -g -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 -I$(GFN_INCLUDE_PATH) $(GFN_LIB_PATH)/gfn.o
 
 all: worker master

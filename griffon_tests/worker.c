@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
 	
 	_FinalOpenCL();
 	
+	printf("Call MPI Finalize");
 	MPI_Finalize();
 
 	return 0;

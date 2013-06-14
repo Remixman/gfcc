@@ -31,34 +31,34 @@ int _GfnEnqueueReduceScalar(void *ptr, int type_id, MPI_Op op_id);
 int _GfnFinishReduceScalar();
 // TODO: _GfnEnqueueReduce1D() ???
     
-int _GfnMalloc1D(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc2D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc3D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc4D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc5D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc6D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc1D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc2D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc3D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc4D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc5D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc6D(void ******* ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
 // TODO: add boardcast pattern as parameter
-int _GfnEnqueueBoardcast1D(void * ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer);
-int _GfnEnqueueBoardcast2D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer);
-int _GfnEnqueueBoardcast3D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer);
-int _GfnEnqueueBoardcast4D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer);
-int _GfnEnqueueBoardcast5D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer);
-int _GfnEnqueueBoardcast6D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast2D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer);
+int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer);
 
-int _GfnEnqueueScatter1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
 int _GfnFinishDistributeArray();
 
-int _GfnEnqueueGather1D(void * ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather2D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather3D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather4D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather5D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather6D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer);
 int _GfnFinishGatherArray();
 
 
