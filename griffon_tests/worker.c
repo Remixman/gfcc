@@ -21,20 +21,8 @@ void RecvCommand(int *func_code) {
 int main(int argc, char *argv[]) {
 	
 	int exit_f = 0, error_f = 0;
-	char processor_name[MPI_MAX_PROCESSOR_NAME];
-	int name_len;
 
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &_gfn_num_proc);
-	MPI_Comm_rank(MPI_COMM_WORLD, &_gfn_rank);
-	MPI_Get_processor_name(processor_name, &name_len);
-	
-	printf("Rank %d is at %s\n", _gfn_rank, processor_name);
-
-	_InitOpenCL();
-	//printf("Worker start!!\n");
-	
-	if (_gfn_rank == 0) _OpenWorkerMsgQueue();
+	_GfnInit(&argc, &argv);
 	
 	while (1) {
 		int func_code;
@@ -72,12 +60,7 @@ int main(int argc, char *argv[]) {
 	if (error_f)
 		printf("Exit with error");
 		
-	if (_gfn_rank == 0) _CloseWorkerMsgQueue();
-	
-	_FinalOpenCL();
-	
-	printf("Call MPI Finalize");
-	MPI_Finalize();
+	_GfnFinalize();
 
 	return 0;
 }

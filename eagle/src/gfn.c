@@ -41,12 +41,35 @@ int gfn_get_process_num()
 	return _gfn_rank;
 }
 
-int _GfnInit()
+int _GfnInit(int *argc, char **argv[])
 {
+	char processor_name[MPI_MAX_PROCESSOR_NAME];
+	int name_len;
+
+	MPI_Init(argc, argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &_gfn_num_proc);
+	MPI_Comm_rank(MPI_COMM_WORLD, &_gfn_rank);
+	MPI_Get_processor_name(processor_name, &name_len);
+	
+	printf("Rank %d is at %s\n", _gfn_rank, processor_name);
+
+	_InitOpenCL();
+
+	if (_gfn_rank == 0) _OpenWorkerMsgQueue();
+
 	return 0;
 }
+
 int _GfnFinalize()
 {
+	//_free_mem_and_clear_var_table();
+
+	_FinalOpenCL();
+	
+	MPI_Finalize();
+
+	if (_gfn_rank == 0) _CloseWorkerMsgQueue();
+
 	return 0;
 }
 
@@ -133,6 +156,8 @@ do { \
     } \
 } while (0)
 
+	//_insert_to_var_table(unique_id, cl_ptr, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SWITCH_MALLOC_1D(char,dim1_size); break;
@@ -169,6 +194,8 @@ do { \
 	} \
 } while (0)
 
+	//_insert_to_var_table(unique_id, cl_ptr, 1, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SWITCH_MALLOC_2D(char,dim1_size,dim2_size); break;
@@ -190,17 +217,96 @@ do { \
 
 int _GfnMalloc3D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
-	// TODO:
+	int i;
+
+#define SWITCH_MALLOC_3D(type,size1,size2,size3) \
+do { \
+	type *** tmp_ptr; \
+	tmp_ptr = (type ***) malloc(sizeof(type**) * size1); \
+	tmp_ptr[0] = (type **) malloc(sizeof(type*) * size1 * size2); \
+	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
+	tmp_ptr[0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3); \
+	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
+	*ptr = (void ***) tmp_ptr; \
+	if (level2_malloc) { \
+		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3, 0, &_gfn_status); \
+    	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
+	} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SWITCH_MALLOC_3D(char,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_MALLOC_3D(unsigned char,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_SHORT:          SWITCH_MALLOC_3D(short,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_MALLOC_3D(unsigned short,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_INT:            SWITCH_MALLOC_3D(int,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED:       SWITCH_MALLOC_3D(unsigned,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG:           SWITCH_MALLOC_3D(long,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_MALLOC_3D(unsigned long,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_FLOAT:          SWITCH_MALLOC_3D(float,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_DOUBLE:         SWITCH_MALLOC_3D(double,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_3D(long double,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_3D(long long int,dim1_size,dim2_size,dim3_size); break;
+	}
 
 	return 0;
 }
 
 int _GfnMalloc4D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
-{ return 0; }
+{
+	int i;
+
+#define SWITCH_MALLOC_4D(type,size1,size2,size3,size4) \
+do { \
+	type **** tmp_ptr; \
+	tmp_ptr = (type ****) malloc(sizeof(type***) * size1); \
+	tmp_ptr[0] = (type ***) malloc(sizeof(type**) * size1 * size2); \
+	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
+	tmp_ptr[0][0] = (type **) malloc(sizeof(type*) * size1 * size2 * size3); \
+	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
+	tmp_ptr[0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4); \
+	for (i = 1; i < size1 * size2 * size3; i++) tmp_ptr[0][0][i] = tmp_ptr[0][0][i-1] + size4; \
+	*ptr = (void ****) tmp_ptr; \
+	if (level2_malloc) { \
+		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4, 0, &_gfn_status); \
+    	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
+	} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SWITCH_MALLOC_4D(char,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_MALLOC_4D(unsigned char,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_SHORT:          SWITCH_MALLOC_4D(short,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_MALLOC_4D(unsigned short,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_INT:            SWITCH_MALLOC_4D(int,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED:       SWITCH_MALLOC_4D(unsigned,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG:           SWITCH_MALLOC_4D(long,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_MALLOC_4D(unsigned long,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_FLOAT:          SWITCH_MALLOC_4D(float,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_DOUBLE:         SWITCH_MALLOC_4D(double,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_4D(long double,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_4D(long long int,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	}
+
+	return 0;
+}
+
 int _GfnMalloc5D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
-{ return 0; }
+{ 
+	return 0;
+}
+
 int _GfnMalloc6D(void ******* ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
-{ return 0; }
+{ 
+	return 0;
+}
+
+int _GfnFree(long long unique_id, int level1_malloc, int level2_malloc)
+{ 
+	return 0;
+}
 
 int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer)
 {
@@ -295,7 +401,49 @@ do { \
 }
 
 int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer)
-{ return 0; }
+{ 
+#define SWITCH_BCAST_3D(type,mpi_type,size1,size2,size3) \
+do { \
+	type *** tmp_ptr = (type ***) (*ptr); \
+	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0][0], sizeof(type) * size1 * size2 * size3); \
+	MPI_Bcast(tmp_ptr[0][0], size1 * size2 * size3, mpi_type, 0, MPI_COMM_WORLD); \
+	if (level2_transfer) { \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1 * size2 * size3, tmp_ptr[0][0], 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+	} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           
+		SWITCH_BCAST_3D(char,MPI_CHAR,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_CHAR:  
+		SWITCH_BCAST_3D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_SHORT:          
+		SWITCH_BCAST_3D(short,MPI_SHORT,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_SHORT: 
+		SWITCH_BCAST_3D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_INT:            
+		SWITCH_BCAST_3D(int,MPI_INT,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED:       
+		SWITCH_BCAST_3D(unsigned,MPI_UNSIGNED,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG:           
+		SWITCH_BCAST_3D(long,MPI_LONG,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_UNSIGNED_LONG:  
+		SWITCH_BCAST_3D(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_FLOAT:          
+		SWITCH_BCAST_3D(float,MPI_FLOAT,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_DOUBLE:         
+		SWITCH_BCAST_3D(double,MPI_DOUBLE,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG_DOUBLE:    
+		SWITCH_BCAST_3D(long double,MPI_LONG_DOUBLE,dim1_size,dim2_size,dim3_size); break;
+	case TYPE_LONG_LONG_INT:  
+		SWITCH_BCAST_3D(long long int,MPI_LONG_LONG_INT,dim1_size,dim2_size,dim3_size); break;
+	}
+
+	return 0;
+}
+
 int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer)
 { return 0; }
 int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer)

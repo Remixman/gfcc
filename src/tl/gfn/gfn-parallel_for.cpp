@@ -162,7 +162,8 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source worker_reduce_scalar_src;
     
     // Core master sources
-    TL::Source master_send_input, master_recv_output;
+    TL::Source master_send_scalar_input, master_send_array_input;
+    TL::Source master_recv_output;
     
     // C/C++ and MPI sources
     TL::Source worker_input_buffer_free;
@@ -204,10 +205,10 @@ TL::Source ParallelFor::do_parallel_for()
     std::string step_str = (std::string)step;
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
-    Statement loop_body = _for_stmt.get_loop_body();
-	
-	std::string induction_var_name = (std::string)induction_var;
-	std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
+    Statement original_loop_body = _for_stmt.get_loop_body();
+
+    std::string induction_var_name = (std::string)induction_var;
+    std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
     
     std::string level1_cond = "1";
     std::string level2_cond = "0";
@@ -229,7 +230,7 @@ TL::Source ParallelFor::do_parallel_for()
             std::cerr << "Error : Variable in loop expression must be scalar\n";
         }
 
-        master_send_input
+        master_send_scalar_input
             << "_SendInputMsg((void *)&" << var_name
             << ", sizeof (" << c_type_str << "));";
 
@@ -378,25 +379,25 @@ TL::Source ParallelFor::do_parallel_for()
             if (var_info._is_array_or_pointer || var_info._is_output)
             {
                 worker_declare_generated_variables_src
-                    << "cl_mem " << var_cl_name << ";";
+                    << "cl_mem " << var_cl_name << " = 0;";
 
                 cl_set_kernel_arg
                     << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_mem", var_cl_name);
 
-				TL::Source cl_actual_param;
-				if (var_info._is_reduction)
-				{
-					cl_actual_param
-						<< "__global " << c_type_str << " * "
-						<< var_cl_global_reduction;
-				}
-				else
-				{
-					cl_actual_param
-						<< "__global " << ((!var_info._is_output)? "const " : "")
-						<< c_type_str << " * " << var_name;
-				}
-				cl_actual_params.append_with_separator(cl_actual_param, ",");
+                TL::Source cl_actual_param;
+                if (var_info._is_reduction)
+                {
+                    cl_actual_param
+                        << "__global " << c_type_str << " * "
+                        << var_cl_global_reduction;
+                }
+                else
+                {
+                    cl_actual_param
+                        << "__global " << ((!var_info._is_output)? "const " : "")
+                        << c_type_str << " * " << var_name;
+                }
+                cl_actual_params.append_with_separator(cl_actual_param, ",");
 
                 TL::Source actual_param;
                 actual_param << c_type_str << " * " << var_name;
@@ -417,6 +418,12 @@ TL::Source ParallelFor::do_parallel_for()
         /* 3. Allocate memory for array or pointer */
         if ((var_info._is_input || var_info._is_output) && var_info._is_array_or_pointer)
         {
+            master_send_scalar_input
+                << "_SendConstInputMsg((long long)&" << var_name << ");";
+
+            worker_boardcast_scalar_src
+                << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
+            
             worker_allocate_array_memory_src
                 << create_gfn_malloc_nd(var_name, var_cl_name, var_unique_id_name,
                                         mpi_type_str, var_info._dimension_num, var_info._dim_size,
@@ -426,9 +433,17 @@ TL::Source ParallelFor::do_parallel_for()
         if (var_info._is_input)
         {
             /* Master code */
-            master_send_input
-                << "_SendInputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+            if (var_info._is_array_or_pointer)
+            {
+                master_send_array_input
+                    << "_SendInputMsg((void*)" << var_name 
+                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+            }
+            else
+            {
+                master_send_scalar_input
+                    << "_SendInputMsg((void*)" << var_name << "," << size_str << ");";
+            }
 
             /* Worker code */
             if (var_info._is_array_or_pointer && is_partition)
@@ -516,12 +531,11 @@ TL::Source ParallelFor::do_parallel_for()
         }
     }
 
-    /*== --------------- Replace code in loop body -----------------==*/
-    std::vector<bool> replace_types(GFN_REPLACE_LAST_TYPE, false);
-    //replace_types[GFN_REPLACE_ARRAY_ND] = true;
-    //replace_types[GFN_REPLACE_ARRAY_INDEX] = true;
-    replace_parallel_loop_body(loop_body, replace_types, induction_var_name, new_induction_var_name);
-
+    // Copy loop body for cluster level and GPU level
+    TL::Statement cluster_loop_body(original_loop_body);
+    TL::Statement gpu_loop_body(original_loop_body);
+    
+    
     /*== ----- Create MPI block distribution for statement ---------==*/
     std::cout << "Create MPI Block\n";
     mpi_block_dist_for_stmt
@@ -529,7 +543,13 @@ TL::Source ParallelFor::do_parallel_for()
         << local_start_idx_var << ";" << induction_var.prettyprint()
         << ((is_incre_loop)? "<" : ">") << local_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ", "
-        << new_induction_var_name << "+=_loop_step)" << loop_body;
+        << new_induction_var_name << "+=_loop_step)" << original_loop_body;
+        
+    /*== --------------- Replace code in loop body -----------------==*/
+    std::vector<bool> replace_types(GFN_REPLACE_LAST_TYPE, false);
+    replace_types[GFN_REPLACE_ARRAY_ND] = true;
+    replace_types[GFN_REPLACE_ARRAY_INDEX] = true;
+    replace_parallel_loop_body(gpu_loop_body, replace_types, induction_var_name, new_induction_var_name);
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     cl_set_kernel_arg
@@ -604,7 +624,7 @@ TL::Source ParallelFor::do_parallel_for()
         << cl_kernel_var_decl
             << "if (" << induction_var << " <= "
             << ((_kernel_info->_is_const_loop_upper_bound)? _kernel_info->_const_upper_bound : "ERRORVAR" ) << ") {" << CL_EOL
-                << loop_body << CL_EOL
+                << gpu_loop_body << CL_EOL
             << "}" << CL_EOL
         << cl_kernel_reduction
         << "}" << CL_EOL;
@@ -629,17 +649,6 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source loop_index_decl = do_loop_index_declaration(induction_var.get_symbol(),
                                                            step,
                                                            lower_bound);
-    TL::Source private_var_decl;
-    TL::Source kernel_def, loop_body_replace;
-
-    kernel_def
-        << "__global__ void " << kernel_name
-        << "(" << kernel_actual_param << ") { "
-        << thread_id_decl
-        << loop_index_decl
-        //<< private_var_decl
-        << "if (" << induction_var.prettyprint() << "<" << GFN_UPPER_BOUND << ")"
-        << loop_body << "}";
 
     cl_launch_kernel
         << "_gfn_status = "
@@ -647,12 +656,6 @@ TL::Source ParallelFor::do_parallel_for()
             "&_global_item_num", "&_work_group_item_num", "0", "0", "0")
         << create_gfn_check_cl_status("_gfn_status", "LAUNCH KERNEL");
 
-#if 0
-    TL::AST_t kernel_def_tree = kernel_def.parse_declaration(
-            _function_def->get_point_of_declaration(),
-            _function_def->get_scope_link());
-    _function_def->get_ast().prepend_sibling_function(kernel_def_tree);
-#endif
 
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
@@ -701,9 +704,9 @@ TL::Source ParallelFor::do_parallel_for()
         << "}"
         << comment("*/ #endif /*");
 
-    std::cout << " ================= Worker Function ================\n";
+    /*std::cout << " ================= Worker Function ================\n";
     std::cout << (std::string) worker_func_def << "\n";
-    std::cout << " ==================================================\n";
+    std::cout << " ==================================================\n";*/
 
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
@@ -713,7 +716,8 @@ TL::Source ParallelFor::do_parallel_for()
 
     send_call_func
         << send_loop_size
-        << master_send_input
+        << master_send_scalar_input
+        << master_send_array_input
         << master_recv_output;
 
     return send_call_func;
@@ -773,12 +777,11 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
 // Replace function
 void ParallelFor::replace_parallel_loop_body(Statement stmt,
                                              std::vector<bool> &replace_types,
-											 std::string old_idx_name,
+                                             std::string old_idx_name,
 											 std::string new_idx_name)
 {
     if (stmt.is_declaration())
     {
-
     }
     else if (ForStatement::predicate(stmt.get_ast()))
     {
