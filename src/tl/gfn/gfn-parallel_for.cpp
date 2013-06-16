@@ -214,8 +214,8 @@ TL::Source ParallelFor::do_parallel_for()
     std::string induction_var_name = (std::string)induction_var;
     std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
     
-    std::string level1_cond = "1";
-    std::string level2_cond = "1";
+    std::string level1_cond = _kernel_info->level_1_condition;
+    std::string level2_cond = _kernel_info->level_2_condition;
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
@@ -246,7 +246,6 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
-    std::string local_idx_var = GFN_PREFIX_LOCAL + induction_var_name;
     std::string local_start_idx_var = GFN_PREFIX_LOCAL + induction_var_name + "_start";
     std::string local_end_idx_var = GFN_PREFIX_LOCAL + induction_var_name + "_end";
     std::string loop_step_var = "_loop_step";
@@ -274,10 +273,8 @@ TL::Source ParallelFor::do_parallel_for()
     worker_initialize_generated_variables_src
         << "_work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
-        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
-        /*<< "cl_int " + local_cl_start_idx_var + " = " << local_start_idx_var << ";"
-        << "cl_int " + local_cl_end_idx_var + " = " << local_end_idx_var << ";"
-        << "cl_int " + cl_loop_step_var + " = " << loop_step_var << ";"*/;
+        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
+
 
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (step_str[0] == '-')? false : true;

@@ -65,6 +65,8 @@ namespace TL
                 void barrier(PragmaCustomConstruct construct);
                 void atomic(PragmaCustomConstruct construct);
 
+                void get_if_clause(PragmaCustomConstruct construct,
+                                   KernelInfo *kernel_info);
                 void get_kernelname_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info);
                 void get_waitfor_clause(PragmaCustomConstruct construct,

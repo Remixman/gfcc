@@ -113,8 +113,6 @@ namespace TL
 
                 ObjectList<std::string> _shared_var;
                 
-                GFN_ACCURATE _accurate;
-                
                 Source _thread_num;
                 Source _block_num;
                 Source _thread_per_block;
@@ -159,6 +157,9 @@ namespace TL
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
 
+                std::string level_1_condition;
+                std::string level_2_condition;
+                
                 // Loop iterator
                 bool _is_const_loop_upper_bound;
                 std::string _const_upper_bound; // if const

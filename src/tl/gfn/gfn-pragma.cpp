@@ -329,6 +329,22 @@ void GFNPragmaPhase::atomic(PragmaCustomConstruct construct)
     construct.get_ast().replace(statement.get_ast());
 }
 
+void GFNPragmaPhase::get_if_clause(PragmaCustomConstruct construct,
+                                   KernelInfo *kernel_info)
+{
+    TL::PragmaCustomClause if_clause = construct.get_clause("if");
+    
+    ObjectList<Expression> cond_list = if_clause.get_expression_list();
+    if (cond_list.size() >= 1)
+    {
+        kernel_info->level_1_condition = (std::string)cond_list[0];
+    }
+    if (cond_list.size() >= 2)
+    {
+        kernel_info->level_2_condition = (std::string)cond_list[1];
+    }
+}
+
 void GFNPragmaPhase::get_kernelname_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info)
 {

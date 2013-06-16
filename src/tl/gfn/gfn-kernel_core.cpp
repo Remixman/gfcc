@@ -36,11 +36,15 @@ using namespace GFN;
 int KernelInfo::kernel_count = 0;
 
 KernelInfo::KernelInfo() : 
-    _accurate(ACCURATE_HIGH), _has_reduction_clause(false)
+    _has_reduction_clause(false)
 {
     // Loop bound
     _is_const_loop_upper_bound = false;
     _const_upper_bound = "";
+    
+    // Default is enable all parallel level
+    level_1_condition = "1";
+    level_2_condition = "1";
 }
 
 KernelInfo::KernelInfo(std::string &kernel_name) :
@@ -49,6 +53,10 @@ KernelInfo::KernelInfo(std::string &kernel_name) :
     // Loop bound
     _is_const_loop_upper_bound = false;
     _const_upper_bound = "";
+    
+    // Default is enable all parallel level
+    level_1_condition = "1";
+    level_2_condition = "1";
 }
 
 KernelInfo::~KernelInfo()
