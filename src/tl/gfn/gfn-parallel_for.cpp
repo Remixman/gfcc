@@ -178,7 +178,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source kernel_actual_param, kernel_formal_param;
     TL::Source cl_var_decl, cl_init_var, cl_free_var;
     TL::Source cl_create_kernel, cl_set_kernel_arg;
-    TL::Source cl_kernel_src_str, cl_kernel, cl_launch_kernel;
+    TL::Source cl_kernel_src_str, cl_kernel, cl_launch_kernel, cl_release_kernel;
     TL::Source cl_decl_init_work_item_var;
     TL::Source cl_kernel_body, cl_finalize;
     TL::Source cl_actual_params, cl_kernel_var_decl;
@@ -205,7 +205,10 @@ TL::Source ParallelFor::do_parallel_for()
     std::string step_str = (std::string)step;
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
-    Statement original_loop_body = _for_stmt.get_loop_body();
+    TL::Statement original_loop_body = _for_stmt.get_loop_body();
+    // Copy loop body for cluster level and GPU level
+    TL::Statement cluster_loop_body(original_loop_body);
+    TL::Statement gpu_loop_body(original_loop_body);
 
     std::string induction_var_name = (std::string)induction_var;
     std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
@@ -442,7 +445,7 @@ TL::Source ParallelFor::do_parallel_for()
             else
             {
                 master_send_scalar_input
-                    << "_SendInputMsg((void*)" << var_name << "," << size_str << ");";
+                    << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
             }
 
             /* Worker code */
@@ -530,26 +533,25 @@ TL::Source ParallelFor::do_parallel_for()
             cl_actual_params.append_with_separator(cl_actual_param, ",");
         }
     }
-
-    // Copy loop body for cluster level and GPU level
-    TL::Statement cluster_loop_body(original_loop_body);
-    TL::Statement gpu_loop_body(original_loop_body);
-    
     
     /*== ----- Create MPI block distribution for statement ---------==*/
-    std::cout << "Create MPI Block\n";
+    //std::vector<bool> mpi_replace_types(GFN_REPLACE_LAST_TYPE, false);
+    //mpi_replace_types[GFN_REPLACE_ARRAY_ND] = false;
+    //mpi_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
+    //replace_parallel_loop_body(cluster_loop_body, mpi_replace_types, induction_var_name, new_induction_var_name);
+    //std::cout << "Create MPI Block\n";
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = "
         << local_start_idx_var << ";" << induction_var.prettyprint()
         << ((is_incre_loop)? "<" : ">") << local_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ", "
-        << new_induction_var_name << "+=_loop_step)" << original_loop_body;
+        << new_induction_var_name << "+=_loop_step)" << cluster_loop_body;
         
     /*== --------------- Replace code in loop body -----------------==*/
-    std::vector<bool> replace_types(GFN_REPLACE_LAST_TYPE, false);
-    replace_types[GFN_REPLACE_ARRAY_ND] = true;
-    replace_types[GFN_REPLACE_ARRAY_INDEX] = true;
-    replace_parallel_loop_body(gpu_loop_body, replace_types, induction_var_name, new_induction_var_name);
+    std::vector<bool> cl_replace_types(GFN_REPLACE_LAST_TYPE, false);
+    cl_replace_types[GFN_REPLACE_ARRAY_ND] = true;
+    cl_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
+    replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     cl_set_kernel_arg
@@ -634,9 +636,11 @@ TL::Source ParallelFor::do_parallel_for()
         << "const char *_kernel_" << int_to_string(_kernel_info->kernel_id) << "_src = "
         << source_to_kernel_str(cl_kernel) << ";";
     cl_create_kernel
-        << "_kernel = _CreateKernelFromSource(\"_kernel_"
+        << "_kernel = _GfnCreateKernel(\"_kernel_"
         << int_to_string(_kernel_info->kernel_id) << "\",_kernel_"
         << int_to_string(_kernel_info->kernel_id) << "_src,_gfn_context,_gfn_device_id);";
+    cl_release_kernel
+        << "_GfnClearKernel(_kernel);";
 
 
     /*== -------------  Create GPU kernel function -----------------==*/
@@ -689,6 +693,7 @@ TL::Source ParallelFor::do_parallel_for()
                 << cl_create_kernel
                 << cl_set_kernel_arg
                 << cl_launch_kernel
+                << cl_release_kernel
             // Cluster only
             << "} else {"
                 << mpi_block_dist_for_stmt
@@ -891,6 +896,20 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
                         expr.get_ast(), expr.get_scope_link());
             expr.get_ast().replace(new_array_expr_tree);
         }
+        else if (replace_types[GFN_REPLACE_ARRAY_INDEX] == true)
+        {
+            Expression subscript_expr = expr.get_subscript_expression();
+            replace_loop_index_name(subscript_expr, old_idx_name, new_idx_name);
+            
+            TL::Source new_array_expr;
+            new_array_expr << subscript_expr;
+
+            AST_t new_array_expr_tree = new_array_expr.parse_expression(
+                        expr.get_ast(), expr.get_scope_link());
+            expr.get_subscript_expression().get_ast().replace(new_array_expr_tree);
+            
+            replace_parallel_loop_body(expr.get_subscripted_expression(), replace_types, old_idx_name, new_idx_name);
+        }
         
         // Traverse child nodes
         //replace_parallel_loop_body(expr.get_subscript_expression(), replace_types);
@@ -977,12 +996,12 @@ void ParallelFor::replace_loop_index_name(Expression expr,
 										  std::string old_name, 
 										  std::string new_name)
 {
-	if (expr.is_id_expression())
+    if (expr.is_id_expression())
     {
-		std::string var_name = expr.get_id_expression().get_symbol().get_name();
-		if (var_name == old_name)
-		{
-			TL::Source new_name_expr;
+        std::string var_name = expr.get_id_expression().get_symbol().get_name();
+        if (var_name == old_name)
+        {
+        TL::Source new_name_expr;
             new_name_expr << new_name;
 
             std::cout << "REPLACE {" << (std::string)var_name << "} with {" << (std::string)new_name_expr << "}\n";
@@ -991,7 +1010,7 @@ void ParallelFor::replace_loop_index_name(Expression expr,
             AST_t new_name_expr_tree = new_name_expr.parse_expression(
                         expr.get_ast(), expr.get_scope_link());
             expr.get_ast().replace(new_name_expr_tree);
-		}
+        }
     }
     else if (expr.is_array_subscript())
     {
@@ -1032,6 +1051,7 @@ void ParallelFor::replace_loop_index_name(Expression expr,
     }
     else
     {
+        std::cout << "unknown type\n";
         // TODO:
     }
 }

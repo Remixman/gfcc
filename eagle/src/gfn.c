@@ -12,6 +12,7 @@ cl_device_id _gfn_device_id;
 cl_context _gfn_context;
 cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
+cl_program _gfn_cl_program;
 
 #define PATTERN_NONE     0
 #define PATTERN_RANGE    1
@@ -947,38 +948,37 @@ cl_int _gfn_status;
 
 void _FinalOpenCL()
 {
+	// TODO: move to before send data back
 	// Block until all commands in queue have completed
-	_gfn_status = clFlush(_gfn_cmd_queue);
-	_GfnCheckCLStatus(_gfn_status, "clFlush");
+	//_gfn_status = clFlush(_gfn_cmd_queue);
+	//_GfnCheckCLStatus(_gfn_status, "clFlush");
 
 	// Block until all commands in queue have been removed from the queue
-    _gfn_status = clFinish(_gfn_cmd_queue);
-    _GfnCheckCLStatus(_gfn_status, "clFinish");
+    //_gfn_status = clFinish(_gfn_cmd_queue);
+    //_GfnCheckCLStatus(_gfn_status, "clFinish");
 
 	_gfn_status = clReleaseContext(_gfn_context);
 	_GfnCheckCLStatus(_gfn_status, "clReleaseContext");
-
-    //clReleaseKernel(kernel);
-    //clReleaseProgram(program);
 }
 
-cl_kernel _CreateKernelFromSource(const char *name, const char *src, 
-                                  cl_context context, cl_device_id device_id)
+cl_kernel _GfnCreateKernel(const char *name, const char *src, 
+                           cl_context context, cl_device_id device_id)
 {
+	// TODO: save kernel, so dont need to recompile
 	cl_int status;
 	cl_kernel kernel = NULL;
 	size_t param_value_size = 1024 * 1024;
     size_t param_value_size_ret;
     char param_value[param_value_size];
 
-    cl_program program = clCreateProgramWithSource(context, 1, 
+    _gfn_cl_program = clCreateProgramWithSource(context, 1, 
             (const char **)&src, NULL, &status);
     _GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
-    status = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+    status = clBuildProgram(_gfn_cl_program, 1, &device_id, NULL, NULL, NULL);
     _GfnCheckCLStatus(status, "BUILD PROGRAM");
 
     /* Get kernel compiler messages */
-    status = clGetProgramBuildInfo(program,
+    status = clGetProgramBuildInfo(_gfn_cl_program,
                                    device_id,
                                    CL_PROGRAM_BUILD_LOG,
                                    param_value_size,
@@ -990,8 +990,17 @@ cl_kernel _CreateKernelFromSource(const char *name, const char *src,
         printf("Message from kernel compiler : \n%s\n", param_value);
     }
 
-    kernel = clCreateKernel(program, name, &status);
+    kernel = clCreateKernel(_gfn_cl_program, name, &status);
     _GfnCheckCLStatus(status, "CREATE KERNEL");
     
     return kernel;
+}
+
+void _GfnClearKernel(cl_kernel kernel)
+{
+	_gfn_status = clReleaseKernel(kernel);
+	_GfnCheckCLStatus(_gfn_status, "clReleaseKernel");
+
+	_gfn_status = clReleaseProgram(_gfn_cl_program);
+	_GfnCheckCLStatus(_gfn_status, "clReleaseProgram");
 }

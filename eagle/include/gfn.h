@@ -14,6 +14,7 @@ extern cl_device_id _gfn_device_id;
 extern cl_context _gfn_context;
 extern cl_command_queue _gfn_cmd_queue;
 extern cl_int _gfn_status;
+extern cl_program _gfn_cl_program;
 
 // API for user
 int gfn_get_num_process();
@@ -122,8 +123,9 @@ cl_mem_flags _GFN_MEM_ALLOC_HOST_PTR();
 // Function for OpenCL
 void _InitOpenCL();
 void _FinalOpenCL();
-cl_kernel _CreateKernelFromSource(const char *name, const char *src,
-                                  cl_context context, cl_device_id device_id);
+cl_kernel _GfnCreateKernel(const char *name, const char *src,
+                           cl_context context, cl_device_id device_id);
+void _GfnClearKernel(cl_kernel kernel);
 
 /*----------------------------------------------------------------------------*\
                    IPC INTERFACE - source is in myipc_socket.c

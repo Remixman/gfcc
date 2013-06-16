@@ -124,7 +124,7 @@ void _Function_1()
     /* Compute Workload */
     if (0)
     {
-        _kernel = _CreateKernelFromSource("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
+        _kernel = _GfnCreateKernel("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
         _gfn_status = clSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_C);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_A);
@@ -139,6 +139,7 @@ void _Function_1()
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
+        _GfnClearKernel(_kernel);
     }
     else
     {
@@ -173,7 +174,7 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     /* Send call function message */
     _SendCallFuncMsg(1);
     _SendInputMsg((void *) &n, sizeof(int));
-    _SendInputMsg((void *) n, sizeof(int));
+    _SendInputMsg((void *) &n, sizeof(int));
     _SendConstInputMsg((long long) &C);
     _SendConstInputMsg((long long) &A);
     _SendConstInputMsg((long long) &B);
