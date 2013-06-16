@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "variable_id_table.h"
 #include "gfn.h"
 

@@ -1,4 +1,5 @@
 #include <search.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include "variable_id_table.h"
 #include "gfn.h"
@@ -22,15 +23,14 @@ int _var_compare(const void *l, const void *r) {
 }
 
 void _var_free_action(const void *nodep, const VISIT which, const int depth) {
-	var_record *datap = *(var_record **nodep);
-
+	var_record *datap = *((var_record **)nodep);
+    int dim_num = datap->dimension_num;
+    
 	switch(which) {
 		case preorder:
 		case postorder:
 		case endorder:
         case leaf:
-			int dim_num = datap->dimension_num;
-
 			if (dim_num >= 6) free(datap->host_ptr6);
 			if (dim_num >= 5) free(datap->host_ptr5);
 			if (dim_num >= 4) free(datap->host_ptr4);
