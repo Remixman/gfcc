@@ -31,12 +31,12 @@ int _GfnFinishBoardcastScalar();
 int _GfnEnqueueReduceScalar(void *ptr, int type_id, MPI_Op op_id);
 int _GfnFinishReduceScalar();
 // TODO: _GfnEnqueueReduce1D() ???
-int _GfnMalloc1D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc2D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc3D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc4D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc5D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
-int _GfnMalloc6D(void ******* ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
+int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc);
 // Potential to free, maybe not really free
 int _GfnFree(long long unique_id, int level1_malloc, int level2_malloc);
 // TODO: add boardcast pattern as parameter

@@ -160,6 +160,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source worker_computing_workload_src;
     TL::Source worker_gather_array_memory_src;
     TL::Source worker_reduce_scalar_src;
+    TL::Source worker_free_array_memory_src;
     
     // Core master sources
     TL::Source master_send_scalar_input, master_send_array_input;
@@ -214,7 +215,7 @@ TL::Source ParallelFor::do_parallel_for()
     std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
     
     std::string level1_cond = "1";
-    std::string level2_cond = "0";
+    std::string level2_cond = "1";
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
@@ -239,6 +240,9 @@ TL::Source ParallelFor::do_parallel_for()
 
         worker_boardcast_scalar_src
             << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
+            
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, var_name);
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
@@ -431,6 +435,9 @@ TL::Source ParallelFor::do_parallel_for()
                 << create_gfn_malloc_nd(var_name, var_cl_name, var_unique_id_name,
                                         mpi_type_str, var_info._dimension_num, var_info._dim_size,
                                         var_cl_mem_type, level1_cond, level2_cond);
+                
+            worker_free_array_memory_src
+                << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
         }
 
         if (var_info._is_input)
@@ -706,6 +713,9 @@ TL::Source ParallelFor::do_parallel_for()
             << comment("Reduce Scalar Value")
             << worker_reduce_scalar_src
             << create_gfn_f_reduce_scalar()
+            
+            << comment("Deallocate Array Memory")
+            << worker_free_array_memory_src
         << "}"
         << comment("*/ #endif /*");
 

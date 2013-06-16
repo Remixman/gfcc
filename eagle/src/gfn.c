@@ -64,7 +64,7 @@ int _GfnInit(int *argc, char **argv[])
 
 int _GfnFinalize()
 {
-	//_free_mem_and_clear_var_table();
+	_free_mem_and_clear_var_table();
 
 	_FinalOpenCL();
 	
@@ -144,7 +144,7 @@ int _GfnFinishReduceScalar()
 	return 0;
 }
 
-int _GfnMalloc1D(void ** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 
 #define SWITCH_MALLOC_1D(type,size1) \
@@ -153,13 +153,13 @@ do { \
 	tmp_ptr = (type *) malloc(sizeof(type) * size1); \
 	*ptr = (void *) tmp_ptr; \
 	if (level2_malloc) { \
-		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1, 0, &_gfn_status); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
     } \
+    _insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
 } while (0)
 
-	//_insert_to_var_table(unique_id, cl_ptr, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
-
+	
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SWITCH_MALLOC_1D(char,dim1_size); break;
@@ -179,7 +179,7 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc2D(void *** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 	int i;
 
@@ -191,12 +191,11 @@ do { \
 	for (i = 1; i < size1; ++i) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
 	*ptr = (void **) tmp_ptr; \
 	if (level2_malloc) { \
-		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2, 0, &_gfn_status); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
+	_insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
 } while (0)
-
-	//_insert_to_var_table(unique_id, cl_ptr, 1, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
 
 	switch(type_id)
 	{
@@ -217,7 +216,7 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc3D(void **** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 	int i;
 
@@ -231,9 +230,10 @@ do { \
 	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
 	*ptr = (void ***) tmp_ptr; \
 	if (level2_malloc) { \
-		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3, 0, &_gfn_status); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
+	_insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr[0][0], (void **)tmp_ptr[0], (void ***)tmp_ptr, NULL, NULL, NULL); \
 } while (0)
 
 	switch(type_id)
@@ -255,7 +255,7 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc4D(void ***** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 {
 	int i;
 
@@ -271,7 +271,7 @@ do { \
 	for (i = 1; i < size1 * size2 * size3; i++) tmp_ptr[0][0][i] = tmp_ptr[0][0][i-1] + size4; \
 	*ptr = (void ****) tmp_ptr; \
 	if (level2_malloc) { \
-		cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4, 0, &_gfn_status); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4, 0, &_gfn_status); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 } while (0)
@@ -295,18 +295,20 @@ do { \
 	return 0;
 }
 
-int _GfnMalloc5D(void ****** ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 { 
 	return 0;
 }
 
-int _GfnMalloc6D(void ******* ptr, cl_mem cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
 { 
 	return 0;
 }
 
 int _GfnFree(long long unique_id, int level1_malloc, int level2_malloc)
-{ 
+{
+	_free_mem_and_delete_from_var_table(unique_id);
+
 	return 0;
 }
 

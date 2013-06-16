@@ -299,6 +299,9 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
                                 std::string cl_mem_flags,
                                 std::string level1_cond,
                                 std::string level2_cond);
+TL::Source create_gfn_free(std::string var_unique_id_name,
+                           std::string level1_cond,
+                           std::string level2_cond);
 TL::Source create_gfn_q_bcast_nd(std::string var_name,
                                  std::string var_cl_name,
                                  std::string mpi_type,

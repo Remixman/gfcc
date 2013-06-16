@@ -785,10 +785,23 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
     }
 
     result
-        << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << ","
+        << func_name << "((void" << stars << ")&" << var_name << ",&" << var_cl_name << ","
         << var_unique_id_name << "," << mpi_type << "," << size_params << ","
         << cl_mem_flags << "," << level1_cond << "," << level2_cond << ");";
     
+    return result;
+}
+
+TL::Source create_gfn_free(std::string var_unique_id_name,
+                           std::string level1_cond,
+                           std::string level2_cond)
+{
+    TL::Source result;
+    
+    result
+        << "_GfnFree(" << var_unique_id_name << "," 
+        << level1_cond << "," << level2_cond << ");";
+        
     return result;
 }
 

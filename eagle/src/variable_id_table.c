@@ -49,6 +49,7 @@ void * _var_tab_root;
 int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num, 
 						  void * host_ptr1, void ** host_ptr2, void *** host_ptr3,
 						  void **** host_ptr4, void ***** host_ptr5, void ****** host_ptr6 ) {
+	printf("Insert %p to var table\n", device_ptr);
 	// INSERT
 	// void * tsearch (const void *key, void **rootp, comparison_fn_t compar)
 	var_record * new_rec = (var_record *) malloc(sizeof(var_record));
@@ -108,8 +109,11 @@ int _free_mem_and_delete_from_var_table(long long id) {
 		if (dim_num >= 2) free((*(var_record**)retieved_rec)->host_ptr2);
 		free((*(var_record**)retieved_rec)->host_ptr1);
 
-		_gfn_status = clReleaseMemObject((*(var_record**)retieved_rec)->device_ptr);
-    	_GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER");
+		// device mem maybe nil, so check before release
+		if ((*(var_record**)retieved_rec)->device_ptr) {
+			_gfn_status = clReleaseMemObject((*(var_record**)retieved_rec)->device_ptr);
+    		_GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER");
+    	}
 
     	tdelete((void *)&find_rec, &_var_tab_root, _var_compare);
 	}
