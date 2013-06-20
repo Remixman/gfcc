@@ -458,7 +458,7 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_distribute_array_memory_src
                     << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, var_info._dimension_num,
                                                var_info._dim_size, var_info._shared_dimension, 
-                                               pattern_in_name, pattern_type, 
+                                               var_cl_mem_type, pattern_in_name, pattern_type, 
                                                level1_cond, level2_cond);
             }
             else if (var_info._is_array_or_pointer)
@@ -488,7 +488,7 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_gather_array_memory_src
                     << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, var_info._dimension_num, 
                                               var_info._dim_size, var_info._shared_dimension, 
-                                              pattern_out_name, pattern_type,
+                                              var_cl_mem_type, pattern_out_name, pattern_type,
                                               level1_cond, level2_cond);
             }
             else if (var_info._is_array_or_pointer)
