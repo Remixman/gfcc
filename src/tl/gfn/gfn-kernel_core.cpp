@@ -43,8 +43,8 @@ KernelInfo::KernelInfo() :
     _const_upper_bound = "";
     
     // Default is enable all parallel level
-    level_1_condition = "1";
-    level_2_condition = "1";
+    _level_1_condition = "1";
+    _level_2_condition = "1";
 }
 
 KernelInfo::KernelInfo(std::string &kernel_name) :
@@ -55,8 +55,8 @@ KernelInfo::KernelInfo(std::string &kernel_name) :
     _const_upper_bound = "";
     
     // Default is enable all parallel level
-    level_1_condition = "1";
-    level_2_condition = "1";
+    _level_1_condition = "1";
+    _level_2_condition = "1";
 }
 
 KernelInfo::~KernelInfo()

@@ -96,8 +96,6 @@ namespace TL
                 void get_pattern_clause(PragmaCustomClause &pattern_clause,
                                         KernelInfo *kernel_info,
                                         std::string inout_pattern);
-                void get_parallel_if_clause(PragmaCustomConstruct construct,
-                                            KernelInfo *kernel_info);
 
                 // TODO: Change name to gather_data_for_analysis (and write data that it graps)
                 void find_use_and_def_list(Statement compound_stmt,

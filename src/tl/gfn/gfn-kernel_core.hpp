@@ -124,8 +124,6 @@ namespace TL
                 static int kernel_count;
                 int kernel_id;
 
-                std::string _parallel_if_expr;
-
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;
                 int get_var_info_index_from_var_name(std::string var_name);
@@ -157,8 +155,8 @@ namespace TL
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
 
-                std::string level_1_condition;
-                std::string level_2_condition;
+                std::string _level_1_condition;
+                std::string _level_2_condition;
                 
                 // Loop iterator
                 bool _is_const_loop_upper_bound;
