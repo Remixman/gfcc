@@ -93,6 +93,9 @@ namespace TL
                                            KernelInfo *kernel_info);
                 void get_out_pattern_clause(PragmaCustomConstruct construct,
                                             KernelInfo *kernel_info);
+                void get_pattern_clause(PragmaCustomClause &pattern_clause,
+                                        KernelInfo *kernel_info,
+                                        std::string inout_pattern);
                 void get_parallel_if_clause(PragmaCustomConstruct construct,
                                             KernelInfo *kernel_info);
 

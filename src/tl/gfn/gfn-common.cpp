@@ -838,7 +838,8 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
                                    std::string pattern_array,
-                                   std::string pattern_type,
+                                   int pattern_array_size,
+                                   int pattern_type,
                                    std::string level1_cond,
                                    std::string level2_cond)
 {
@@ -856,8 +857,8 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     result
         << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << "," 
         << mpi_type << "," << partitioned_dim << "," << size_params << "," 
-        << cl_mem_flags << "," << pattern_array << "," << pattern_type << ","
-        << level1_cond << "," << level2_cond << ");";
+        << cl_mem_flags << "," << pattern_array << "," << pattern_array_size << ","
+        << pattern_type << "," << level1_cond << "," << level2_cond << ");";
     
     return result;
 }
@@ -876,7 +877,8 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
                                   std::string pattern_array,
-                                  std::string pattern_type,
+                                  int pattern_array_size,
+                                  int pattern_type,
                                   std::string level1_cond,
                                   std::string level2_cond)
 {
@@ -894,8 +896,8 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
     result
         << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << ","
         << mpi_type << "," << partitioned_dim << "," << size_params << ","
-        << cl_mem_flags << "," << pattern_array << "," << pattern_type << ","
-        << level1_cond << "," << level2_cond << ");";
+        << cl_mem_flags << "," << pattern_array << "," << pattern_array_size << ","
+        << pattern_type << "," << level1_cond << "," << level2_cond << ");";
     
     return result;
 }

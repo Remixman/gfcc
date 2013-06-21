@@ -309,7 +309,8 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
                                    std::string pattern_array,
-                                   std::string pattern_type,
+                                   int pattern_array_size,
+                                   int pattern_type,
                                    std::string level1_cond,
                                    std::string level2_cond);
 TL::Source create_gfn_f_dist_array();
@@ -320,7 +321,8 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
                                   std::string pattern_array,
-                                  std::string pattern_type,
+                                  int pattern_array_size,
+                                  int pattern_type,
                                   std::string level1_cond,
                                   std::string level2_cond);
 TL::Source create_gfn_f_gather_array();

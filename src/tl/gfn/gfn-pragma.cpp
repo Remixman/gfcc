@@ -57,6 +57,93 @@ static void parse_var_list_and_append(std::string var_list_str,
         var_list.push_back(var);
     }
 }
+
+static void parse_pattern_list_and_append(std::string var_list_str,
+                                          TL::ObjectList<std::string> &var_names,
+                                          TL::ObjectList<int> &pattern_types,
+                                          TL::ObjectList< TL::ObjectList<std::string> > &pattern_arrays)
+{
+    // Compare , [ { what first
+    size_t start_pos = 0;
+    size_t comma_pos;
+    size_t l_sq_bracket_pos, r_sq_bracket_pos;
+    size_t l_brace_pos, r_brace_pos;
+    size_t colon_pos;
+    TL::ObjectList<std::string> pattern_array;
+    
+    std::remove(var_list_str.begin(), var_list_str.end(), ' '); // remove empty
+    
+    /* RANGE TYPE & SPECIFIC TYPE
+     * in_pattern(A:[-1,1], B:{-2,0,2}) */
+    while (true)
+    {
+        comma_pos = var_list_str.find(",", start_pos);
+        l_sq_bracket_pos = var_list_str.find("[", start_pos);
+        l_brace_pos = var_list_str.find("{", start_pos);
+        colon_pos = var_list_str.find(":", start_pos);
+            
+        if (comma_pos == std::string::npos &&
+            l_sq_bracket_pos == std::string::npos &&
+            l_brace_pos == std::string::npos)
+        {
+            return;
+        }
+        
+        std::string var_name;
+        var_name = var_list_str.substr(start_pos, colon_pos - start_pos);
+        var_names.append(var_name);
+        
+        // Range type
+        if (l_sq_bracket_pos < comma_pos &&
+            l_sq_bracket_pos < l_brace_pos)
+        {
+            start_pos = l_sq_bracket_pos + 1;
+            pattern_types.append(GFN_PATTERN_RANGE);
+            
+            while (true)
+            {
+                comma_pos = var_list_str.find(",", start_pos);
+                r_sq_bracket_pos = var_list_str.find("]", start_pos);
+                
+                size_t min_pos = std::min(comma_pos, r_sq_bracket_pos);
+                std::string val = var_list_str.substr(start_pos, min_pos - start_pos);
+                pattern_array.append(val);
+                
+                start_pos = min_pos + 1;
+                
+                if (r_sq_bracket_pos < comma_pos) break;
+            }
+            
+            pattern_arrays.append(pattern_array);
+        }
+        
+        // Spec type
+        else if (l_brace_pos < comma_pos &&
+                 l_brace_pos < l_sq_bracket_pos)
+        {
+            start_pos = l_brace_pos + 1;
+            pattern_types.append(GFN_PATTERN_SPEC);
+            
+            while (true)
+            {
+                comma_pos = var_list_str.find(",", start_pos);
+                r_brace_pos = var_list_str.find("}", start_pos);
+                
+                size_t min_pos = std::min(comma_pos, r_brace_pos);
+                std::string val = var_list_str.substr(start_pos, min_pos - start_pos);
+                pattern_array.append(val);
+                
+                start_pos = min_pos + 1;
+                
+                if (r_brace_pos < comma_pos) break;
+            }
+            
+            pattern_arrays.append(pattern_array);
+        }
+        
+        start_pos += 1; // consume ,
+    }
+}
 //////////////////////////////////////////////////////////////////////////
 
 GFNPragmaPhase::GFNPragmaPhase()
@@ -241,6 +328,9 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_temp_clause(construct, kernel_info);
     
     get_parallel_if_clause(construct, kernel_info);
+    
+    get_in_pattern_clause(construct, kernel_info);
+    get_out_pattern_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
     std::cout << "\n====================================================\n";
@@ -589,66 +679,80 @@ void GFNPragmaPhase::get_in_pattern_clause(TL::PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info)
 {
     TL::PragmaCustomClause in_pattern_clause = construct.get_clause("in_pattern");
-    
-    /* RANGE TYPE & SPECIFIC TYPE
-     * in_pattern(A:[-1,1], B:{-2,0,2}) */
-    if (in_pattern_clause.is_defined())
-    {
-        size_t start_pos, colon_pos, comma_pos;
-        ObjectList<std::string> list_arg = in_pattern_clause.get_arguments();
-        
-        for (ObjectList<std::string>::iterator it = list_arg.begin();
-             it != list_arg.end();
-             ++it)
-        {
-            std::string pattern = *it;
-            
-            // Extract var_name
-            colon_pos = pattern.find(":", start_pos);
-            std::string var_name = pattern.substr(start_pos, colon_pos - start_pos - 1);
-            start_pos = colon_pos + 1; // shift to pattern
-            
-            int idx = kernel_info->get_var_info_index_from_var_name(var_name);
-            if (idx != -1)
-            {
-                if (pattern[start_pos] == '[') 
-                {
-                    kernel_info->_var_info[idx]._in_pattern_type = GFN_PATTERN_RANGE;
-                    comma_pos = pattern.find(",", start_pos);
-                    std::string lower_bound = pattern.substr(start_pos+1, comma_pos-(start_pos+2));
-                    std::string upper_bound = pattern.substr(comma_pos+1, pattern.size()-(comma_pos+2));
-                    kernel_info->_var_info[idx]._in_pattern_array.push_back(lower_bound);
-                    kernel_info->_var_info[idx]._in_pattern_array.push_back(upper_bound);
-                }
-                else if (pattern[start_pos] == '{')
-                {
-                    kernel_info->_var_info[idx]._in_pattern_type = GFN_PATTERN_SPEC;
-                    // TODO:
-                }
-                else 
-                {
-                    // TODO:
-                    //srd::cerr << 
-                }
-            }
-            else
-            {
-                std::cerr << "warning : clause \"" << "in_pattern" /* TODO: */
-                          << "\" unknown variable \"" << *it
-                          << "\" in parallel region " << std::endl;
-            }
-        }
-    }
+    get_pattern_clause(in_pattern_clause, kernel_info, "in");
 }
 
 void GFNPragmaPhase::get_out_pattern_clause(TL::PragmaCustomConstruct construct,
                                             KernelInfo *kernel_info)
 {
     TL::PragmaCustomClause out_pattern_clause = construct.get_clause("out_pattern");
+    get_pattern_clause(out_pattern_clause, kernel_info, "out");
+}
+
+void GFNPragmaPhase::get_pattern_clause(PragmaCustomClause &pattern_clause,
+                                        KernelInfo *kernel_info,
+                                        std::string inout_pattern /* "in" or "out" */)
+{
     
-    if (out_pattern_clause.is_defined())
+    if (pattern_clause.is_defined())
     {
+        ObjectList<std::string> list_arg = pattern_clause.get_arguments();
         
+        ObjectList<std::string> var_list;
+        ObjectList<int> pattern_type_list;
+        ObjectList< ObjectList<std::string> > pattern_array_list;
+        
+        
+        for (ObjectList<std::string>::iterator it = list_arg.begin();
+             it != list_arg.end();
+             ++it)
+        {
+            parse_pattern_list_and_append(*it, var_list,
+                                          pattern_type_list, pattern_array_list);
+        }
+        
+        for (int i = 0; i < var_list.size(); ++i)
+        {
+            // find variable index
+            int idx = kernel_info->get_var_info_index_from_var_name(var_list[i]);
+            
+            if (idx != -1 && inout_pattern == "in")
+            {
+                // TODO: out_pattern 
+                kernel_info->_var_info[idx]._in_pattern_type = pattern_type_list[i];
+                kernel_info->_var_info[idx]._in_pattern_array = pattern_array_list[i];
+                
+                // Debug print
+                std::cout << "IN PATTERN FOR " << var_list[i] << " is " 
+                    << ((pattern_type_list[i] == GFN_PATTERN_RANGE)? "RANGE" : "SPEC")
+                    << " and value are ";
+                for (ObjectList<std::string>::iterator it = pattern_array_list[i].begin();
+                     it != pattern_array_list[i].end(); ++it)
+                    std::cout << *it << " | ";
+                std::cout << "\n";
+            }
+            else if (idx != -1 && inout_pattern == "out")
+            {
+                // TODO: out_pattern 
+                kernel_info->_var_info[idx]._out_pattern_type = pattern_type_list[i];
+                kernel_info->_var_info[idx]._out_pattern_array = pattern_array_list[i];
+                
+                // Debug print
+                std::cout << "IN PATTERN FOR " << var_list[i] << " is " 
+                    << ((pattern_type_list[i] == GFN_PATTERN_RANGE)? "RANGE" : "SPEC")
+                    << " and value are ";
+                for (ObjectList<std::string>::iterator it = pattern_array_list[i].begin();
+                     it != pattern_array_list[i].end(); ++it)
+                    std::cout << *it << " | ";
+                std::cout << "\n";
+            }
+            else
+            {
+                std::cerr << "warning : clause \"" << "in_pattern" /* TODO: */
+                          << "\" unknown variable \"" << var_list[i]
+                          << "\" in parallel region " << std::endl;
+            }
+        }
     }
 }
 

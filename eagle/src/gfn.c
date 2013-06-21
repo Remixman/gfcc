@@ -455,7 +455,7 @@ int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t d
 int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer)
 { return 0; }
 
-int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	// TODO: level 2 transfer only used partition
 
@@ -471,8 +471,15 @@ do { \
 	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr, sizeof(type) * size1); \
 	MPI_Scatterv(tmp_ptr, cnts, disp, mpi_type, tmp_ptr + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr, 0, 0, 0); \
+		cl_buffer_region info; \
+		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
+		info.size = (size_t)(sub_size * sizeof(type)); \
+		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_elem_offset, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+		_gfn_status = clReleaseMemObject(subbuf); \
+		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
 } while (0)
 
@@ -506,7 +513,7 @@ do { \
 
 	return 0;
 }
-int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	// TODO: level 2 transfer only used partition
 	// TODO: clCreateSubBuffer 1.1 spec for point to subbuffer
@@ -639,18 +646,18 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
 int _GfnFinishDistributeArray()
 { return 0; }
 
-int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -662,8 +669,15 @@ int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned
 do { \
 	type * tmp_ptr = (type *) (*ptr); \
 	if (level2_transfer) { \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr, 0, 0, 0); \
+		cl_buffer_region info; \
+		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
+		info.size = (size_t)(sub_size * sizeof(type)); \
+		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_elem_offset, 0, 0, 0); \
         _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+        _gfn_status = clReleaseMemObject(subbuf); \
+		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
 	MPI_Gatherv(tmp_ptr + send_elem_offset, sub_size, mpi_type, tmp_ptr, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
 	if (_gfn_rank == 0) _SendOutputMsg(tmp_ptr, sizeof(type) * size1); \
@@ -700,7 +714,7 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -765,13 +779,13 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
-int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
 { return 0; }
 int _GfnFinishGatherArray()
 { return 0; }
@@ -941,7 +955,7 @@ size_t _CalcTypeSize(int type_id)
 	}
 }
 
-void _CalcPartitionInfo(int size, int block_size, int * pattern_array, int pattern_type,
+void _CalcPartitionInfo(int size, int block_size, int * pattern_array, int pattern_array_size, int pattern_type,
 	                    int *cnts /* OUTS */, int *disp /* OUTS */, 
 	                    int *sub_size /* OUTS */, int *elem_offset /* OUTS */)
 {
