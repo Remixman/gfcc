@@ -463,7 +463,7 @@ int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitione
     int disp[_gfn_num_proc];
     int sub_size, recv_elem_offset;
 
-    _CalcPartitionInfo(dim1_size, 1, pattern_array, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
+    _CalcPartitionInfo(dim1_size, 1, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
 
 #define SWITCH_SCATTER_1D(type,mpi_type,size1) \
 do { \
@@ -566,7 +566,7 @@ do { \
     switch(partitioned_dim)
     {
     case 1: 
-    	_CalcPartitionInfo(dim1_size, dim2_size, pattern_array, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
+    	_CalcPartitionInfo(dim1_size, dim2_size, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
     	switch(type_id)
 		{
 		case TYPE_CHAR:           
@@ -597,7 +597,7 @@ do { \
     	break;
     case 2:
 #if 0
-    	_CalcPartitionInfo(dim2_size, 1, pattern_array, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
+    	_CalcPartitionInfo(dim2_size, 1, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
     	switch(type_id)
 		{
 		case TYPE_CHAR:
@@ -663,7 +663,7 @@ int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned
     int disp[_gfn_num_proc];
     int sub_size, send_elem_offset;
 
-    _CalcPartitionInfo(dim1_size, 1, pattern_array, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
+    _CalcPartitionInfo(dim1_size, 1, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
 
 #define SWITCH_GATHER_1D(type,mpi_type,size1) \
 do { \
@@ -723,7 +723,7 @@ int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitione
     switch(partitioned_dim)
     {
     case 1: 
-    	_CalcPartitionInfo(dim1_size, dim2_size, pattern_array, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
+    	_CalcPartitionInfo(dim1_size, dim2_size, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
     	break;
     case 2: 
     	// TODO:
