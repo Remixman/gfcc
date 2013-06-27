@@ -313,7 +313,9 @@ TL::Source create_gfn_q_bcast_scalar(std::string var_name,
 TL::Source create_gfn_f_bcast_scalar();
 TL::Source create_gfn_q_reduce_scalar(std::string var_name, 
                                       std::string mpi_type,
-                                      std::string op_type);
+                                      std::string op_type,
+                                      std::string level1_cond,
+                                      std::string level2_cond);
 TL::Source create_gfn_f_reduce_scalar();
 TL::Source create_gfn_malloc_nd(std::string var_name,
                                 std::string var_cl_name,
