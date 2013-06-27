@@ -311,7 +311,8 @@ TL::Source create_gfn_free_reduce(std::string var_cl_name,
 TL::Source create_gfn_q_bcast_scalar(std::string var_name, 
                                      std::string mpi_type);
 TL::Source create_gfn_f_bcast_scalar();
-TL::Source create_gfn_q_reduce_scalar(std::string var_name, 
+TL::Source create_gfn_q_reduce_scalar(std::string var_name,
+                                      std::string var_cl_name,
                                       std::string mpi_type,
                                       std::string op_type,
                                       std::string level1_cond,

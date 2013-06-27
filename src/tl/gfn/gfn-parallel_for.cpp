@@ -562,8 +562,8 @@ TL::Source ParallelFor::do_parallel_for()
             else
             {
                 worker_reduce_scalar_src
-                    << create_gfn_q_reduce_scalar(var_name, mpi_type_str, op_to_mpi_op(var_info._reduction_type),
-                                                  level1_cond, level2_cond);
+                    << create_gfn_q_reduce_scalar(var_name, var_cl_name, mpi_type_str, 
+                                                  op_to_mpi_op(var_info._reduction_type), level1_cond, level2_cond);
             }
         }
 
