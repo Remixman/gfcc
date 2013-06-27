@@ -827,10 +827,14 @@ TL::Source create_gfn_f_bcast_scalar()
 
 TL::Source create_gfn_q_reduce_scalar(std::string var_name, 
                                       std::string mpi_type,
-                                      std::string op_type)
+                                      std::string op_type,
+                                      std::string level1_cond,
+                                      std::string level2_cond)
 {
     TL::Source result;
-    result << "_GfnEnqueueReduceScalar(&" << var_name << "," << mpi_type << "," << op_type << ");";
+    result 
+        << "_GfnEnqueueReduceScalar(&" << var_name << "," << mpi_type << "," << op_type << ","
+        << level1_cond << "," << level2_cond << ");";
     return result;
 }
 
