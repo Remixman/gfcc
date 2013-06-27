@@ -111,15 +111,17 @@ void _Function_1()
     _GfnMalloc2D((void ***) &A, &_cl_mem_A, _id_A, _GFN_TYPE_FLOAT(), n, n, _GFN_MEM_READ_ONLY(), 1, 1);
     _GfnMalloc2D((void ***) &B, &_cl_mem_B, _id_B, _GFN_TYPE_FLOAT(), n, n, _GFN_MEM_READ_ONLY(), 1, 1);
     /* Initialize Generated Variables */
-    _local_i_start = _CalcLocalStartIndex(0, (n) - 1, _gfn_num_proc, _gfn_rank + 1);
-    _local_i_end = _CalcLocalEndIndex(0, (n) - 1, _gfn_num_proc, _gfn_rank + 1);
+    _local_data_start = _GfnCalcLocalDataStart(0, (n) - 1);
+    _local_data_end = _GfnCalcLocalDataEnd(0, (n) - 1);
+    _local_i_start = _GfnCalcLocalLoopStart(_local_data_start, 0, 1);
+    _local_i_end = _GfnCalcLocalLoopEnd(_local_data_end, (n) - 1);
     _loop_size = _CalcLoopSize(0, (n) - 1, 1);
     _loop_step = 1;
     _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
     _work_group_item_num = 64;
     _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);
     /* Distribute Array Memory */
-    _GfnEnqueueScatter2D((void ***) &A, _cl_mem_A, _GFN_TYPE_FLOAT(), 1, n, n, 0, 0, 1, 1);
+    _GfnEnqueueScatter2D((void ***) &A, _cl_mem_A, _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, n, n, _GFN_MEM_READ_ONLY(), 0, 0, 0, 1, 1);
     _GfnEnqueueBoardcast2D((void ***) &B, _cl_mem_B, _GFN_TYPE_FLOAT(), n, n, 1, 1);
     _GfnFinishDistributeArray();
     /* Compute Workload */
@@ -147,7 +149,7 @@ void _Function_1()
     else
     {
         for (i = _local_i_start;
-            i < _local_i_end;
+            i <= _local_i_end;
             i++ , _local_i += _loop_step)
         {
             for (j = 0;
@@ -165,7 +167,7 @@ void _Function_1()
         }
     }
     /* Gather Array Memory */
-    _GfnEnqueueGather2D((void ***) &C, _cl_mem_C, _GFN_TYPE_FLOAT(), 1, n, n, 0, 0, 1, 1);
+    _GfnEnqueueGather2D((void ***) &C, _cl_mem_C, _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, n, n, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
     _GfnFinishGatherArray();
     /* Reduce Scalar Value */
     _GfnFinishReduceScalar();
@@ -185,9 +187,9 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     _SendConstInputMsg((long long) &C);
     _SendConstInputMsg((long long) &A);
     _SendConstInputMsg((long long) &B);
-    _SendInputMsg((void *) A[0], (sizeof(float) * ((n) * (n))));
+    _SendInputNDMsg(&(A[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, 0, 2, 0, n, n);
     _SendInputMsg((void *) B[0], (sizeof(float) * ((n) * (n))));
-    _RecvOutputMsg((void *) C[0], (sizeof(float) * ((n) * (n))));
+    _RecvOutputNDMsg(&(C[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, 0, 2, 0, 1, n);
 }
 
 #ifndef GFN_WORKER

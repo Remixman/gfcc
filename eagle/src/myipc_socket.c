@@ -151,7 +151,7 @@ static void _CalcStartOffsetAndSize(int *start_offset, int *size,
 		case PATTERN_SPECIFIC:
 			break;
 	}
-	(*size) = end_offset - (*start_offset) + 1;
+	(*size) = (end_offset - (*start_offset) + 1) * block_size;
 }
 
 int _SendInputNDMsg(	void *ptr, int type_id,
@@ -178,7 +178,12 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 
 	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
-							size_n, pattern_n, size_array, pattern_array);	
+							size_n, pattern_n, size_array, pattern_array);
+
+#if 1
+	printf("START OFFSET = %d\n", start_offset);
+	printf("SEND SIZE = %d\n", send_size);
+#endif
 
 #define SEND_INPUT_ARRAY(type) \
 do { \
@@ -279,6 +284,13 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);	
+
+#if 1
+	if (_gfn_rank == 0) {
+		printf("START OFFSET = %d\n", start_offset);
+		printf("RECV SIZE = %d\n", recv_size);
+	}
+#endif
 
 #define RECV_INPUT_ARRAY(type) \
 do { \

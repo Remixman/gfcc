@@ -468,8 +468,6 @@ int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start
 
     _CalcPartitionInfo(dim1_size, 1, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
 
-    //if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr, sizeof(type) * size1);
-
 #define SWITCH_SCATTER_1D(type,mpi_type,size1) \
 do { \
 	type * tmp_ptr = (type *) (*ptr); \
@@ -535,7 +533,16 @@ int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_star
 #define SWITCH_SCATTER_2D(type,mpi_type,size1,size2) \
 do { \
 	type ** tmp_ptr = (type **) (*ptr); \
-	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
+	if (_gfn_rank == 0) { \
+		if (pattern_type == PATTERN_NONE) \
+			_RecvInputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
+							partitioned_dim,pattern_type,2,pattern_array_size, \
+							size1,size2); \
+		else if (pattern_type == PATTERN_RANGE) \
+			_RecvInputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
+							partitioned_dim,pattern_type,2,pattern_array_size, \
+							size1,size2,pattern_array[0],pattern_array[1]); \
+	} \
 	MPI_Scatterv(tmp_ptr[0], cnts, disp, mpi_type, tmp_ptr[0] + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_transfer) { \
 		cl_buffer_region info; \
@@ -705,7 +712,6 @@ do { \
 						 	 size1,pattern_array[0],pattern_array[1]); \
 	} \
 } while (0)
-//if (_gfn_rank == 0) _SendOutputMsg(tmp_ptr, sizeof(type) * size1);
 
 	switch(type_id)
 	{
@@ -769,7 +775,16 @@ do { \
 		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
 	MPI_Gatherv(tmp_ptr[0] + send_elem_offset, sub_size, mpi_type, tmp_ptr[0], cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
-	if (_gfn_rank == 0) _SendOutputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
+	if (_gfn_rank == 0) { \
+		if (pattern_type == PATTERN_NONE) \
+			_SendOutputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
+						 	 partitioned_dim,pattern_type,2,pattern_array_size, \
+						 	 size1,size2); \
+		else if (pattern_type == PATTERN_RANGE) \
+			_SendOutputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
+						 	 partitioned_dim,pattern_type,2,pattern_array_size, \
+						 	 size1,size2,pattern_array[0],pattern_array[1]); \
+	} \
 } while (0)
 
 	switch(type_id)
@@ -1015,8 +1030,8 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
 	int lower_bound;
     int upper_bound;
 
-	_CalcCnts(size, _gfn_num_proc, cnts, block_size);
-    _CalcDisp(size, _gfn_num_proc, disp, block_size);
+	_CalcCnts(size, _gfn_num_proc, cnts, 1);
+    _CalcDisp(size, _gfn_num_proc, disp, 1);
 
     /* Constraint
 		1. disp[i] >= loop_start
@@ -1051,18 +1066,25 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
 #endif
     	for (i = 0; i < _gfn_num_proc; ++i) {
     		// lower bound is negative TODO: for(i = 100; i > 0; i--) ?
-    		if ((disp[i] + (lower_bound * block_size)) >= 0) {
-    			cnts[i] -= (lower_bound * block_size);
-    			disp[i] += (lower_bound * block_size);
+    		if ((disp[i] + (lower_bound/* * block_size*/)) >= 0) {
+    			cnts[i] -= (lower_bound/* * block_size*/);
+    			disp[i] += (lower_bound/* * block_size*/);
     		}
-    		if ((disp[i] + cnts[i] + (upper_bound * block_size)) <= size) {
-    			cnts[i] += (upper_bound * block_size);
+    		if ((disp[i] + cnts[i] + (upper_bound/* * block_size*/)) <= size) {
+    			cnts[i] += (upper_bound/* * block_size*/);
     		}
     	}
 
     	break;
     case PATTERN_SPECIFIC: /* TODO */ break;
     }
+
+    // multiply all disp and cnts with block size
+    for (i = 0; i < _gfn_num_proc; ++i) {
+    	disp[i] *= block_size;
+    	cnts[i] *= block_size;
+	}
+
     *sub_size = cnts[_gfn_rank];
     *elem_offset = disp[_gfn_rank];
 

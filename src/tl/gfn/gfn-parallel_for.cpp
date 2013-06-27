@@ -483,15 +483,19 @@ TL::Source ParallelFor::do_parallel_for()
         if (var_info._is_input)
         {
             /* Master code */
-            if (var_info._is_array_or_pointer)
+            if (is_partition /* also be array */)
             {
                 master_send_array_input
                     << create_send_input_nd_msg(var_name, mpi_type_str, loop_start, loop_end, loop_step,
                                                 var_info._shared_dimension, in_pattern_type, 
                                                 var_info._dimension_num, in_pattern_array.size(),
                                                 var_info._dim_size, in_pattern_array);
-                    /*<< "_SendInputMsg((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";*/
+            }
+            else if (var_info._is_array_or_pointer)
+            {
+                master_send_array_input
+                    << "_SendInputMsg((void*)" << var_name 
+                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
             }
             else
             {
@@ -526,13 +530,20 @@ TL::Source ParallelFor::do_parallel_for()
         if (var_info._is_output)
         {
             /* Master code */
-            master_recv_output
-                << create_recv_output_nd_msg(var_name, mpi_type_str, loop_start, loop_end, loop_step,
-                                             var_info._shared_dimension, out_pattern_type,
-                                             var_info._dimension_num, out_pattern_array.size(),
-                                             var_info._dim_size, out_pattern_array);
-                /*<< "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";*/
+            if (is_partition)
+            {
+                master_recv_output
+                    << create_recv_output_nd_msg(var_name, mpi_type_str, loop_start, loop_end, loop_step,
+                                                var_info._shared_dimension, out_pattern_type,
+                                                var_info._dimension_num, out_pattern_array.size(),
+                                                var_info._dim_size, out_pattern_array);
+            }
+            else
+            {
+                master_recv_output
+                    << "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                    << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+            }
             
             /* Worker code */
             if (var_info._is_array_or_pointer && is_partition)
