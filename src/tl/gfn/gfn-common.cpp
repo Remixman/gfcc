@@ -786,6 +786,30 @@ TL::Source create_gfn_check_cl_status(std::string status_var,
     return result;
 }
 
+TL::Source create_gfn_malloc_reduce(std::string var_name,
+                                    std::string var_cl_name,
+                                    std::string type_id,
+                                    std::string level1_cond,
+                                    std::string level2_cond)
+{
+    TL::Source result;
+    result
+        << "_GfnMallocReduceScalar(&" << var_name << ",&" << var_cl_name << ","
+        << type_id << "," << level1_cond << "," << level2_cond <<");";
+    return result;
+}
+
+TL::Source create_gfn_free_reduce(std::string var_cl_name,
+                                  std::string level1_cond,
+                                  std::string level2_cond)
+{
+    TL::Source result;
+    result
+        << "_GfnFreeReduceScalar(" << var_cl_name << ","
+        << level1_cond << "," << level2_cond << ");";
+    return result; 
+}
+
 TL::Source create_gfn_q_bcast_scalar(std::string var_name, 
                                      std::string mpi_type)
 {
@@ -806,7 +830,7 @@ TL::Source create_gfn_q_reduce_scalar(std::string var_name,
                                       std::string op_type)
 {
     TL::Source result;
-    result << "_GfnEnqueueReduceScalar(" << var_name << "," << mpi_type << "," << op_type << ");";
+    result << "_GfnEnqueueReduceScalar(&" << var_name << "," << mpi_type << "," << op_type << ");";
     return result;
 }
 

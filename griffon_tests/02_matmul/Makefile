@@ -1,16 +1,7 @@
 GFN_INCLUDE_PATH = ../../eagle/include
 GFN_LIB_PATH = ../../eagle/lib
 
-# maeka config
-#MPI_PATH = /opt/openmpi/include/
-#CL_INC_PATH = /san01/home/pisit_m/OpenCL/common/inc
-#CL_LIB_PATH = /san01/home/pisit_m/OpenCL/common/lib
-
-# yggdrasil config
-MPI_PATH = /usr/lib/openmpi/include
-CL_INC_PATH = /usr/include
-CL_LIB_PATH = 
-
+# should set MPI_PATH , CL_INC_PATH , CL_LIB_PATH in ~/.bashrc
 
 CFLAGS = -g -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 -I$(GFN_INCLUDE_PATH) $(GFN_LIB_PATH)/gfn.o

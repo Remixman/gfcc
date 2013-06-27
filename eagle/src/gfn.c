@@ -78,6 +78,23 @@ int _GfnFinalize()
 	return 0;
 }
 
+int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int level1_cond, int level2_cond)
+{
+	// TODO: allocate for array memory
+	if (level2_cond) {
+		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id), 0, &_gfn_status);
+		_GfnCheckCLStatus(_gfn_status, "CREATE REDUCE BUFFER");
+	}
+}
+
+int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
+{
+	if (level2_cond) {
+		_gfn_status = clReleaseMemObject(cl_ptr);
+		_GfnCheckCLStatus(_gfn_status, "RELEASE REDUCE BUFFER");
+	}
+}
+
 int _GfnEnqueueBoardcastScalar(void *ptr, int type_id)
 {
 	// TOD0: MPI pack and bcast at _GfnFinishBoardcastScalar
@@ -113,29 +130,35 @@ int _GfnFinishBoardcastScalar()
 	return 0;
 }
 
-int _GfnEnqueueReduceScalar(void *ptr, int type_id, MPI_Op op_id)
+int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int level1_cond, int level2_cond)
 {
+	// TODO: transfer reduce array from device and reduce again in host
+
 	// TOD0: MPI pack and bcast at _GfnFinishReduceScalar
 
-#define SWITCH_REDUCE(mpi_type) \
+#define SWITCH_REDUCE(type,mpi_type) \
 do { \
+	if (level2_cond) { \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type), ptr, 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+	} \
 	MPI_Reduce(ptr, ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
 } while(0)
 
 	switch(type_id)
 	{
-	case TYPE_CHAR:           SWITCH_REDUCE(MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_REDUCE(MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_REDUCE(MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_REDUCE(MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_REDUCE(MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_REDUCE(MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_REDUCE(MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_REDUCE(MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_REDUCE(MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_REDUCE(MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_REDUCE(MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(MPI_LONG_LONG_INT); break;
+	case TYPE_CHAR:           SWITCH_REDUCE(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_REDUCE(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_REDUCE(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_REDUCE(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_REDUCE(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_REDUCE(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_REDUCE(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_REDUCE(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_REDUCE(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_REDUCE(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_REDUCE(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(long long int,MPI_LONG_LONG_INT); break;
 	}
 
 	if (_gfn_rank == 0) _SendOutputMsg(ptr, _CalcTypeSize(type_id));

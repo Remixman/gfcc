@@ -66,8 +66,10 @@ void _Function_1()
     _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 300, _GFN_MEM_WRITE_ONLY(), 1, 1);
     _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 300, _GFN_MEM_READ_ONLY(), 1, 1);
     /* Initialize Generated Variables */
-    _local_i_start = _CalcLocalStartIndex(1, (299) - 1, _gfn_num_proc, _gfn_rank + 1);
-    _local_i_end = _CalcLocalEndIndex(1, (299) - 1, _gfn_num_proc, _gfn_rank + 1);
+    _local_data_start = _GfnCalcLocalDataStart(0, (300) - 1);
+    _local_data_end = _GfnCalcLocalDataEnd(0, (300) - 1);
+    _local_i_start = _GfnCalcLocalLoopStart(_local_data_start, 1, 1);
+    _local_i_end = _GfnCalcLocalLoopEnd(_local_data_end, (299) - 1);
     _loop_size = _CalcLoopSize(1, (299) - 1, 1);
     _loop_step = 1;
     _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
@@ -76,7 +78,7 @@ void _Function_1()
     _pattern_in_B[0] = - 1;
     _pattern_in_B[1] = 1;
     /* Distribute Array Memory */
-    _GfnEnqueueScatter1D((void **) &B, _cl_mem_B, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_READ_ONLY(), _pattern_in_B, 2, 1, 1, 1);
+    _GfnEnqueueScatter1D((void **) &B, _cl_mem_B, _GFN_TYPE_INT(), 1, (299) - 1, 1, 1, 300, _GFN_MEM_READ_ONLY(), _pattern_in_B, 2, 1, 1, 1);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)
@@ -99,14 +101,14 @@ void _Function_1()
     else
     {
         for (i = _local_i_start;
-            i < _local_i_end;
+            i <= _local_i_end;
             i++ , _local_i += _loop_step)
         {
             A[i] = (B[i - 1] + B[i] + B[i + 1]) / 3;
         }
     }
     /* Gather Array Memory */
-    _GfnEnqueueGather1D((void **) &A, _cl_mem_A, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
+    _GfnEnqueueGather1D((void **) &A, _cl_mem_A, _GFN_TYPE_INT(), 1, (299) - 1, 1, 1, 300, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
     _GfnFinishGatherArray();
     /* Reduce Scalar Value */
     _GfnFinishReduceScalar();
@@ -134,8 +136,8 @@ int main(int argc, char *argv[])
     _SendCallFuncMsg(1);
     _SendConstInputMsg((long long) &A);
     _SendConstInputMsg((long long) &B);
-    _SendInputMsg((void *) B, (sizeof(int) * ((300))));
-    _RecvOutputMsg((void *) A, (sizeof(int) * ((300))));
+    _SendInputNDMsg(&(B[0]), _GFN_TYPE_INT(), 1, (299) - 1, 1, 1, 1, 1, 2, 300, - 1, 1);
+    _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 1, (299) - 1, 1, 1, 0, 1, 0, 1);
     /* Close IPC to worker */
     _SendCallFuncMsg(0);
     _CloseMasterMsgQueue();

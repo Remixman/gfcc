@@ -568,8 +568,15 @@ TL::Source ParallelFor::do_parallel_for()
 
         if (var_info._is_reduction)
         {
-            cl_kernel_var_decl
-                << c_type_str << " " << var_name << " = "
+            worker_allocate_array_memory_src
+                << create_gfn_malloc_reduce(var_name, var_cl_name, mpi_type_str,
+                                            level1_cond, level2_cond);
+
+            worker_free_array_memory_src
+                << create_gfn_free_reduce(var_cl_name, level1_cond, level2_cond);
+            
+            cl_kernel_var_init
+                << var_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";" << CL_EOL;
 
             cl_kernel_reduce_init_if
@@ -692,6 +699,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
         << "(" << cl_actual_params << ") {" << CL_EOL
         << cl_kernel_var_decl
+        << cl_kernel_var_init
             << "if (" << induction_var << " <= "
             << ((_kernel_info->_is_const_loop_upper_bound)? _kernel_info->_const_upper_bound : "ERRORVAR" ) << ") {" << CL_EOL
                 << gpu_loop_body << CL_EOL
