@@ -7,7 +7,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "myipc.h"
+#include "gfn.h"
+
+#define PATTERN_NONE     0
+#define PATTERN_RANGE    1
+#define PATTERN_SPECIFIC 2
+
+#define TYPE_CHAR             1
+#define TYPE_UNSIGNED_CHAR    2
+#define TYPE_BYTE             3
+#define TYPE_SHORT            4
+#define TYPE_UNSIGNED_SHORT   5
+#define TYPE_INT              6
+#define TYPE_UNSIGNED         7
+#define TYPE_LONG             8
+#define TYPE_UNSIGNED_LONG    9
+#define TYPE_FLOAT            10
+#define TYPE_DOUBLE           11
+#define TYPE_LONG_DOUBLE      12
+#define TYPE_LONG_LONG_INT    13
 
 // http://www.thegeekstuff.com/2011/12/c-socket-programming/
 
@@ -78,25 +96,262 @@ void _CloseWorkerMsgQueue() {
 	close(listenfd);
 }
 
-
-void _SendInputMsg(void *buffer, size_t size /*, status&*/) {
-	_SendMasterMsg(buffer, size);
-}
-
-void _SendConstInputMsg(long long c) {
+int _SendConstInputMsg(long long c) {
 	_SendMasterMsg(&c, sizeof(long long));
+	return 0;
 }
 
-void _RecvOutputMsg(void *buffer, size_t size /*, status&*/) {
-	_RecvMasterMsg(buffer, size);
+int _SendInputMsg(	void *ptr, size_t size) {
+	_SendMasterMsg(ptr, size);
+	return 0;
 }
 
-void _RecvInputMsg(void *buffer, size_t size /*, status&*/) {
-	_RecvWorkerMsg(buffer, size);
+int _RecvOutputMsg(	void *ptr, size_t size) {
+	_RecvMasterMsg(ptr, size);
+	return 0;
 }
 
-void _SendOutputMsg(void *buffer, size_t size /*, status&*/) {
-	_SendWorkerMsg(buffer, size);
+int _RecvInputMsg(	void *ptr, size_t size) {
+	_RecvWorkerMsg(ptr, size);
+	return 0;
+}
+
+int _SendOutputMsg(	void *ptr, size_t size) {
+	_SendWorkerMsg(ptr, size);
+	return 0;
+}
+
+static void _CalcStartOffsetAndSize(int *start_offset, int *size,
+									int loop_start, int loop_end, int loop_step,
+									int partitioned_dim, int pattern_type,
+									int size_n, int pattern_n, 
+									int *size_array, int *pattern_array) {
+	int i, end_offset;
+	int nelem_size = 1, block_size = 1;
+
+	// TODO: loop_step != 1 case , partitioned_dim != 1,0 case
+
+	// find element size and block size
+	for (i = 0; i < size_n; ++i) {
+		if (i == partitioned_dim) 	nelem_size *= size_array[i];
+		else  						block_size *= size_array[i];
+	}
+	
+	switch(pattern_type) {
+		case PATTERN_NONE:
+			(*start_offset) = loop_start;
+			end_offset = loop_end;
+			break;
+		case PATTERN_RANGE:
+			(*start_offset) = loop_start + pattern_array[0];
+			if ((*start_offset) < 0) (*start_offset) = 0;
+			end_offset = loop_end + pattern_array[1];
+			if (end_offset > nelem_size) end_offset = nelem_size;
+			break;
+		case PATTERN_SPECIFIC:
+			break;
+	}
+	(*size) = end_offset - (*start_offset) + 1;
+}
+
+int _SendInputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... ) {
+
+	int i, value;
+	va_list vl;
+	int start_offset, send_size;
+	int nelem_size = 1, block_size = 1;
+
+	int size_array[size_n], pattern_array[pattern_n];
+	partitioned_dim--; // convert partition dimension to zero based
+
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
+							partitioned_dim, pattern_type,
+							size_n, pattern_n, size_array, pattern_array);	
+
+#define SEND_INPUT_ARRAY(type) \
+do { \
+	_SendMasterMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type)); \
+} while(0)
+	
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SEND_INPUT_ARRAY(char); break;
+	case TYPE_UNSIGNED_CHAR:  SEND_INPUT_ARRAY(unsigned char); break;
+	case TYPE_SHORT:          SEND_INPUT_ARRAY(short); break;
+	case TYPE_UNSIGNED_SHORT: SEND_INPUT_ARRAY(unsigned short); break;
+	case TYPE_INT:            SEND_INPUT_ARRAY(int); break;
+	case TYPE_UNSIGNED:       SEND_INPUT_ARRAY(unsigned); break;
+	case TYPE_LONG:           SEND_INPUT_ARRAY(long); break;
+	case TYPE_UNSIGNED_LONG:  SEND_INPUT_ARRAY(unsigned long); break;
+	case TYPE_FLOAT:          SEND_INPUT_ARRAY(float); break;
+	case TYPE_DOUBLE:         SEND_INPUT_ARRAY(double); break;
+	case TYPE_LONG_DOUBLE:    SEND_INPUT_ARRAY(long double); break;
+	case TYPE_LONG_LONG_INT:  SEND_INPUT_ARRAY(long long int); break;
+	}
+
+	return 0;
+}
+
+int _RecvOutputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... ) {
+
+	int i, value;
+	va_list vl;
+	int start_offset, recv_size;
+	int nelem_size = 1, block_size = 1;
+
+	int size_array[size_n], pattern_array[pattern_n];
+	partitioned_dim--; // convert partition dimension to zero based
+
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
+							partitioned_dim, pattern_type,
+							size_n, pattern_n, size_array, pattern_array);	
+
+#define RECV_OUTPUT_ARRAY(type) \
+do { \
+	_RecvMasterMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type)); \
+} while(0)
+	
+	switch(type_id)
+	{
+	case TYPE_CHAR:           RECV_OUTPUT_ARRAY(char); break;
+	case TYPE_UNSIGNED_CHAR:  RECV_OUTPUT_ARRAY(unsigned char); break;
+	case TYPE_SHORT:          RECV_OUTPUT_ARRAY(short); break;
+	case TYPE_UNSIGNED_SHORT: RECV_OUTPUT_ARRAY(unsigned short); break;
+	case TYPE_INT:            RECV_OUTPUT_ARRAY(int); break;
+	case TYPE_UNSIGNED:       RECV_OUTPUT_ARRAY(unsigned); break;
+	case TYPE_LONG:           RECV_OUTPUT_ARRAY(long); break;
+	case TYPE_UNSIGNED_LONG:  RECV_OUTPUT_ARRAY(unsigned long); break;
+	case TYPE_FLOAT:          RECV_OUTPUT_ARRAY(float); break;
+	case TYPE_DOUBLE:         RECV_OUTPUT_ARRAY(double); break;
+	case TYPE_LONG_DOUBLE:    RECV_OUTPUT_ARRAY(long double); break;
+	case TYPE_LONG_LONG_INT:  RECV_OUTPUT_ARRAY(long long int); break;
+	}
+
+	return 0;	
+}
+
+int _RecvInputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... ) {
+
+	int i, value;
+	va_list vl;
+	int start_offset, recv_size;
+	int nelem_size = 1, block_size = 1;
+
+	int size_array[size_n], pattern_array[pattern_n];
+	partitioned_dim--; // convert partition dimension to zero based
+
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
+							partitioned_dim, pattern_type,
+							size_n, pattern_n, size_array, pattern_array);	
+
+#define RECV_INPUT_ARRAY(type) \
+do { \
+	_RecvWorkerMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type)); \
+} while(0)
+	
+	switch(type_id)
+	{
+	case TYPE_CHAR:           RECV_INPUT_ARRAY(char); break;
+	case TYPE_UNSIGNED_CHAR:  RECV_INPUT_ARRAY(unsigned char); break;
+	case TYPE_SHORT:          RECV_INPUT_ARRAY(short); break;
+	case TYPE_UNSIGNED_SHORT: RECV_INPUT_ARRAY(unsigned short); break;
+	case TYPE_INT:            RECV_INPUT_ARRAY(int); break;
+	case TYPE_UNSIGNED:       RECV_INPUT_ARRAY(unsigned); break;
+	case TYPE_LONG:           RECV_INPUT_ARRAY(long); break;
+	case TYPE_UNSIGNED_LONG:  RECV_INPUT_ARRAY(unsigned long); break;
+	case TYPE_FLOAT:          RECV_INPUT_ARRAY(float); break;
+	case TYPE_DOUBLE:         RECV_INPUT_ARRAY(double); break;
+	case TYPE_LONG_DOUBLE:    RECV_INPUT_ARRAY(long double); break;
+	case TYPE_LONG_LONG_INT:  RECV_INPUT_ARRAY(long long int); break;
+	}
+
+	return 0;	
+}
+
+int _SendOutputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... ) {
+
+	int i, value;
+	va_list vl;
+	int start_offset, send_size;
+	int nelem_size = 1, block_size = 1;
+
+	int size_array[size_n], pattern_array[pattern_n];
+	partitioned_dim--; // convert partition dimension to zero based
+
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
+							partitioned_dim, pattern_type,
+							size_n, pattern_n, size_array, pattern_array);	
+
+#define SEND_OUTPUT_ARRAY(type) \
+do { \
+	_SendWorkerMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type)); \
+} while(0)
+	
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SEND_OUTPUT_ARRAY(char); break;
+	case TYPE_UNSIGNED_CHAR:  SEND_OUTPUT_ARRAY(unsigned char); break;
+	case TYPE_SHORT:          SEND_OUTPUT_ARRAY(short); break;
+	case TYPE_UNSIGNED_SHORT: SEND_OUTPUT_ARRAY(unsigned short); break;
+	case TYPE_INT:            SEND_OUTPUT_ARRAY(int); break;
+	case TYPE_UNSIGNED:       SEND_OUTPUT_ARRAY(unsigned); break;
+	case TYPE_LONG:           SEND_OUTPUT_ARRAY(long); break;
+	case TYPE_UNSIGNED_LONG:  SEND_OUTPUT_ARRAY(unsigned long); break;
+	case TYPE_FLOAT:          SEND_OUTPUT_ARRAY(float); break;
+	case TYPE_DOUBLE:         SEND_OUTPUT_ARRAY(double); break;
+	case TYPE_LONG_DOUBLE:    SEND_OUTPUT_ARRAY(long double); break;
+	case TYPE_LONG_LONG_INT:  SEND_OUTPUT_ARRAY(long long int); break;
+	}
+
+	return 0;
 }
 
 void _SendCallFuncMsg(int func_code) {

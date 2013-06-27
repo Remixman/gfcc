@@ -1,6 +1,7 @@
 #ifndef GFN_H
 #define GFN_H
 
+#include <stdarg.h>
 #include <mqueue.h>
 #include <sys/stat.h>
 #include <mpi.h>
@@ -47,20 +48,20 @@ int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t di
 int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer);
 int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer);
 
-int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, size_t dim6_size, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, size_t dim6_size, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
 int _GfnFinishDistributeArray();
 
-int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
-int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
+int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer);
 int _GfnFinishGatherArray();
 
 
@@ -68,8 +69,12 @@ int _GfnFinishGatherArray();
 void _GfnBarrier();
 void _GfnCheckCLStatus(cl_int status, const char *phase_name);
 size_t _GfnCalcGlobalItemNum(size_t work_item_num, size_t work_group_item_num);
+int _GfnCalcLocalDataStart(int data_start, int data_end);    // Use for calculate start step
+int _GfnCalcLocalDataEnd(int data_start, int data_end);
+int _GfnCalcLocalLoopStart(int local_data_start, int loop_start, int loop_step); // New loop start with this
+int _GfnCalcLocalLoopEnd(int local_data_end, int loop_end);                      // New loop end with this
 
-// Function for MPI
+
 int _CalcLoopSize(int start, int end, int incre);
 int _CalcSubSize(int size, int num_proc, int rank, int block_size);
 int _CalcLocalStartIndex(int old_start, int old_end, int num_proc, int rank);
@@ -78,7 +83,8 @@ int _CalcOffset(int size, int num_proc, int rank);
 void _CalcCnts(int size, int num_proc, int *cnts /* OUTS */, int block_size);
 void _CalcDisp(int size, int num_proc, int *disp /* OUTS */, int block_size);
 size_t _CalcTypeSize(int type_id);
-void _CalcPartitionInfo(int size, int block_size, int * pattern_array, int pattern_array_size, int pattern_type,
+void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, int loop_step,
+						int *pattern_array, int pattern_array_size, int pattern_type,
                         int *cnts /* OUTS */, int *disp /* OUTS */, 
                         int *sub_size /* OUTS */, int *elem_offset /* OUTS */);
 
@@ -147,12 +153,28 @@ void _CloseMasterMsgQueue();
 void _OpenWorkerMsgQueue();
 void _CloseWorkerMsgQueue();
 
-// TODO: if not array remove *size
-void _SendInputMsg(void *buffer, size_t size);
-void _SendConstInputMsg(long long c);
-void _RecvOutputMsg(void *buffer, size_t size /*, status&*/);
-void _RecvInputMsg(void *buffer, size_t size /*, status&*/);
-void _SendOutputMsg(void *buffer, size_t size);
+
+int _SendConstInputMsg(long long c);
+int _SendInputMsg(	void *ptr, size_t size);
+int _RecvOutputMsg(	void *ptr, size_t size);
+int _RecvInputMsg(	void *ptr, size_t size);
+int _SendOutputMsg(	void *ptr, size_t size);
+int _SendInputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... );
+int _RecvOutputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... );
+int _RecvInputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... );
+int _SendOutputNDMsg(	void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, ... );
 
 void _SendCallFuncMsg(int func_code);
 void _RecvCallFuncMsg(int *func_code);

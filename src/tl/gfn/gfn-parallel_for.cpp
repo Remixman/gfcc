@@ -203,7 +203,10 @@ TL::Source ParallelFor::do_parallel_for()
     Expression lower_bound = _for_stmt.get_lower_bound();
     Expression upper_bound = _for_stmt.get_upper_bound();
     Expression step = _for_stmt.get_step();
-    std::string step_str = (std::string)step;
+    std::string loop_start = lower_bound.prettyprint();
+    std::string loop_end = upper_bound.prettyprint();
+    std::string loop_step = (std::string)step;
+    std::string full_size = _kernel_info->get_full_size(); // return empty if don't have partitioned shared array
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     TL::Statement original_loop_body = _for_stmt.get_loop_body();
@@ -251,6 +254,11 @@ TL::Source ParallelFor::do_parallel_for()
     std::string loop_step_var = "_loop_step";
     std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
+    if (full_size != "")
+    {
+        worker_declare_generated_variables_src
+            << "int _local_data_start, _local_data_end;";
+    }
     worker_declare_generated_variables_src
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
         << "int " << loop_step_var << ";"
@@ -258,18 +266,32 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << new_induction_var_name << " = 0;"
         << "size_t _work_item_num, _work_group_item_num, _global_item_num;"
         << "cl_kernel _kernel;";
+    if (full_size != "")
+    {
+        worker_initialize_generated_variables_src
+            << "_local_data_start = _GfnCalcLocalDataStart(0, (" << full_size << ")-1);"
+            << "_local_data_end = _GfnCalcLocalDataEnd(0, (" << full_size << ")-1);"
+            << local_start_idx_var << " = _GfnCalcLocalLoopStart(_local_data_start, "
+            << loop_start << ", " << loop_step << ");"
+            << local_end_idx_var << " = _GfnCalcLocalLoopEnd(_local_data_end, "
+            << loop_end << ");";
+    }
+    else
+    {
+        worker_initialize_generated_variables_src
+            << local_start_idx_var << " = _CalcLocalStartIndex("
+            << loop_start << ","
+            << loop_end << ",_gfn_num_proc,_gfn_rank+1);"
+            << local_end_idx_var << " = _CalcLocalEndIndex("
+            << loop_start << ","
+            << loop_end << ",_gfn_num_proc,_gfn_rank+1);";
+    }
     worker_initialize_generated_variables_src
-        << local_start_idx_var << " = _CalcLocalStartIndex("
-        << lower_bound.prettyprint() << ","
-        << upper_bound.prettyprint() << ",_gfn_num_proc,_gfn_rank+1);"
-        << local_end_idx_var << " = _CalcLocalEndIndex("
-        << lower_bound.prettyprint() << ","
-        << upper_bound.prettyprint() << ",_gfn_num_proc,_gfn_rank+1);"
         << loop_size_var << " = _CalcLoopSize("
-        << lower_bound.prettyprint() << ","
-        << upper_bound.prettyprint() << ","
+        << loop_start << ","
+        << loop_end << ","
         << step.prettyprint() << ");"
-        << loop_step_var << " = " << step_str << ";";
+        << loop_step_var << " = " << loop_step << ";";
     worker_initialize_generated_variables_src
         << "_work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
@@ -277,16 +299,16 @@ TL::Source ParallelFor::do_parallel_for()
 
 
     // XXX: we indicate with only step symbol
-    bool is_incre_loop = (step_str[0] == '-')? false : true;
+    bool is_incre_loop = (loop_step[0] == '-')? false : true;
     if (is_incre_loop)
     {
-        loop_iter_size = "(" + upper_bound.prettyprint() + "-"
-                + lower_bound.prettyprint() + "+1)";
+        loop_iter_size = "(" + loop_end + "-"
+                + loop_start + "+1)";
     }
     else
     {
-        loop_iter_size = "(" + lower_bound.prettyprint() + "-"
-                + upper_bound.prettyprint() + "+1)";
+        loop_iter_size = "(" + loop_start + "-"
+                + loop_end + "+1)";
     }
 
     /* Sort variable in kernel (sort by size) */
@@ -464,8 +486,12 @@ TL::Source ParallelFor::do_parallel_for()
             if (var_info._is_array_or_pointer)
             {
                 master_send_array_input
-                    << "_SendInputMsg((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+                    << create_send_input_nd_msg(var_name, mpi_type_str, loop_start, loop_end, loop_step,
+                                                var_info._shared_dimension, in_pattern_type, 
+                                                var_info._dimension_num, in_pattern_array.size(),
+                                                var_info._dim_size, in_pattern_array);
+                    /*<< "_SendInputMsg((void*)" << var_name 
+                    << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";*/
             }
             else
             {
@@ -477,7 +503,8 @@ TL::Source ParallelFor::do_parallel_for()
             if (var_info._is_array_or_pointer && is_partition)
             {
                 worker_distribute_array_memory_src
-                    << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, var_info._dimension_num,
+                    << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, 
+                                               loop_start, loop_end, loop_step, var_info._dimension_num,
                                                var_info._dim_size, var_info._shared_dimension, 
                                                var_cl_mem_type, in_pattern_name, in_pattern_array.size(),
                                                in_pattern_type, level1_cond, level2_cond);
@@ -500,14 +527,19 @@ TL::Source ParallelFor::do_parallel_for()
         {
             /* Master code */
             master_recv_output
-                << "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+                << create_recv_output_nd_msg(var_name, mpi_type_str, loop_start, loop_end, loop_step,
+                                             var_info._shared_dimension, out_pattern_type,
+                                             var_info._dimension_num, out_pattern_array.size(),
+                                             var_info._dim_size, out_pattern_array);
+                /*<< "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";*/
             
             /* Worker code */
             if (var_info._is_array_or_pointer && is_partition)
             {
                 worker_gather_array_memory_src
-                    << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, var_info._dimension_num, 
+                    << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, 
+                                              loop_start, loop_end, loop_step, var_info._dimension_num, 
                                               var_info._dim_size, var_info._shared_dimension, 
                                               var_cl_mem_type, out_pattern_name, out_pattern_array.size(),
                                               out_pattern_type, level1_cond, level2_cond);
@@ -568,7 +600,7 @@ TL::Source ParallelFor::do_parallel_for()
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = "
         << local_start_idx_var << ";" << induction_var.prettyprint()
-        << ((is_incre_loop)? "<" : ">") << local_end_idx_var << ";"
+        << ((is_incre_loop)? "<=" : ">=") << local_end_idx_var << ";"
         << _for_stmt.get_iterating_expression() << ", "
         << new_induction_var_name << "+=_loop_step)" << cluster_loop_body;
         

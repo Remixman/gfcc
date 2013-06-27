@@ -46,6 +46,7 @@ void _Function_1()
     int *A;
     int *B;
     /* Declare Generated Variables */
+    int _local_data_start, _local_data_end;
     int _local_i_start, _local_i_end;
     int _loop_step;
     int _loop_size;
@@ -75,7 +76,7 @@ void _Function_1()
     _pattern_in_B[0] = - 1;
     _pattern_in_B[1] = 1;
     /* Distribute Array Memory */
-    _GfnEnqueueScatter1D((void **) &B, _cl_mem_B, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_READ_ONLY(), _pattern_in_B, 2, 2, 1, 1);
+    _GfnEnqueueScatter1D((void **) &B, _cl_mem_B, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_READ_ONLY(), _pattern_in_B, 2, 1, 1, 1);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)
@@ -105,7 +106,7 @@ void _Function_1()
         }
     }
     /* Gather Array Memory */
-    _GfnEnqueueGather1D((void **) &A, _cl_mem_A, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_WRITE_ONLY(), 0, 0, 1, 1, 1);
+    _GfnEnqueueGather1D((void **) &A, _cl_mem_A, _GFN_TYPE_INT(), 1, 300, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
     _GfnFinishGatherArray();
     /* Reduce Scalar Value */
     _GfnFinishReduceScalar();

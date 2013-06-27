@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
   A[299] = B[299];
   
   #pragma gfn parallel_for input(B[300]) output(A[300]) \
-  	in_pattern(B:[-1,1], C:{-2,0,2}, L:[-2,3]) if(4,5)
+  	in_pattern(B:[-1,1]) if(1,0)
   for (i=1;i<299;i++) {
     A[i] = (B[i-1] + B[i] + B[i+1]) / 3;
   }

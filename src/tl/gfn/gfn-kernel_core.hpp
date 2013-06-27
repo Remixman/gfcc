@@ -148,6 +148,9 @@ namespace TL
                 void push_to_use_list(DataReference &data_ref);
                 void push_to_def_list(DataReference &data_ref);
                 
+                // return empty if don't have partitioned shared array
+                std::string get_full_size();
+                
                 static std::map< std::string, KernelInfo > _kernel_map;
 
                 std::string loop_index_var_name;

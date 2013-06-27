@@ -1,7 +1,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <gfn.h>
-#include "myipc.h"
+//#include "myipc.h"
 
 //#include "type_dec.def"
 void _Function_1();

@@ -86,6 +86,7 @@ void _Function_1()
     float **A;
     float **B;
     /* Declare Generated Variables */
+    int _local_data_start, _local_data_end;
     int _local_i_start, _local_i_end;
     int _loop_step;
     int _loop_size;

@@ -205,6 +205,22 @@ void KernelInfo::push_to_def_list(DataReference &data_ref)
     }
 }
 
+std::string KernelInfo::get_full_size()
+{
+    for (int i = 0; i < _var_info.size(); ++i)
+    {
+        VariableInfo var_info = _var_info[i];
+        
+        if (var_info._is_array_or_pointer &&
+            (var_info._is_input || var_info._is_output) &&
+            var_info._shared_dimension != 0)
+        {
+            return var_info._dim_size[ var_info._shared_dimension ];
+        }
+    }
+    
+    return "";
+}
 
 std::string VariableInfo::get_mem_size()
 {

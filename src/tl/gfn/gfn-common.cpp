@@ -507,6 +507,59 @@ TL::Source create_mpi_scatterv(std::string send_buf_name, std::string send_cnts,
 }
 
 
+TL::Source create_send_input_nd_msg(std::string var_name,
+                                    std::string type_id,
+                                    std::string loop_start,
+                                    std::string loop_end,
+                                    std::string loop_step,
+                                    int partitioned_dim,
+                                    int pattern_type,
+                                    int dim_num,
+                                    int pattern_num,
+                                    std::string *dim_size,
+                                    TL::ObjectList<std::string> &pattern_array)
+{
+    TL::Source result, subscript_to_1d;
+    for (int i = 0; i < dim_num; ++i) subscript_to_1d << "[0]";
+    result
+        << "_SendInputNDMsg(&(" << var_name << subscript_to_1d << ")," << type_id << ","
+        << loop_start << "," << loop_end << "," << loop_step << ","
+        << partitioned_dim << "," << pattern_type << ","
+        << dim_num << "," << pattern_num;
+    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i+1];
+    for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
+    result
+        << ");";
+    return result;
+}
+
+TL::Source create_recv_output_nd_msg(std::string var_name,
+                                     std::string type_id,
+                                     std::string loop_start,
+                                     std::string loop_end,
+                                     std::string loop_step,
+                                     int partitioned_dim,
+                                     int pattern_type,
+                                     int dim_num,
+                                     int pattern_num,
+                                     std::string *dim_size,
+                                     TL::ObjectList<std::string> &pattern_array)
+{
+    TL::Source result, subscript_to_1d;
+    for (int i = 0; i < dim_num; ++i) subscript_to_1d << "[0]";
+    result
+        << "_RecvOutputNDMsg(&(" << var_name << subscript_to_1d << ")," << type_id << ","
+        << loop_start << "," << loop_end << "," << loop_step << ","
+        << partitioned_dim << "," << pattern_type << ","
+        << dim_num << "," << pattern_num;
+    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i];
+    for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
+    result
+        << ");";
+    return result;
+}
+
+
 TL::Source create_cl_create_buffer(std::string context, std::string flags,
                                    std::string size, std::string host_ptr,
                                    std::string status)
@@ -834,6 +887,9 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
 TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    std::string var_cl_name,
                                    std::string mpi_type,
+                                   std::string loop_start,
+                                   std::string loop_end,
+                                   std::string loop_step,
                                    int dim_num, std::string *dim_size,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
@@ -856,9 +912,10 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     
     result
         << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << "," 
-        << mpi_type << "," << partitioned_dim << "," << size_params << "," 
-        << cl_mem_flags << "," << pattern_array << "," << pattern_array_size << ","
-        << pattern_type << "," << level1_cond << "," << level2_cond << ");";
+        << mpi_type << "," << loop_start << "," << loop_end << "," << loop_step << "," 
+        << partitioned_dim << "," << size_params << "," << cl_mem_flags << "," 
+        << pattern_array << "," << pattern_array_size << "," << pattern_type << "," 
+        << level1_cond << "," << level2_cond << ");";
     
     return result;
 }
@@ -873,6 +930,9 @@ TL::Source create_gfn_f_dist_array()
 TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string var_cl_name,
                                   std::string mpi_type,
+                                  std::string loop_start,
+                                  std::string loop_end,
+                                  std::string loop_step,
                                   int dim_num, std::string *dim_size,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
@@ -895,9 +955,10 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
 
     result
         << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << ","
-        << mpi_type << "," << partitioned_dim << "," << size_params << ","
-        << cl_mem_flags << "," << pattern_array << "," << pattern_array_size << ","
-        << pattern_type << "," << level1_cond << "," << level2_cond << ");";
+        << mpi_type << "," << loop_start << "," << loop_end << "," << loop_step << ","
+        << partitioned_dim << "," << size_params << "," << cl_mem_flags << "," 
+        << pattern_array << "," << pattern_array_size << "," << pattern_type << "," 
+        << level1_cond << "," << level2_cond << ");";
     
     return result;
 }

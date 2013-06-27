@@ -63,9 +63,9 @@
 #define GFN_TRANS_MPI   0x00001
 #define GFN_TRANS_CUDA  0x00002
 
-#define GFN_PATTERN_NONE   1
-#define GFN_PATTERN_RANGE  2
-#define GFN_PATTERN_SPEC   3
+#define GFN_PATTERN_NONE   0
+#define GFN_PATTERN_RANGE  1
+#define GFN_PATTERN_SPEC   2
 
 #define GFN_PREFIX_LOCAL   "_local_"
 
@@ -218,6 +218,28 @@ TL::Source create_mpi_scatterv(std::string send_buf_name,
                                std::string root = DEFAULT_MPI_ROOT,
                                std::string comm = DEFAULT_MPI_COMM);
 
+TL::Source create_send_input_nd_msg(std::string var_name,
+                                    std::string type_id,
+                                    std::string loop_start,
+                                    std::string loop_end,
+                                    std::string loop_step,
+                                    int partitioned_dim,
+                                    int pattern_type,
+                                    int dim_num,
+                                    int pattern_num,
+                                    std::string *dim_size,
+                                    TL::ObjectList<std::string> &pattern_array);
+TL::Source create_recv_output_nd_msg(std::string var_name,
+                                     std::string type_id,
+                                     std::string loop_start,
+                                     std::string loop_end,
+                                     std::string loop_step,
+                                     int partitioned_dim,
+                                     int pattern_type,
+                                     int dim_num,
+                                     int pattern_num,
+                                     std::string *dim_size,
+                                     TL::ObjectList<std::string> &pattern_array);
 
 TL::Source create_cl_create_context();
 TL::Source create_cl_command_queue(std::string context,
@@ -305,6 +327,9 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
 TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    std::string var_cl_name,
                                    std::string mpi_type,
+                                   std::string loop_start,
+                                   std::string loop_end,
+                                   std::string loop_step,
                                    int dim_num, std::string *dim_size,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
@@ -317,6 +342,9 @@ TL::Source create_gfn_f_dist_array();
 TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string var_cl_name,
                                   std::string mpi_type,
+                                  std::string loop_start,
+                                  std::string loop_end,
+                                  std::string loop_step,
                                   int dim_num, std::string *dim_size,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
