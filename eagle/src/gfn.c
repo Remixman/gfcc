@@ -120,7 +120,11 @@ int _GfnInit(int *argc, char **argv[])
 
 int _GfnFinalize()
 {
+	long long clear_vtab_start_t, clear_vtab_end_t;
+
+	IF_TIMING (_mm_overhead_time) clear_vtab_start_t = get_time();
 	_free_mem_and_clear_var_table();
+	IF_TIMING (_mm_overhead_time) clear_vtab_end_t = get_time();
 
 	_FinalOpenCL();
 	
@@ -449,6 +453,48 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 	long long malloc_start_t, malloc_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
+
+#define SWITCH_MALLOC_5D(type,size1,size2,size3,size4,size5) \
+do { \
+	type ***** tmp_ptr; \
+	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	tmp_ptr = (type *****) malloc(sizeof(type****) * size1); \
+	tmp_ptr[0] = (type ****) malloc(sizeof(type***) * size1 * size2); \
+	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
+	tmp_ptr[0][0] = (type ***) malloc(sizeof(type**) * size1 * size2 * size3); \
+	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
+	tmp_ptr[0][0][0] = (type **) malloc(sizeof(type*) * size1 * size2 * size3 * size4); \
+	for (i = 1; i < size1 * size2 * size3; i++) tmp_ptr[0][0][i] = tmp_ptr[0][0][i-1] + size4; \
+	tmp_ptr[0][0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4 * size5); \
+	for (i = 1; i < size1 * size2 * size3 * size4; i++) tmp_ptr[0][0][0][i] = tmp_ptr[0][0][0][i-1] + size5; \
+	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	*ptr = (void *****) tmp_ptr; \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4 * size5, 0, &_gfn_status); \
+    	IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
+    	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
+	} \
+	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
+	_insert_to_var_table(unique_id, *cl_ptr, 5, (void *)tmp_ptr[0][0][0][0], (void **)tmp_ptr[0][0][0], (void ***)tmp_ptr[0][0], (void ****)tmp_ptr[0], (void *****)tmp_ptr, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SWITCH_MALLOC_5D(char,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_MALLOC_5D(unsigned char,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_SHORT:          SWITCH_MALLOC_5D(short,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_MALLOC_5D(unsigned short,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_INT:            SWITCH_MALLOC_5D(int,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_UNSIGNED:       SWITCH_MALLOC_5D(unsigned,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_LONG:           SWITCH_MALLOC_5D(long,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_MALLOC_5D(unsigned long,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_FLOAT:          SWITCH_MALLOC_5D(float,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_DOUBLE:         SWITCH_MALLOC_5D(double,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_5D(long double,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_5D(long long int,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size); break;
+	}
 
 	IF_TIMING (_cluster_malloc_time && level1_cond)
 		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 

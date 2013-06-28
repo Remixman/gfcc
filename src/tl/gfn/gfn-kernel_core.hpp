@@ -73,12 +73,13 @@ namespace TL
             bool            _is_use;
             bool            _is_prop_use; // e.g. pass reference to function
             bool            _is_def;
+            bool            _is_loop_variable; // use in for expr e.g. 'n' in for(i=0;i<n;i++)
 
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0), _dimension_num(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
-                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0),
+                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0), _is_loop_variable(0),
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
                 for (int i = 0; i < 7; i++) _dim_size[i] = "1";
             }

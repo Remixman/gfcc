@@ -147,7 +147,7 @@ TL::Source ParallelFor::do_parallel_for()
 
     /* Store loop size variable, may be mutiple like
        for(i = 0; i < n + m; i++ ) */
-    ObjectList<IdExpression> loop_size_var_list;
+    TL::ObjectList<IdExpression> loop_size_var_list;
     bool enable_opencl = true;
 
     // Core worker sources
@@ -223,7 +223,6 @@ TL::Source ParallelFor::do_parallel_for()
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
     loop_size_var_list.append( upper_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
-    // TODO: eliminate duplicate variable in loop_size_var_list
     for (int i = 0; i < loop_size_var_list.size(); ++i)
     {
         DataReference data_ref(loop_size_var_list[i].get_expression());
@@ -244,8 +243,17 @@ TL::Source ParallelFor::do_parallel_for()
         worker_boardcast_scalar_src
             << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             
+        TL::Source cl_actual_param;
+                cl_actual_param
+                    << c_type_str << " " << var_name;
+                cl_actual_params.append_with_separator(cl_actual_param, ",");
+            
         cl_set_kernel_arg
             << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, var_name);
+            
+        // set is_loop_variable flag
+        int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
+        if (idx >= 0) _kernel_info->_var_info[idx]._is_loop_variable = true;
     }
 
     /*== ----- Create MPI block distribution for statement ---------==*/
@@ -453,12 +461,15 @@ TL::Source ParallelFor::do_parallel_for()
                 kernel_actual_param.append_with_separator(actual_param, ",");
                 kernel_formal_param.append_with_separator(formal_param, ",");
             }
-            else
+            else if (var_info._is_input && !var_info._is_loop_variable)
             {
                 TL::Source cl_actual_param;
                 cl_actual_param
                     << c_type_str << " " << var_name;
                 cl_actual_params.append_with_separator(cl_actual_param, ",");
+                
+                cl_set_kernel_arg
+                    << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, c_type_str, var_name);
             }
         }
         
@@ -631,11 +642,11 @@ TL::Source ParallelFor::do_parallel_for()
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_start_idx_var);
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_start_idx_var);
     cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", local_end_idx_var);
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_end_idx_var);
     cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "cl_int", loop_step_var);
+        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
 
     // TODO: Refactor this
     TL::Source tmp_src_1;
@@ -923,11 +934,11 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             while (!tmp_expr.is_id_expression())
             {
                 subscript_count++;
-				Expression subscript_expr = tmp_expr.get_subscript_expression();
-				if (replace_types[GFN_REPLACE_ARRAY_INDEX] == true)
-				{
-					replace_loop_index_name(subscript_expr, old_idx_name, new_idx_name);
-				}
+                Expression subscript_expr = tmp_expr.get_subscript_expression();
+                if (replace_types[GFN_REPLACE_ARRAY_INDEX] == true)
+                {
+                    replace_loop_index_name(subscript_expr, old_idx_name, new_idx_name);
+                }
                 subscript_list.push_back( (std::string)subscript_expr );
                 tmp_expr = tmp_expr.get_subscripted_expression();
             }
