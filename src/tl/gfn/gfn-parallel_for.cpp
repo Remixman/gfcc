@@ -156,6 +156,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source worker_boardcast_scalar_src;
     TL::Source worker_allocate_array_memory_src;
     TL::Source worker_initialize_generated_variables_src;
+    TL::Source worker_allocate_reduce_scalar_src;
     TL::Source worker_distribute_array_memory_src;
     TL::Source worker_computing_workload_src;
     TL::Source worker_gather_array_memory_src;
@@ -573,16 +574,16 @@ TL::Source ParallelFor::do_parallel_for()
             else
             {
                 worker_reduce_scalar_src
-                    << create_gfn_q_reduce_scalar(var_name, var_cl_name, mpi_type_str, 
-                                                  op_to_mpi_op(var_info._reduction_type), level1_cond, level2_cond);
+                    << create_gfn_q_reduce_scalar(var_name, var_cl_name, mpi_type_str, op_to_mpi_op(var_info._reduction_type), 
+                                                  "_global_item_num", level1_cond, level2_cond);
             }
         }
 
         if (var_info._is_reduction)
         {
-            worker_allocate_array_memory_src
+            worker_allocate_reduce_scalar_src
                 << create_gfn_malloc_reduce(var_name, var_cl_name, mpi_type_str,
-                                            level1_cond, level2_cond);
+                                            "_global_item_num", level1_cond, level2_cond);
 
             worker_free_array_memory_src
                 << create_gfn_free_reduce(var_cl_name, level1_cond, level2_cond);
@@ -770,6 +771,9 @@ TL::Source ParallelFor::do_parallel_for()
             
             << comment("Initialize Generated Variables")
             << worker_initialize_generated_variables_src
+            
+            << comment("Allocate Reduce Scalar Variables")
+            << worker_allocate_reduce_scalar_src
             
             << comment("Distribute Array Memory")
             << worker_distribute_array_memory_src

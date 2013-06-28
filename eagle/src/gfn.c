@@ -48,6 +48,9 @@ static int _mm_overhead_time;           /* Overhead time for memory management *
 #define TYPE_LONG_DOUBLE      12
 #define TYPE_LONG_LONG_INT    13
 
+/* Optimization macro */
+#define OPTIMIZE_REDUCE_ON_HOST_ARRAY
+
 #define MAX(A,B) ((A)<(B)?(B):(A))
 #define MIN(A,B) ((A)>(B)?(B):(A))
 
@@ -135,11 +138,19 @@ int _GfnFinalize()
 	return 0;
 }
 
-int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int level1_cond, int level2_cond)
+#ifdef OPTIMIZE_REDUCE_ON_HOST_ARRAY
+#define REDUCE_ALLOC_SIZE global_item_n
+#else
+#define REDUCE_ALLOC_SIZE 1
+#endif
+
+int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int global_item_n, int level1_cond, int level2_cond)
 {
+	long long create_reduce_start_t, create_reduce_end_t;
+
 	// TODO: allocate for array memory
 	if (level2_cond) {
-		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id), 0, &_gfn_status);
+		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id) * REDUCE_ALLOC_SIZE, 0, &_gfn_status);
 		_GfnCheckCLStatus(_gfn_status, "CREATE REDUCE BUFFER");
 	}
 }
@@ -187,20 +198,24 @@ int _GfnFinishBoardcastScalar()
 	return 0;
 }
 
-int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int level1_cond, int level2_cond)
+int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int global_item_n, int level1_cond, int level2_cond)
 {
+	int i;
+
 	// TODO: transfer reduce array from device and reduce again in host
 
 	// TOD0: MPI pack and bcast at _GfnFinishReduceScalar
 
 #define SWITCH_REDUCE(type,mpi_type) \
 do { \
-	type tmp_reduce_var; \
+	type tmp_reduce_var[REDUCE_ALLOC_SIZE]; \
 	if (level2_cond) { \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type), &tmp_reduce_var, 0, 0, 0); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * REDUCE_ALLOC_SIZE, tmp_reduce_var, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
 	} \
-	MPI_Reduce(&tmp_reduce_var, ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
+	for (i = 1; i < REDUCE_ALLOC_SIZE; ++i) \
+		tmp_reduce_var[0] += tmp_reduce_var[i]; \
+	MPI_Reduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
 } while(0)
 
 	switch(type_id)

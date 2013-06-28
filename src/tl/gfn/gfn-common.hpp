@@ -303,6 +303,7 @@ TL::Source create_gfn_check_cl_status(std::string status_var,
 TL::Source create_gfn_malloc_reduce(std::string var_name,
                                     std::string var_cl_name,
                                     std::string type_id,
+                                    std::string global_item_num,
                                     std::string level1_cond,
                                     std::string level2_cond);
 TL::Source create_gfn_free_reduce(std::string var_cl_name,
@@ -315,6 +316,7 @@ TL::Source create_gfn_q_reduce_scalar(std::string var_name,
                                       std::string var_cl_name,
                                       std::string mpi_type,
                                       std::string op_type,
+                                      std::string global_item_n,
                                       std::string level1_cond,
                                       std::string level2_cond);
 TL::Source create_gfn_f_reduce_scalar();
