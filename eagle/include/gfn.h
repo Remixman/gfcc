@@ -26,11 +26,11 @@ int gfn_get_process_num();
 int _GfnInit(int *argc, char **argv[]);
 int _GfnFinalize();
 
-int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int global_item_n, int level1_cond, int level2_cond);
+int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_num, int level1_cond, int level2_cond);
 int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond);
 int _GfnEnqueueBoardcastScalar(void *ptr, int type_id); /*-> recv, bcast*/
 int _GfnFinishBoardcastScalar();
-int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int global_item_n, int level1_cond, int level2_cond);
+int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int group_num, int level1_cond, int level2_cond);
 int _GfnFinishReduceScalar();
 // TODO: _GfnEnqueueReduce1D() ???
 int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_cond, int level2_cond);

@@ -48,9 +48,6 @@ static int _mm_overhead_time;           /* Overhead time for memory management *
 #define TYPE_LONG_DOUBLE      12
 #define TYPE_LONG_LONG_INT    13
 
-/* Optimization macro */
-#define OPTIMIZE_REDUCE_ON_HOST_ARRAY
-
 #define MAX(A,B) ((A)<(B)?(B):(A))
 #define MIN(A,B) ((A)>(B)?(B):(A))
 
@@ -138,19 +135,13 @@ int _GfnFinalize()
 	return 0;
 }
 
-#ifdef OPTIMIZE_REDUCE_ON_HOST_ARRAY
-#define REDUCE_ALLOC_SIZE global_item_n
-#else
-#define REDUCE_ALLOC_SIZE 1
-#endif
-
-int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int global_item_n, int level1_cond, int level2_cond)
+int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_num, int level1_cond, int level2_cond)
 {
 	long long create_reduce_start_t, create_reduce_end_t;
 
 	// TODO: allocate for array memory
 	if (level2_cond) {
-		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id) * REDUCE_ALLOC_SIZE, 0, &_gfn_status);
+		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id) * group_num, 0, &_gfn_status);
 		_GfnCheckCLStatus(_gfn_status, "CREATE REDUCE BUFFER");
 	}
 }
@@ -198,7 +189,7 @@ int _GfnFinishBoardcastScalar()
 	return 0;
 }
 
-int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int global_item_n, int level1_cond, int level2_cond)
+int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int group_num, int level1_cond, int level2_cond)
 {
 	int i;
 
@@ -208,12 +199,12 @@ int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id,
 
 #define SWITCH_REDUCE(type,mpi_type) \
 do { \
-	type tmp_reduce_var[REDUCE_ALLOC_SIZE]; \
+	type tmp_reduce_var[group_num]; \
 	if (level2_cond) { \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * REDUCE_ALLOC_SIZE, tmp_reduce_var, 0, 0, 0); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * group_num, tmp_reduce_var, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
 	} \
-	for (i = 1; i < REDUCE_ALLOC_SIZE; ++i) \
+	for (i = 1; i < group_num; ++i) \
 		tmp_reduce_var[0] += tmp_reduce_var[i]; \
 	MPI_Reduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
 } while(0)
@@ -543,7 +534,11 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 {
+	long long del_from_vtab_start_t, del_from_vtab_end_t;
+
+	IF_TIMING (_mm_overhead_time) del_from_vtab_start_t = get_time();
 	_free_mem_and_delete_from_var_table(unique_id);
+	IF_TIMING (_mm_overhead_time) del_from_vtab_end_t = get_time();
 
 	return 0;
 }
@@ -685,9 +680,52 @@ do { \
 }
 
 int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_cond, int level2_cond)
-{ return 0; }
+{
+#define SWITCH_BCAST_4D(type,mpi_type,size1,size2,size3,size4) \
+do { \
+	type **** tmp_ptr = (type ****) (*ptr); \
+	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0][0][0], sizeof(type) * size1 * size2 * size3 * size4); \
+	MPI_Bcast(tmp_ptr[0][0][0], size1 * size2 * size3 * size4, mpi_type, 0, MPI_COMM_WORLD); \
+	if (level2_cond) { \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1 * size2 * size3 * size4, tmp_ptr[0][0][0], 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+	} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           
+		SWITCH_BCAST_4D(char,MPI_CHAR,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_CHAR:  
+		SWITCH_BCAST_4D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_SHORT:          
+		SWITCH_BCAST_4D(short,MPI_SHORT,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_SHORT: 
+		SWITCH_BCAST_4D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_INT:            
+		SWITCH_BCAST_4D(int,MPI_INT,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED:       
+		SWITCH_BCAST_4D(unsigned,MPI_UNSIGNED,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG:           
+		SWITCH_BCAST_4D(long,MPI_LONG,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_UNSIGNED_LONG:  
+		SWITCH_BCAST_4D(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_FLOAT:          
+		SWITCH_BCAST_4D(float,MPI_FLOAT,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_DOUBLE:         
+		SWITCH_BCAST_4D(double,MPI_DOUBLE,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG_DOUBLE:    
+		SWITCH_BCAST_4D(long double,MPI_LONG_DOUBLE,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	case TYPE_LONG_LONG_INT:  
+		SWITCH_BCAST_4D(long long int,MPI_LONG_LONG_INT,dim1_size,dim2_size,dim3_size,dim4_size); break;
+	}
+
+	return 0;
+}
+
 int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_cond, int level2_cond)
 { return 0; }
+
 int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_cond, int level2_cond)
 { return 0; }
 
