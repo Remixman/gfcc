@@ -33,60 +33,52 @@
 /* int i = _local_i + _local_i_start;\n */
 /* if (i <= (300) - 1) {\n */
 /* { */
-/*     A[(_local_i)] = B[(_local_i)]; */
-/*     A[(_local_i)] *= - 1; */
+/*     A[(i)] = B[(i)]; */
+/*     A[(i)] *= - 1; */
 /* }\n */
 /* }\n */
 /* }\n */
 /*  */
-const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (300) - 1) {\n""{""    A[(_local_i)] = B[(_local_i)];""    A[(_local_i)] *= - 1;""}\n""}\n""}\n""";
+const char *_kernel_1_src = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n""#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\n""void _GfnBarrier() {\n""    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);\n""}\n""int _GfnAtomicAddInt(__global int* const address, const int value) {\n""    return atomic_add(address, value);\n""}\n""float _GfnAtomicAddFloat(__global float* const address, const float value) {\n""    uint oldval, newval, readback;\n""    *(float*)&oldval = *address;\n""    *(float*)&newval = (*(float*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global uint*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(float*)&newval = (*(float*)&oldval + value);\n""    }\n""    return *(float*)&oldval;\n""}\n""double _GfnAtomicAddDouble(__global double* const address, const double value) {\n""    long oldval, newval, readback;\n""    *(double*)&oldval = *address;\n""    *(double*)&newval = (*(double*)&oldval + value);\n""    while ((readback = atom_cmpxchg((__global long*)address, oldval, newval)) != oldval) {\n""        oldval = readback;\n""        *(double*)&newval = (*(double*)&oldval + value);\n""    }\n""    return *(double*)&oldval;\n""}\n""__kernel void _kernel_1(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (300) - 1) {\n""{""    A[(i)] = B[(i)];""    A[(i)] *= - 1;""}\n""}\n""}\n""";
 void _Function_1()
 {
+    /* Declare Variables */
     int i;
     int *A;
     int *B;
-    cl_mem _cl_mem_A;
-    cl_mem _cl_mem_B;
-    cl_kernel _kernel;
-    /* Generated variable */
+    /* Declare Generated Variables */
+    int _local_data_start, _local_data_end;
     int _local_i_start, _local_i_end;
     int _loop_step;
     int _loop_size;
     int _local_i = 0;
-    int *_buffer_A;
-    int _sub_size_A;
-    int _A_cnts[_gfn_num_proc];
-    int _A_disp[_gfn_num_proc];
-    int *_buffer_B;
-    int _sub_size_B;
-    int _B_cnts[_gfn_num_proc];
-    int _B_disp[_gfn_num_proc];
-    if (_gfn_rank == 0)
-    {
-        _buffer_A = (int *) malloc((sizeof(int) * ((300))));
-        _buffer_B = (int *) malloc((sizeof(int) * ((300))));
-        _RecvInputMsg((void *) _buffer_B, (sizeof(int) * ((300))));
-    }
-    /* Init generated variable */
-    _local_i_start = _CalcLocalStartIndex(0, (300) - 1, _gfn_num_proc, _gfn_rank + 1);
-    _local_i_end = _CalcLocalEndIndex(0, (300) - 1, _gfn_num_proc, _gfn_rank + 1);
+    size_t _work_item_num, _work_group_item_num, _global_item_num;
+    cl_kernel _kernel;
+    long long _id_A;
+    cl_mem _cl_mem_A = 0;
+    long long _id_B;
+    cl_mem _cl_mem_B = 0;
+    /* Boardcast Scalar Value */
+    _GfnEnqueueBoardcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBoardcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBoardcastScalar();
+    /* Allocate Array Memory */
+    _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 300, _GFN_MEM_WRITE_ONLY(), 1, 1);
+    _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 300, _GFN_MEM_READ_ONLY(), 1, 1);
+    /* Initialize Generated Variables */
+    _local_data_start = _GfnCalcLocalDataStart(0, (300) - 1);
+    _local_data_end = _GfnCalcLocalDataEnd(0, (300) - 1);
+    _local_i_start = _GfnCalcLocalLoopStart(_local_data_start, 0, 1);
+    _local_i_end = _GfnCalcLocalLoopEnd(_local_data_end, (300) - 1);
     _loop_size = _CalcLoopSize(0, (300) - 1, 1);
     _loop_step = 1;
-    _sub_size_A = _CalcSubSize((300), _gfn_num_proc, _gfn_rank, ((1) * (1)));
-    A = (int *) malloc(sizeof(int) * _sub_size_A);
-    _CalcCnts((300), _gfn_num_proc, _A_cnts, ((1) * (1)));
-    _CalcDisp((300), _gfn_num_proc, _A_disp, ((1) * (1)));
-    _sub_size_B = _CalcSubSize((300), _gfn_num_proc, _gfn_rank, ((1) * (1)));
-    B = (int *) malloc(sizeof(int) * _sub_size_B);
-    _CalcCnts((300), _gfn_num_proc, _B_cnts, ((1) * (1)));
-    _CalcDisp((300), _gfn_num_proc, _B_disp, ((1) * (1)));
-    _cl_mem_A = clCreateBuffer(_gfn_context, _get_cl_mem_write_only(), sizeof(int) * _sub_size_A, 0, &_gfn_status);
-    _GfnCheckCLStatus(_gfn_status, "CREATE BUFFER 0");
-    _cl_mem_B = clCreateBuffer(_gfn_context, _get_cl_mem_read_only(), sizeof(int) * _sub_size_B, 0, &_gfn_status);
-    _GfnCheckCLStatus(_gfn_status, "CREATE BUFFER 0");
-    /* Send data to all process */
-    MPI_Scatterv(_buffer_B, _B_cnts, _B_disp, _get_mpi_int(), B, _sub_size_B, _get_mpi_int(), 0, _get_mpi_comm_world());
-    /* Compute work-load */
+    _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
+    _work_group_item_num = 64;
+    _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);
+    /* Distribute Array Memory */
+    _GfnEnqueueScatter1D((void **) &B, _cl_mem_B, _GFN_TYPE_INT(), 0, (300) - 1, 1, 1, 300, _GFN_MEM_READ_ONLY(), 0, 0, 0, 1, 1);
+    _GfnFinishDistributeArray();
+    /* Compute Workload */
     if (1)
     {
         size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
@@ -99,24 +91,20 @@ void _Function_1()
         for(i = 0; i < _work_item_num; i++) printf("%d ", _local_buffer_B[i]);
         printf("\n\n");
 
-        /* TODO: Overlap node data transfer and device data transfer */
-        _gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, _cl_mem_B, _get_cl_true(), 0, sizeof(int) * _sub_size_B, B, 0, 0, 0);
-        _GfnCheckCLStatus(_gfn_status, "WRITE BUFFER B");
-        _kernel = _CreateKernelFromSource("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
+        _kernel = _GfnCreateKernel("_kernel_1", _kernel_1_src, _gfn_context, _gfn_device_id);
         _gfn_status = clSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_A);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_B);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(cl_int), (void *) &_local_cl_i_start);
+        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(int), (void *) &_local_i_start);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(cl_int), (void *) &_local_cl_i_end);
+        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_end);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_cl_loop_step);
+        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &_loop_step);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
-        _gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, _cl_mem_A, _get_cl_true(), 0, sizeof(int) * _sub_size_A, A, 0, 0, 0);
-        _GfnCheckCLStatus(_gfn_status, "READ BUFFER A");
+        _GfnClearKernel(_kernel);
 
         printf("LOCAL BUFFER A OF RANK %d : ", _gfn_rank);
         for(i = 0; i < _work_item_num; i++) printf("%d ", _local_buffer_A[i]);
@@ -125,39 +113,21 @@ void _Function_1()
     else
     {
         for (i = _local_i_start;
-            i < _local_i_end;
+            i <= _local_i_end;
             i++ , _local_i += _loop_step)
         {
-            A[(_local_i)] = B[(_local_i)];
-            A[(_local_i)] *= - 1;
+            A[i] = B[i];
+            A[i] *= - 1;
         }
     }
-    
-    printf("LOCAL BUFFER : \n");
-    for (i = 0; i < 75; i++) printf("%d, ", _local_buffer_A[i]);
-    printf("\n\n");
-    
-    /* Gather data from all process */
-    MPI_Gatherv(A, _sub_size_A, _get_mpi_int(), _buffer_A, _A_cnts, _A_disp, _get_mpi_int(), 0, _get_mpi_comm_world());
-    if (_gfn_rank == 0)
-    {
-    	printf("GLOBAL BUFFER : \n");
-    	for (i = 0; i < 300; i++) {
-    		printf("%d, ", _buffer_A[i]);
-    	} printf("\n\n");
-        _SendOutputMsg((void *) _buffer_A, (sizeof(int) * ((300))));
-    }
-    free(A);
-    free(B);
-    if (_gfn_rank == 0)
-    {
-        free(_buffer_A);
-        free(_buffer_B);
-    }
-    _gfn_status = clReleaseMemObject(_cl_mem_A);
-    _GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER _cl_mem_A");
-    _gfn_status = clReleaseMemObject(_cl_mem_B);
-    _GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER _cl_mem_B");
+    /* Gather Array Memory */
+    _GfnEnqueueGather1D((void **) &A, _cl_mem_A, _GFN_TYPE_INT(), 0, (300) - 1, 1, 1, 300, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
+    _GfnFinishGatherArray();
+    /* Reduce Scalar Value */
+    _GfnFinishReduceScalar();
+    /* Deallocate Array Memory */
+    _GfnFree(_id_A, 1, 1);
+    _GfnFree(_id_B, 1, 1);
 }
 /* */ #endif /* */
 
@@ -180,8 +150,10 @@ int main(int argc, char *argv[])
     }
     /* Send call function message */
     _SendCallFuncMsg(1);
-    _SendInputMsg((void *) B, (sizeof(int) * ((300))));
-    _RecvOutputMsg((void *) A, (sizeof(int) * ((300))));
+    _SendConstInputMsg((long long) &A);
+    _SendConstInputMsg((long long) &B);
+    _SendInputNDMsg(&(B[0]), _GFN_TYPE_INT(), 0, (300) - 1, 1, 1, 0, 1, 0, 300);
+    _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 0, (300) - 1, 1, 1, 0, 1, 0, 1);
     /* Close IPC to worker */
     _SendCallFuncMsg(0);
     _CloseMasterMsgQueue();

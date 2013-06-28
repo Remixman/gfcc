@@ -101,7 +101,6 @@ void _Function_1()
     cl_mem _cl_mem_B = 0;
     /* Boardcast Scalar Value */
     _GfnEnqueueBoardcastScalar(&n, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&n, _GFN_TYPE_INT());
     _GfnEnqueueBoardcastScalar(&_id_C, _GFN_TYPE_LONG_LONG_INT());
     _GfnEnqueueBoardcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
     _GfnEnqueueBoardcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
@@ -136,11 +135,11 @@ void _Function_1()
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clSetKernelArg(_kernel, 3, sizeof(cl_mem), (void *) &_cl_mem_B);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_local_i_start);
+        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &_local_i_start);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(cl_int), (void *) &_local_i_end);
+        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(int), (void *) &_local_i_end);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 6, sizeof(cl_int), (void *) &_loop_step);
+        _gfn_status = clSetKernelArg(_kernel, 6, sizeof(int), (void *) &_loop_step);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
@@ -182,7 +181,6 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     int i, j, k;
     /* Send call function message */
     _SendCallFuncMsg(1);
-    _SendInputMsg((void *) &n, sizeof(int));
     _SendInputMsg((void *) &n, sizeof(int));
     _SendConstInputMsg((long long) &C);
     _SendConstInputMsg((long long) &A);

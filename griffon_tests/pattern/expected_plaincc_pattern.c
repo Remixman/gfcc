@@ -88,11 +88,11 @@ void _Function_1()
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_B);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(cl_int), (void *) &_local_i_start);
+        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(int), (void *) &_local_i_start);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(cl_int), (void *) &_local_i_end);
+        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_end);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(cl_int), (void *) &_loop_step);
+        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &_loop_step);
         _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
         _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
         _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");

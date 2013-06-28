@@ -508,7 +508,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << "_SendInputMsg((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
             }
-            else
+            else if (!var_info._is_loop_variable)
             {
                 master_send_scalar_input
                     << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
@@ -531,7 +531,7 @@ TL::Source ParallelFor::do_parallel_for()
                                              var_info._dimension_num, var_info._dim_size,
                                              level1_cond, level2_cond);
             }
-            else
+            else if (!var_info._is_loop_variable)
             {
                 worker_boardcast_scalar_src
                     << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
