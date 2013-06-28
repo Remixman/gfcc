@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>						/* getenv, */
+#include <time.h>
 #include "variable_id_table.h"
 #include "gfn.h"
 
@@ -13,6 +14,21 @@ cl_context _gfn_context;
 cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
+
+static int _cluster_malloc_time;
+static int _cluster_scatter_time;
+static int _cluster_bcast_time;
+static int _cluster_gather_time;
+static int _gpu_malloc_time;
+static int _gpu_kernel_time;
+static int _gpu_transfer_h2d_time;
+static int _gpu_transfer_d2h_time;
+static int _mm_overhead_time;           /* Overhead time for memory management */	
+
+#define IF_TIMING if
+
+#define TRUE 1
+#define FALSE 0
 
 #define PATTERN_NONE     0
 #define PATTERN_RANGE    1
@@ -34,6 +50,12 @@ cl_program _gfn_cl_program;
 
 #define MAX(A,B) ((A)<(B)?(B):(A))
 #define MIN(A,B) ((A)>(B)?(B):(A))
+
+static long long get_time() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (tv.tv_sec * 1000000) + tv.tv_usec;
+}
 
 // API for user
 int gfn_get_num_process()
@@ -57,6 +79,37 @@ int _GfnInit(int *argc, char **argv[])
 	MPI_Get_processor_name(processor_name, &name_len);
 	
 	printf("Rank %d is at %s\n", _gfn_rank, processor_name);
+
+
+	_cluster_malloc_time    = FALSE;
+	_cluster_scatter_time   = FALSE;
+	_cluster_bcast_time     = FALSE;
+	_cluster_gather_time    = FALSE;
+	_gpu_malloc_time        = FALSE;
+	_gpu_kernel_time        = FALSE;
+	_gpu_transfer_h2d_time  = FALSE;
+	_gpu_transfer_d2h_time  = FALSE;
+	_mm_overhead_time       = FALSE;
+
+	char *trace_level = getenv("GFN_TRACE");
+	if (trace_level != NULL)
+	switch (trace_level[0]) {
+	case '4':
+		_mm_overhead_time        = TRUE;
+	case '3':
+		_cluster_malloc_time     = TRUE;
+		_gpu_malloc_time         = TRUE;
+	case '2':
+		_cluster_scatter_time    = TRUE;
+		_cluster_bcast_time      = TRUE;
+		_cluster_gather_time     = TRUE;
+		_gpu_transfer_h2d_time   = TRUE;
+		_gpu_transfer_d2h_time   = TRUE;
+	case '1':
+		_gpu_kernel_time         = TRUE;
+	case '0':
+		break;
+	}
 
 	_InitOpenCL();
 
@@ -170,19 +223,28 @@ int _GfnFinishReduceScalar()
 	return 0;
 }
 
-int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 {
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
 
 #define SWITCH_MALLOC_1D(type,size1) \
 do { \
 	type * tmp_ptr; \
+	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
 	tmp_ptr = (type *) malloc(sizeof(type) * size1); \
+	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
 	*ptr = (void *) tmp_ptr; \
-	if (level2_malloc) { \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
 		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1, 0, &_gfn_status); \
+		IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
     } \
+    IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
     _insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
+    IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
 	
@@ -201,26 +263,43 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_1D(long double,dim1_size); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_1D(long long int,dim1_size); break;
 	}
+
+	IF_TIMING (_cluster_malloc_time && level1_cond)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
 	
 	return 0;
 }
 
-int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 {
 	int i;
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
 do { \
 	type ** tmp_ptr; \
+	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
 	tmp_ptr = (type **) malloc(sizeof(type*) * size1); \
 	tmp_ptr[0] = (type *) malloc(sizeof(type) * size1 * size2); \
 	for (i = 1; i < size1; ++i) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
+	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
 	*ptr = (void **) tmp_ptr; \
-	if (level2_malloc) { \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
 		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2, 0, &_gfn_status); \
+		IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
-	_insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
+	_insert_to_var_table(unique_id, *cl_ptr, 2, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
 	switch(type_id)
@@ -238,28 +317,45 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_2D(long double,dim1_size,dim2_size); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_2D(long long int,dim1_size,dim2_size); break;
 	}
-	
+
+	IF_TIMING (_cluster_malloc_time && level1_cond)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
+
 	return 0;
 }
 
-int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 {
 	int i;
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
 
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
 do { \
 	type *** tmp_ptr; \
+	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
 	tmp_ptr = (type ***) malloc(sizeof(type**) * size1); \
 	tmp_ptr[0] = (type **) malloc(sizeof(type*) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
 	tmp_ptr[0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3); \
 	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
+	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
 	*ptr = (void ***) tmp_ptr; \
-	if (level2_malloc) { \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
 		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3, 0, &_gfn_status); \
+    	IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
-	_insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr[0][0], (void **)tmp_ptr[0], (void ***)tmp_ptr, NULL, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
+	_insert_to_var_table(unique_id, *cl_ptr, 3, (void *)tmp_ptr[0][0], (void **)tmp_ptr[0], (void ***)tmp_ptr, NULL, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
 	switch(type_id)
@@ -278,16 +374,28 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_3D(long long int,dim1_size,dim2_size,dim3_size); break;
 	}
 
+	IF_TIMING (_cluster_malloc_time && level1_cond)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
+
 	return 0;
 }
 
-int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 {
 	int i;
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
 
 #define SWITCH_MALLOC_4D(type,size1,size2,size3,size4) \
 do { \
 	type **** tmp_ptr; \
+	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
 	tmp_ptr = (type ****) malloc(sizeof(type***) * size1); \
 	tmp_ptr[0] = (type ***) malloc(sizeof(type**) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
@@ -295,11 +403,17 @@ do { \
 	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
 	tmp_ptr[0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4); \
 	for (i = 1; i < size1 * size2 * size3; i++) tmp_ptr[0][0][i] = tmp_ptr[0][0][i-1] + size4; \
+	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
 	*ptr = (void ****) tmp_ptr; \
-	if (level2_malloc) { \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
 		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4, 0, &_gfn_status); \
+    	IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
+	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
+	_insert_to_var_table(unique_id, *cl_ptr, 4, (void *)tmp_ptr[0][0][0], (void **)tmp_ptr[0][0], (void ***)tmp_ptr[0], (void ****)tmp_ptr, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
 	switch(type_id)
@@ -318,27 +432,61 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_4D(long long int,dim1_size,dim2_size,dim3_size,dim4_size); break;
 	}
 
+	IF_TIMING (_cluster_malloc_time && level1_cond)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
+
 	return 0;
 }
 
-int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
+int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
+{
+	int i;
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	IF_TIMING (_cluster_malloc_time && level1_cond)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
+
+	return 0;
+}
+
+int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 { 
+	int i;
+	long long malloc_start_t, malloc_end_t;
+	long long create_buf_start_t, create_buf_end_t;
+	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	IF_TIMING (_cluster_malloc_time)
+		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(malloc_end_t-malloc_start_t)/1000000);
+	IF_TIMING (_gpu_malloc_time)
+		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+	//IF_TIMING (_mm_overhead_time)
+
 	return 0;
 }
 
-int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_malloc, int level2_malloc)
-{ 
-	return 0;
-}
-
-int _GfnFree(long long unique_id, int level1_malloc, int level2_malloc)
+int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 {
 	_free_mem_and_delete_from_var_table(unique_id);
 
 	return 0;
 }
 
-int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_cond, int level2_cond)
 {
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
@@ -347,7 +495,7 @@ do { \
 	type * tmp_ptr = (type *) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * size1); \
 	MPI_Bcast((void *)(tmp_ptr), size1, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1, tmp_ptr, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 	} \
@@ -384,7 +532,7 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueBoardcast2D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast2D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_cond, int level2_cond)
 {
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
@@ -393,7 +541,7 @@ do { \
 	type ** tmp_ptr = (type **) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
 	MPI_Bcast(tmp_ptr[0], size1 * size2, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1 * size2, tmp_ptr[0], 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 	} \
@@ -430,14 +578,14 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_cond, int level2_cond)
 { 
 #define SWITCH_BCAST_3D(type,mpi_type,size1,size2,size3) \
 do { \
 	type *** tmp_ptr = (type ***) (*ptr); \
 	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0][0], sizeof(type) * size1 * size2 * size3); \
 	MPI_Bcast(tmp_ptr[0][0], size1 * size2 * size3, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * size1 * size2 * size3, tmp_ptr[0][0], 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 	} \
@@ -474,14 +622,14 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_transfer, int level2_transfer)
+int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_cond, int level2_cond)
 { return 0; }
 
-int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 {
 	// TODO: level 2 transfer only used partition
 
@@ -505,7 +653,7 @@ do { \
 							size1,pattern_array[0],pattern_array[1]); \
 	} \
 	MPI_Scatterv(tmp_ptr, cnts, disp, mpi_type, tmp_ptr + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
 		info.size = (size_t)(sub_size * sizeof(type)); \
@@ -548,7 +696,7 @@ do { \
 
 	return 0;
 }
-int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 {
 	// TODO: level 2 transfer only used partition
 	// TODO: clCreateSubBuffer 1.1 spec for point to subbuffer
@@ -567,7 +715,7 @@ do { \
 							size1,size2,pattern_array[0],pattern_array[1]); \
 	} \
 	MPI_Scatterv(tmp_ptr[0], cnts, disp, mpi_type, tmp_ptr[0] + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
 		info.size = (size_t)(sub_size * sizeof(type)); \
@@ -588,7 +736,7 @@ do { \
 	row_offset = 0; \
 	for (r = 0; r < size1; ++r) { \
 		MPI_Scatterv(tmp_ptr[0]+row_offset, cnts, disp, mpi_type, tmp_ptr[0]+row_offset+recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-		if (level2_transfer) { \
+		if (level2_cond) { \
 			cl_buffer_region info;
 			info.origin = (size_t)0; // in bytes
 			info.size = (size_t)8;//in bytes 
@@ -651,7 +799,7 @@ do { \
 	row_offset = 0;
 	for (r = 0; r < dim1_size; ++r) {
 		MPI_Scatterv(tmp_ptr[0]+row_offset, cnts, disp, MPI_CHAR, tmp_ptr[0]+row_offset+recv_elem_offset, sub_size, MPI_CHAR, 0, MPI_COMM_WORLD);
-		if (level2_transfer) {
+		if (level2_cond) {
 			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr+(cl_mem)row_offset, CL_TRUE, 0, sizeof(char) * sub_size, tmp_ptr[0]+row_offset, 0, 0, 0);
 			_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
 		}
@@ -690,18 +838,18 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
 int _GfnFinishDistributeArray()
 { return 0; }
 
-int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -712,7 +860,7 @@ int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start,
 #define SWITCH_GATHER_1D(type,mpi_type,size1) \
 do { \
 	type * tmp_ptr = (type *) (*ptr); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
 		info.size = (size_t)(sub_size * sizeof(type)); \
@@ -767,7 +915,7 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 {
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
@@ -786,7 +934,7 @@ int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start
 #define SWITCH_GATHER_2D(type,mpi_type,size1,size2) \
 do { \
 	type ** tmp_ptr = (type **) (*ptr); \
-	if (level2_transfer) { \
+	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
 		info.size = (size_t)(sub_size * sizeof(type)); \
@@ -841,13 +989,13 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
-int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_transfer, int level2_transfer)
+int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
 { return 0; }
 int _GfnFinishGatherArray()
 { return 0; }
