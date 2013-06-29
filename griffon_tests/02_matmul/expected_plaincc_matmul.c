@@ -188,7 +188,7 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     _SendConstInputMsg((long long) &B);
     _SendInputNDMsg(&(A[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, 0, 2, 0, n, n);
     _SendInputMsg((void *) B[0], (sizeof(float) * ((n) * (n))));
-    _RecvOutputNDMsg(&(C[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, 0, 2, 0, 1, n);
+    _RecvOutputNDMsg(&(C[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, 0, 2, 0, n, n);
 }
 
 #ifndef GFN_WORKER
@@ -245,6 +245,8 @@ int main(int argc, char *argv[])
             }
             if (fabs(sum - C[i][j]) > 0.0001)
             {
+                printf("Error at [%d][%d]\n", i, j);
+                printf("C[%d][%d] is %.5f but expected value is %.5f\n");
                 pass = 0;
                 break;
             }

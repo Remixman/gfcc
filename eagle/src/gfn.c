@@ -670,25 +670,25 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 #define SWITCH_SCATTER_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
-	tmp_ptr = tmp_ptr + recv_it_offset; \
 	if (_gfn_rank == 0) { \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
 	} \
 for (i = 0; i < recv_loop_num; ++i) { \
-	MPI_Scatterv(tmp_ptr, cnts, disp, mpi_type, tmp_ptr + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
+	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
+		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
 		info.size = (size_t)(sub_size * sizeof(type)); \
 		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
 		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_elem_offset, 0, 0, 0); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 		_gfn_status = clReleaseMemObject(subbuf); \
 		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
-	tmp_ptr += (elem_num * block_size); \
+	recv_it_offset += (elem_num * block_size); \
 } \
 } while (0)
 
@@ -751,7 +751,6 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 #define SWITCH_GATHER_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
-	tmp_ptr = tmp_ptr + send_it_offset; \
 for (i = 0; i < send_loop_num; ++i) { \
 	if (level2_cond) { \
 		cl_buffer_region info; \
@@ -759,17 +758,19 @@ for (i = 0; i < send_loop_num; ++i) { \
 		info.size = (size_t)(sub_size * sizeof(type)); \
 		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
 		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_elem_offset, 0, 0, 0); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_it_offset + send_elem_offset, 0, 0, 0); \
         _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
         _gfn_status = clReleaseMemObject(subbuf); \
 		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
-	MPI_Gatherv(tmp_ptr + send_elem_offset, sub_size, mpi_type, tmp_ptr, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
-	tmp_ptr += (elem_num * block_size); \
+	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
+		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	send_it_offset += (elem_num * block_size); \
 } \
 	if (_gfn_rank == 0) { \
 		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 						 partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+		printf("[%d] SEND_BACK : %.5f\n", _gfn_rank, *tmp_ptr); \
 	} \
 } while (0)
 

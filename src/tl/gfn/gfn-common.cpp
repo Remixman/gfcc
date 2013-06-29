@@ -526,7 +526,7 @@ TL::Source create_send_input_nd_msg(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << ","
         << partitioned_dim << "," << pattern_type << ","
         << dim_num << "," << pattern_num;
-    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i+1];
+    for (int i = 1; i <= dim_num; ++i) result << "," << dim_size[i];
     for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
     result
         << ");";
@@ -552,7 +552,7 @@ TL::Source create_recv_output_nd_msg(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << ","
         << partitioned_dim << "," << pattern_type << ","
         << dim_num << "," << pattern_num;
-    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i];
+    for (int i = 1; i <= dim_num; ++i) result << "," << dim_size[i];
     for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
     result
         << ");";
