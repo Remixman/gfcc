@@ -633,29 +633,49 @@ do { \
 	}
 }
 
-int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
+int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
-	// TODO: level 2 transfer only used partition
+	int i, value;
+	va_list vl;
 
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
-    int sub_size, recv_elem_offset;
+    int sub_size;
+    int recv_elem_offset = 0;
+    int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+    int recv_loop_num = 1, elem_num = 1, block_size = 1;
+	int size_array[size_n], pattern_array[pattern_n];
 
-    _CalcPartitionInfo(dim1_size, 1, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
+	partitioned_dim--;
 
-#define SWITCH_SCATTER_1D(type,mpi_type,size1) \
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	// Calculate block size and elements number
+	for (i = 0; i < size_n; ++i) {
+		if (i < partitioned_dim)         recv_loop_num *= size_array[i];
+		else if (i == partitioned_dim)   elem_num      *= size_array[i];
+		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+
+	_CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
+		pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
+
+#define SWITCH_SCATTER_ND(type,mpi_type) \
 do { \
-	type * tmp_ptr = (type *) (*ptr); \
+	type * tmp_ptr = (type *) ptr; \
+	tmp_ptr = tmp_ptr + recv_it_offset; \
 	if (_gfn_rank == 0) { \
-		if (pattern_type == PATTERN_NONE) \
-			_RecvInputNDMsg(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-							partitioned_dim,pattern_type,1,pattern_array_size, \
-							size1); \
-		else if (pattern_type == PATTERN_RANGE) \
-			_RecvInputNDMsg(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-							partitioned_dim,pattern_type,1,pattern_array_size, \
-							size1,pattern_array[0],pattern_array[1]); \
+		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
 	} \
+for (i = 0; i < recv_loop_num; ++i) { \
 	MPI_Scatterv(tmp_ptr, cnts, disp, mpi_type, tmp_ptr + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_cond) { \
 		cl_buffer_region info; \
@@ -668,201 +688,71 @@ do { \
 		_gfn_status = clReleaseMemObject(subbuf); \
 		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
+	tmp_ptr += (elem_num * block_size); \
+} \
 } while (0)
 
 	switch(type_id)
 	{
-	case TYPE_CHAR:           
-		SWITCH_SCATTER_1D(char,MPI_CHAR,dim1_size); break;
-	case TYPE_UNSIGNED_CHAR:  
-		SWITCH_SCATTER_1D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size); break;
-	case TYPE_SHORT:          
-		SWITCH_SCATTER_1D(short,MPI_SHORT,dim1_size); break;
-	case TYPE_UNSIGNED_SHORT: 
-		SWITCH_SCATTER_1D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size); break;
-	case TYPE_INT:            
-		SWITCH_SCATTER_1D(int,MPI_INT,dim1_size); break;
-	case TYPE_UNSIGNED:       
-		SWITCH_SCATTER_1D(unsigned,MPI_UNSIGNED,dim1_size); break;
-	case TYPE_LONG:           
-		SWITCH_SCATTER_1D(long,MPI_LONG,dim1_size); break;
-	case TYPE_UNSIGNED_LONG:  
-		SWITCH_SCATTER_1D(unsigned long,MPI_UNSIGNED_LONG,dim1_size); break;
-	case TYPE_FLOAT:          
-		SWITCH_SCATTER_1D(float,MPI_FLOAT,dim1_size); break;
-	case TYPE_DOUBLE:         
-		SWITCH_SCATTER_1D(double,MPI_DOUBLE,dim1_size); break;
-	case TYPE_LONG_DOUBLE:    
-		SWITCH_SCATTER_1D(long double,MPI_LONG_DOUBLE,dim1_size); break;
-	case TYPE_LONG_LONG_INT:  
-		SWITCH_SCATTER_1D(long long int,MPI_LONG_LONG_INT,dim1_size); break;
+	case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_SCATTER_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_SCATTER_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_SCATTER_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
 
 	return 0;
 }
-int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{
-	// TODO: level 2 transfer only used partition
 
-#define SWITCH_SCATTER_2D(type,mpi_type,size1,size2) \
-do { \
-	type ** tmp_ptr = (type **) (*ptr); \
-	if (_gfn_rank == 0) { \
-		if (pattern_type == PATTERN_NONE) \
-			_RecvInputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
-							partitioned_dim,pattern_type,2,pattern_array_size, \
-							size1,size2); \
-		else if (pattern_type == PATTERN_RANGE) \
-			_RecvInputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
-							partitioned_dim,pattern_type,2,pattern_array_size, \
-							size1,size2,pattern_array[0],pattern_array[1]); \
-	} \
-	MPI_Scatterv(tmp_ptr[0], cnts, disp, mpi_type, tmp_ptr[0] + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_cond) { \
-		cl_buffer_region info; \
-		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
-		info.size = (size_t)(sub_size * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr[0] + recv_elem_offset, 0, 0, 0); \
-		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
-		_gfn_status = clReleaseMemObject(subbuf); \
-		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
-	} \
-} while (0)
-
-#if 0
-#define SWITCH_SCATTER_2D_2(type,mpi_type,size1,size2) \
-do { \
-	type ** tmp_ptr = (type **) (*ptr); \
-	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(type) * size1 * size2); \
-	row_offset = 0; \
-	for (r = 0; r < size1; ++r) { \
-		MPI_Scatterv(tmp_ptr[0]+row_offset, cnts, disp, mpi_type, tmp_ptr[0]+row_offset+recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-		if (level2_cond) { \
-			cl_buffer_region info;
-			info.origin = (size_t)0; // in bytes
-			info.size = (size_t)8;//in bytes 
-			
-			cl_mem subbuf = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status);
-			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr+row_offset, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr[0]+row_offset, 0, 0, 0); \
-			_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
-		} \
-		row_offset += size2; \
-	} \
-} while (0)
-#endif
-
-	int cnts[_gfn_num_proc];
-    int disp[_gfn_num_proc];
-    int sub_size, recv_elem_offset;
-    int r, row_offset;
-
-    switch(partitioned_dim)
-    {
-    case 1: 
-    	_CalcPartitionInfo(dim1_size, dim2_size, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
-    	switch(type_id)
-		{
-		case TYPE_CHAR:           
-			SWITCH_SCATTER_2D(char,MPI_CHAR,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_CHAR:  
-			SWITCH_SCATTER_2D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size,dim2_size); break;
-		case TYPE_SHORT:          
-			SWITCH_SCATTER_2D(short,MPI_SHORT,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_SHORT: 
-			SWITCH_SCATTER_2D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size,dim2_size); break;
-		case TYPE_INT:            
-			SWITCH_SCATTER_2D(int,MPI_INT,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED:       
-			SWITCH_SCATTER_2D(unsigned,MPI_UNSIGNED,dim1_size,dim2_size); break;
-		case TYPE_LONG:           
-			SWITCH_SCATTER_2D(long,MPI_LONG,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_LONG:  
-			SWITCH_SCATTER_2D(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size); break;
-		case TYPE_FLOAT:
-			SWITCH_SCATTER_2D(float,MPI_FLOAT,dim1_size,dim2_size); break;          
-		case TYPE_DOUBLE:         
-			SWITCH_SCATTER_2D(double,MPI_DOUBLE,dim1_size,dim2_size); break;
-		case TYPE_LONG_DOUBLE:    
-			SWITCH_SCATTER_2D(long double,MPI_LONG_DOUBLE,dim1_size,dim2_size); break;
-		case TYPE_LONG_LONG_INT:  
-			SWITCH_SCATTER_2D(long long int,MPI_LONG_LONG_INT,dim1_size,dim2_size); break;
-		}
-    	break;
-    case 2:
-#if 0
-    	_CalcPartitionInfo(dim2_size, 1, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
-    	switch(type_id)
-		{
-		case TYPE_CHAR:
-		{
-			char ** tmp_ptr = (char **) (*ptr);
-	if (_gfn_rank == 0) _RecvInputMsg(tmp_ptr[0], sizeof(char) * dim1_size * dim2_size);
-	row_offset = 0;
-	for (r = 0; r < dim1_size; ++r) {
-		MPI_Scatterv(tmp_ptr[0]+row_offset, cnts, disp, MPI_CHAR, tmp_ptr[0]+row_offset+recv_elem_offset, sub_size, MPI_CHAR, 0, MPI_COMM_WORLD);
-		if (level2_cond) {
-			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr+(cl_mem)row_offset, CL_TRUE, 0, sizeof(char) * sub_size, tmp_ptr[0]+row_offset, 0, 0, 0);
-			_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
-		}
-		row_offset += dim2_size;
-	}
-		}
-		break;
-			//SWITCH_SCATTER_2D_2(char,MPI_CHAR,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_CHAR:  
-			SWITCH_SCATTER_2D_2(unsigned char,MPI_UNSIGNED_CHAR,dim1_size,dim2_size); break;
-		case TYPE_SHORT:          
-			SWITCH_SCATTER_2D_2(short,MPI_SHORT,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_SHORT: 
-			SWITCH_SCATTER_2D_2(unsigned short,MPI_UNSIGNED_SHORT,dim1_size,dim2_size); break;
-		case TYPE_INT:            
-			SWITCH_SCATTER_2D_2(int,MPI_INT,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED:       
-			SWITCH_SCATTER_2D_2(unsigned,MPI_UNSIGNED,dim1_size,dim2_size); break;
-		case TYPE_LONG:           
-			SWITCH_SCATTER_2D_2(long,MPI_LONG,dim1_size,dim2_size); break;
-		case TYPE_UNSIGNED_LONG:  
-			SWITCH_SCATTER_2D_2(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size); break;
-		case TYPE_FLOAT:
-			SWITCH_SCATTER_2D_2(float,MPI_FLOAT,dim1_size,dim2_size); break;          
-		case TYPE_DOUBLE:         
-			SWITCH_SCATTER_2D_2(double,MPI_DOUBLE,dim1_size,dim2_size); break;
-		case TYPE_LONG_DOUBLE:    
-			SWITCH_SCATTER_2D_2(long double,MPI_LONG_DOUBLE,dim1_size,dim2_size); break;
-		case TYPE_LONG_LONG_INT:  
-			SWITCH_SCATTER_2D_2(long long int,MPI_LONG_LONG_INT,dim1_size,dim2_size); break;
-		}
-#endif
-    	break;
-    }
-
-	return 0;
-}
-
-int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueScatter4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueScatter5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueScatter6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
 int _GfnFinishDistributeArray()
 { return 0; }
 
-int _GfnEnqueueGather1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
+int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	int i, value;
+	va_list vl;
+
 	int cnts[_gfn_num_proc];
     int disp[_gfn_num_proc];
-    int sub_size, send_elem_offset;
+    int sub_size;
+    int send_elem_offset = 0;
+    int send_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+    int send_loop_num = 1, elem_num = 1, block_size = 1;
+	int size_array[size_n], pattern_array[pattern_n];
 
-    _CalcPartitionInfo(dim1_size, 1, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
+	partitioned_dim--;
 
-#define SWITCH_GATHER_1D(type,mpi_type,size1) \
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	// Calculate block size and elements number
+	for (i = 0; i < size_n; ++i) {
+		if (i < partitioned_dim)         send_loop_num *= size_array[i];
+		else if (i == partitioned_dim)   elem_num      *= size_array[i];
+		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+
+    _CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
+    	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
+
+#define SWITCH_GATHER_ND(type,mpi_type) \
 do { \
-	type * tmp_ptr = (type *) (*ptr); \
+	type * tmp_ptr = (type *) ptr; \
+	tmp_ptr = tmp_ptr + send_it_offset; \
+for (i = 0; i < send_loop_num; ++i) { \
 	if (level2_cond) { \
 		cl_buffer_region info; \
 		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
@@ -875,131 +765,33 @@ do { \
 		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
 	MPI_Gatherv(tmp_ptr + send_elem_offset, sub_size, mpi_type, tmp_ptr, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	tmp_ptr += (elem_num * block_size); \
+} \
 	if (_gfn_rank == 0) { \
-		if (pattern_type == PATTERN_NONE) \
-			_SendOutputNDMsg(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-						 	 partitioned_dim,pattern_type,1,pattern_array_size, \
-						 	 size1); \
-		else if (pattern_type == PATTERN_RANGE) \
-			_SendOutputNDMsg(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-						 	 partitioned_dim,pattern_type,1,pattern_array_size, \
-						 	 size1,pattern_array[0],pattern_array[1]); \
+		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+						 partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
 	} \
 } while (0)
 
 	switch(type_id)
 	{
-	case TYPE_CHAR:           
-		SWITCH_GATHER_1D(char,MPI_CHAR,dim1_size); break;
-	case TYPE_UNSIGNED_CHAR:  
-		SWITCH_GATHER_1D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size); break;
-	case TYPE_SHORT:          
-		SWITCH_GATHER_1D(short,MPI_SHORT,dim1_size); break;
-	case TYPE_UNSIGNED_SHORT: 
-		SWITCH_GATHER_1D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size); break;
-	case TYPE_INT:            
-		SWITCH_GATHER_1D(int,MPI_INT,dim1_size); break;
-	case TYPE_UNSIGNED:       
-		SWITCH_GATHER_1D(unsigned,MPI_UNSIGNED,dim1_size); break;
-	case TYPE_LONG:           
-		SWITCH_GATHER_1D(long,MPI_LONG,dim1_size); break;
-	case TYPE_UNSIGNED_LONG:  
-		SWITCH_GATHER_1D(unsigned long,MPI_UNSIGNED_LONG,dim1_size); break;
-	case TYPE_FLOAT:          
-		SWITCH_GATHER_1D(float,MPI_FLOAT,dim1_size); break;
-	case TYPE_DOUBLE:         
-		SWITCH_GATHER_1D(double,MPI_DOUBLE,dim1_size); break;
-	case TYPE_LONG_DOUBLE:    
-		SWITCH_GATHER_1D(long double,MPI_LONG_DOUBLE,dim1_size); break;
-	case TYPE_LONG_LONG_INT:  
-		SWITCH_GATHER_1D(long long int,MPI_LONG_LONG_INT,dim1_size); break;
+	case TYPE_CHAR:           SWITCH_GATHER_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_GATHER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_GATHER_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_GATHER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_GATHER_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_GATHER_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_GATHER_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_GATHER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_GATHER_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_GATHER_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_GATHER_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_GATHER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
 
 	return 0;
 }
 
-int _GfnEnqueueGather2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{
-	int cnts[_gfn_num_proc];
-    int disp[_gfn_num_proc];
-    int sub_size, send_elem_offset;
-
-    switch(partitioned_dim)
-    {
-    case 1: 
-    	_CalcPartitionInfo(dim1_size, dim2_size, loop_start, loop_end, loop_step, pattern_array, pattern_array_size, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
-    	break;
-    case 2: 
-    	// TODO:
-    	break;
-    }
-
-#define SWITCH_GATHER_2D(type,mpi_type,size1,size2) \
-do { \
-	type ** tmp_ptr = (type **) (*ptr); \
-	if (level2_cond) { \
-		cl_buffer_region info; \
-		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
-		info.size = (size_t)(sub_size * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr[0] + send_elem_offset, 0, 0, 0); \
-        _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
-        _gfn_status = clReleaseMemObject(subbuf); \
-		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
-	} \
-	MPI_Gatherv(tmp_ptr[0] + send_elem_offset, sub_size, mpi_type, tmp_ptr[0], cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
-	if (_gfn_rank == 0) { \
-		if (pattern_type == PATTERN_NONE) \
-			_SendOutputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
-						 	 partitioned_dim,pattern_type,2,pattern_array_size, \
-						 	 size1,size2); \
-		else if (pattern_type == PATTERN_RANGE) \
-			_SendOutputNDMsg(tmp_ptr[0],type_id,loop_start,loop_end,loop_step, \
-						 	 partitioned_dim,pattern_type,2,pattern_array_size, \
-						 	 size1,size2,pattern_array[0],pattern_array[1]); \
-	} \
-} while (0)
-
-	switch(type_id)
-	{
-	case TYPE_CHAR:           
-		SWITCH_GATHER_2D(char,MPI_CHAR,dim1_size,dim2_size); break;
-	case TYPE_UNSIGNED_CHAR:  
-		SWITCH_GATHER_2D(unsigned char,MPI_UNSIGNED_CHAR,dim1_size,dim2_size); break;
-	case TYPE_SHORT:          
-		SWITCH_GATHER_2D(short,MPI_SHORT,dim1_size,dim2_size); break;
-	case TYPE_UNSIGNED_SHORT: 
-		SWITCH_GATHER_2D(unsigned short,MPI_UNSIGNED_SHORT,dim1_size,dim2_size); break;
-	case TYPE_INT:            
-		SWITCH_GATHER_2D(int,MPI_INT,dim1_size,dim2_size); break;
-	case TYPE_UNSIGNED:       
-		SWITCH_GATHER_2D(unsigned,MPI_UNSIGNED,dim1_size,dim2_size); break;
-	case TYPE_LONG:           
-		SWITCH_GATHER_2D(long,MPI_LONG,dim1_size,dim2_size); break;
-	case TYPE_UNSIGNED_LONG:  
-		SWITCH_GATHER_2D(unsigned long,MPI_UNSIGNED_LONG,dim1_size,dim2_size); break;
-	case TYPE_FLOAT:          
-		SWITCH_GATHER_2D(float,MPI_FLOAT,dim1_size,dim2_size); break;
-	case TYPE_DOUBLE:         
-		SWITCH_GATHER_2D(double,MPI_DOUBLE,dim1_size,dim2_size); break;
-	case TYPE_LONG_DOUBLE:    
-		SWITCH_GATHER_2D(long double,MPI_LONG_DOUBLE,dim1_size,dim2_size); break;
-	case TYPE_LONG_LONG_INT:  
-		SWITCH_GATHER_2D(long long int,MPI_LONG_LONG_INT,dim1_size,dim2_size); break;
-	}
-
-	return 0;
-}
-
-int _GfnEnqueueGather3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueGather4D(void ***** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueGather5D(void ****** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
-int _GfnEnqueueGather6D(void ******* ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond)
-{ return 0; }
 int _GfnFinishGatherArray()
 { return 0; }
 
@@ -1262,6 +1054,7 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
     *sub_size = cnts[_gfn_rank];
     *elem_offset = disp[_gfn_rank];
 
+#if 0
 	if (_gfn_rank == 0) {
     	printf("\n");
     	for (i = 0; i < _gfn_num_proc; ++i) {
@@ -1270,7 +1063,7 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
     	}
     	printf("\n");
 	}
-
+#endif
 }
 
 

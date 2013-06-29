@@ -29,7 +29,7 @@ void init(int n, float **A, float **B) {
 void matmul_kernel(int n, float **A, float **B, float **C) {
 	int i, j, k;
 
-	#pragma gfn parallel_for input(A[n][n],B[n][n],n) output(C[n][n])
+	#pragma gfn parallel_for input(A[n][n],B[n][n],n) output(C[n][n]) if(1,0)
 	for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			C[i][j] = 0.f;

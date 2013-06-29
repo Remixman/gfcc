@@ -119,9 +119,10 @@ void _Function_1()
     _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
     _work_group_item_num = 64;
     _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);
+    /* Allocate Reduce Scalar Variables */
     /* Distribute Array Memory */
-    _GfnEnqueueScatter2D((void ***) &A, _cl_mem_A, _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, n, n, _GFN_MEM_READ_ONLY(), 0, 0, 0, 1, 1);
-    _GfnEnqueueBoardcast2D((void ***) &B, _cl_mem_B, _GFN_TYPE_FLOAT(), n, n, 1, 1);
+    _GfnEnqueueScatterND((void *) A[0], _cl_mem_A, _GFN_TYPE_FLOAT(), _GFN_MEM_READ_ONLY(), 0, (n) - 1, 1, 1, 0, 1, 1, 2, 0, n, n);
+    _GfnEnqueueBoardcastND((void *) B[0], _cl_mem_B, _GFN_TYPE_FLOAT(), 1, 1, 2, n, n);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)
@@ -166,7 +167,7 @@ void _Function_1()
         }
     }
     /* Gather Array Memory */
-    _GfnEnqueueGather2D((void ***) &C, _cl_mem_C, _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 1, n, n, _GFN_MEM_WRITE_ONLY(), 0, 0, 0, 1, 1);
+    _GfnEnqueueGatherND((void *) C[0], _cl_mem_C, _GFN_TYPE_FLOAT(), _GFN_MEM_WRITE_ONLY(), 0, (n) - 1, 1, 1, 0, 1, 1, 2, 0, n, n);
     _GfnFinishGatherArray();
     /* Reduce Scalar Value */
     _GfnFinishReduceScalar();

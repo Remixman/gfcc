@@ -925,29 +925,41 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    int dim_num, std::string *dim_size,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
-                                   std::string pattern_array,
+                                   TL::ObjectList<std::string> &pattern_array,
                                    int pattern_array_size,
                                    int pattern_type,
                                    std::string level1_cond,
                                    std::string level2_cond)
 {
-    TL::Source result, func_name, size_params, stars;
-    
-    stars << "*";
-    func_name << "_GfnEnqueueScatter" << dim_num << "D";
+    TL::Source result, size_params, pattern_params, subscript_to_1d;
+     
     for (int i = 1; i <= dim_num; ++i)
     {
-        if (i != 1) size_params << ",";
+        if (i != 1) {
+            size_params << ",";
+            subscript_to_1d << "[0]";
+        }
         size_params << dim_size[i];
-        stars << "*";
     }
     
+    for (int i = 0; i < pattern_array_size; ++i)
+    {
+        if (i != 1) pattern_params << ",";
+        pattern_params << pattern_array[i];
+    }
+
     result
-        << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << "," 
-        << mpi_type << "," << loop_start << "," << loop_end << "," << loop_step << "," 
-        << partitioned_dim << "," << size_params << "," << cl_mem_flags << "," 
-        << pattern_array << "," << pattern_array_size << "," << pattern_type << "," 
-        << level1_cond << "," << level2_cond << ");";
+        << "_GfnEnqueueScatterND((void*)" << var_name << subscript_to_1d << "," 
+        << var_cl_name << "," << mpi_type << "," << cl_mem_flags << ","
+        << loop_start << "," << loop_end << "," << loop_step << "," 
+        << partitioned_dim << "," << pattern_type << "," 
+        << level1_cond << "," << level2_cond << ","
+        << dim_num << "," << pattern_array_size << "," 
+        << size_params;
+    if (pattern_array_size > 0)
+        result << "," << pattern_params;
+    result
+        << ");";
     
     return result;
 }
@@ -968,29 +980,41 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   int dim_num, std::string *dim_size,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
-                                  std::string pattern_array,
+                                  TL::ObjectList<std::string> &pattern_array,
                                   int pattern_array_size,
                                   int pattern_type,
                                   std::string level1_cond,
                                   std::string level2_cond)
-{
-    TL::Source result, func_name, size_params, stars;
-    
-    stars << "*";
-    func_name << "_GfnEnqueueGather" << dim_num << "D";
+{   
+    TL::Source result, size_params, pattern_params, subscript_to_1d;
+     
     for (int i = 1; i <= dim_num; ++i)
     {
-        if (i != 1) size_params << ",";
+        if (i != 1) {
+            size_params << ",";
+            subscript_to_1d << "[0]";
+        }
         size_params << dim_size[i];
-        stars << "*";
+    }
+    
+    for (int i = 0; i < pattern_array_size; ++i)
+    {
+        if (i != 1) pattern_params << ",";
+        pattern_params << pattern_array[i];
     }
 
     result
-        << func_name << "((void" << stars << ")&" << var_name << "," << var_cl_name << ","
-        << mpi_type << "," << loop_start << "," << loop_end << "," << loop_step << ","
-        << partitioned_dim << "," << size_params << "," << cl_mem_flags << "," 
-        << pattern_array << "," << pattern_array_size << "," << pattern_type << "," 
-        << level1_cond << "," << level2_cond << ");";
+        << "_GfnEnqueueGatherND((void*)" << var_name << subscript_to_1d << "," 
+        << var_cl_name << "," << mpi_type << "," << cl_mem_flags << ","
+        << loop_start << "," << loop_end << "," << loop_step << "," 
+        << partitioned_dim << "," << pattern_type << ","
+        << level1_cond << "," << level2_cond << ","
+        << dim_num << "," << pattern_array_size << "," 
+        << size_params;
+    if (pattern_array_size > 0)
+        result << "," << pattern_params;
+    result
+        << ");";
     
     return result;
 }

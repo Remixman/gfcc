@@ -353,14 +353,8 @@ TL::Source ParallelFor::do_parallel_for()
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
         /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
         
-        std::string in_pattern_name = "0"; // NULL
-        std::string out_pattern_name = "0"; // NULL
         int in_pattern_type = var_info._in_pattern_type;
         int out_pattern_type = var_info._out_pattern_type;
-        if (in_pattern_type != GFN_PATTERN_NONE)
-            in_pattern_name = "_pattern_in_" + var_name;
-        if (out_pattern_type != GFN_PATTERN_NONE)
-            out_pattern_name = "_pattern_out_" + var_name;
         TL::ObjectList<std::string> &in_pattern_array = var_info._in_pattern_array;
         TL::ObjectList<std::string> &out_pattern_array = var_info._out_pattern_array;
 
@@ -403,32 +397,6 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 worker_declare_generated_variables_src
                     << "long long " << var_unique_id_name << ";";
-            }
-            
-            if (in_pattern_type != GFN_PATTERN_NONE)
-            {
-                worker_declare_generated_variables_src
-                    << "int " << in_pattern_name << "[" << in_pattern_array.size() << "];";
-                    
-                for (int p = 0; p < in_pattern_array.size(); ++p)
-                {
-                    worker_initialize_generated_variables_src
-                        << in_pattern_name << "[" << p << "] = "
-                        << in_pattern_array[p] << ";";
-                }
-            }
-            
-            if (out_pattern_type != GFN_PATTERN_NONE)
-            {
-                worker_declare_generated_variables_src
-                    << "int " << out_pattern_name << "[" << out_pattern_array.size() << "];";
-                    
-                for (int p = 0; p < out_pattern_array.size(); ++p)
-                {
-                    worker_initialize_generated_variables_src
-                        << out_pattern_name << "[" << p << "] = "
-                        << out_pattern_array[p] << ";";
-                }
             }
             
             // About OpenCL parameter code
@@ -522,7 +490,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, 
                                                loop_start, loop_end, loop_step, var_info._dimension_num,
                                                var_info._dim_size, var_info._shared_dimension, 
-                                               var_cl_mem_type, in_pattern_name, in_pattern_array.size(),
+                                               var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
                                                in_pattern_type, level1_cond, level2_cond);
             }
             else if (var_info._is_array_or_pointer)
@@ -564,7 +532,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, 
                                               loop_start, loop_end, loop_step, var_info._dimension_num, 
                                               var_info._dim_size, var_info._shared_dimension, 
-                                              var_cl_mem_type, out_pattern_name, out_pattern_array.size(),
+                                              var_cl_mem_type, out_pattern_array, out_pattern_array.size(),
                                               out_pattern_type, level1_cond, level2_cond);
             }
             else if (var_info._is_array_or_pointer)

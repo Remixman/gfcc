@@ -33,7 +33,7 @@
 #define MAX(A,B) ((A>B)?(A):(B))
 
 #define USED_PORT 5829
-#define MAX_SOCKET_BUFFER_SIZE 4096
+#define MAX_SOCKET_BUFFER_SIZE (4096<<1)
 #define MAX_MSG_LEN 1000000000
 
 // For worker server
@@ -161,8 +161,6 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 
 	int i, value;
 	va_list vl;
-	int start_offset, send_size;
-	int nelem_size = 1, block_size = 1;
 
 	int size_array[size_n], pattern_array[pattern_n];
 	partitioned_dim--; // convert partition dimension to zero based
@@ -176,6 +174,18 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
 	va_end(vl);
 
+	return _SendInputNDMsgCore(ptr, type_id, loop_start, loop_end, loop_step,
+				partitioned_dim, pattern_type, size_n, pattern_n, size_array, pattern_array);
+}
+
+int _SendInputNDMsgCore(void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, int *size_array, int *pattern_array )
+{
+	int start_offset, send_size;
+	int nelem_size = 1, block_size = 1;
+
 	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);
@@ -187,9 +197,12 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 
 #define SEND_INPUT_ARRAY(type) \
 do { \
-	_SendMasterMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type)); \
+	type * tmp_ptr = (type *) ptr; \
+	_SendMasterMsg((void*)(tmp_ptr+start_offset), send_size * sizeof(type)); \
 } while(0)
 	
+	//_SendMasterMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type));
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SEND_INPUT_ARRAY(char); break;
@@ -216,8 +229,6 @@ int _RecvOutputNDMsg(	void *ptr, int type_id,
 
 	int i, value;
 	va_list vl;
-	int start_offset, recv_size;
-	int nelem_size = 1, block_size = 1;
 
 	int size_array[size_n], pattern_array[pattern_n];
 	partitioned_dim--; // convert partition dimension to zero based
@@ -231,15 +242,30 @@ int _RecvOutputNDMsg(	void *ptr, int type_id,
 	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
 	va_end(vl);
 
+	return _RecvOutputNDMsgCore(ptr, type_id, loop_start, loop_end, loop_step,
+				partitioned_dim, pattern_type, size_n, pattern_n, size_array, pattern_array);
+}
+
+int _RecvOutputNDMsgCore(void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, int *size_array, int *pattern_array )
+{
+	int start_offset, recv_size;
+	int nelem_size = 1, block_size = 1;
+
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);	
 
 #define RECV_OUTPUT_ARRAY(type) \
 do { \
-	_RecvMasterMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type)); \
+	type * tmp_ptr = (type *) ptr; \
+	_RecvMasterMsg((void*)(tmp_ptr+start_offset), recv_size * sizeof(type)); \
 } while(0)
 	
+	// _RecvMasterMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type));
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           RECV_OUTPUT_ARRAY(char); break;
@@ -266,8 +292,6 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 
 	int i, value;
 	va_list vl;
-	int start_offset, recv_size;
-	int nelem_size = 1, block_size = 1;
 
 	int size_array[size_n], pattern_array[pattern_n];
 	partitioned_dim--; // convert partition dimension to zero based
@@ -280,6 +304,26 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
 	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
 	va_end(vl);
+
+	return _RecvInputNDMsgCore(ptr, type_id, loop_start, loop_end, loop_step,
+				partitioned_dim, pattern_type, size_n, pattern_n, size_array, pattern_array);
+}
+
+int _RecvInputNDMsgCore(void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, int *size_array, int *pattern_array )
+{
+	int start_offset, recv_size;
+	int nelem_size = 1, block_size = 1;
+
+	/*printf("LOOP_START = %d\n", loop_start);
+	printf("LOOP_END = %d\n", loop_end);
+	printf("LOOP_STEP = %d\n", loop_step);
+	printf("PARTITION DIM = %d\n", partitioned_dim);
+	printf("PATTERN TYPE = %d\n", pattern_type);
+	printf("SIZE N = %d\n", size_n);
+	printf("PATTERN N = %d\n", pattern_n);*/
 
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
@@ -294,9 +338,12 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 
 #define RECV_INPUT_ARRAY(type) \
 do { \
-	_RecvWorkerMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type)); \
+	type * tmp_ptr = (type *) ptr; \
+	_RecvWorkerMsg((void*)(tmp_ptr+start_offset), recv_size * sizeof(type)); \
 } while(0)
 	
+	// _RecvWorkerMsg((void*)(((type*)ptr) + start_offset), recv_size * sizeof(type));
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           RECV_INPUT_ARRAY(char); break;
@@ -338,15 +385,30 @@ int _SendOutputNDMsg(	void *ptr, int type_id,
 	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
 	va_end(vl);
 
+	return _SendOutputNDMsgCore(ptr, type_id, loop_start, loop_end, loop_step,
+				partitioned_dim, pattern_type, size_n, pattern_n, size_array, pattern_array);
+}
+
+int _SendOutputNDMsgCore(void *ptr, int type_id,
+						int loop_start, int loop_end, int loop_step,
+						int partitioned_dim, int pattern_type,
+						int size_n, int pattern_n, int *size_array, int *pattern_array )
+{
+	int start_offset, send_size;
+	int nelem_size = 1, block_size = 1;
+
 	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);	
 
 #define SEND_OUTPUT_ARRAY(type) \
 do { \
-	_SendWorkerMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type)); \
+	type * tmp_ptr = (type *) ptr; \
+	_SendWorkerMsg((void*)(tmp_ptr+start_offset), send_size * sizeof(type)); \
 } while(0)
 	
+	// _SendWorkerMsg((void*)(((type*)ptr) + start_offset), send_size * sizeof(type));
+
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SEND_OUTPUT_ARRAY(char); break;
