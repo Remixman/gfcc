@@ -42,13 +42,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 // Potential to free, maybe not really free
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond);
 // TODO: add boardcast pattern as parameter
-int _GfnEnqueueBoardcast1D(void ** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcast2D(void *** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcast3D(void **** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcast4D(void ***** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcast5D(void ****** ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcast6D(void ******* ptr, cl_mem cl_ptr, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, int level1_cond, int level2_cond);
-
+int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...);
 int _GfnEnqueueScatter1D(void ** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond);
 int _GfnEnqueueScatter2D(void *** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond);
 int _GfnEnqueueScatter3D(void **** ptr, cl_mem cl_ptr, int type_id, int loop_start, int loop_end, int loop_step, int partitioned_dim, size_t dim1_size, size_t dim2_size, size_t dim3_size, cl_mem_flags mem_type, int * pattern_array, int pattern_array_size, int pattern_type, int level1_cond, int level2_cond);

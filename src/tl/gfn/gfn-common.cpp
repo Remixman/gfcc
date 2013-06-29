@@ -896,22 +896,23 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
                                  std::string level1_cond,
                                  std::string level2_cond)
 {
-    TL::Source result, func_name, size_params, stars;
-    
-    stars << "*";
-    func_name << "_GfnEnqueueBoardcast" << dim_num << "D";
+    TL::Source result, size_params, subscript_to_1d;
+   
     for (int i = 1; i <= dim_num; ++i)
     {
-        if (i != 1) size_params << ",";
+        if (i != 1) {
+            size_params << ",";
+            subscript_to_1d << "[0]";
+        }
         size_params << dim_size[i];
-        stars << "*";
     }
     
     result
-        << func_name << "((void" << stars << ")&" << var_name << "," 
-        << var_cl_name << "," << mpi_type << "," << size_params << "," 
-        << level1_cond << "," << level2_cond << ");";
-    
+        << "_GfnEnqueueBoardcastND((void*)" << var_name << subscript_to_1d << "," 
+        << var_cl_name << "," << mpi_type << "," 
+        << level1_cond << "," << level2_cond << ","
+        << dim_num << "," << size_params << ");";
+        
     return result;
 }
 
