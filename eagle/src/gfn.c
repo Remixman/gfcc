@@ -25,6 +25,9 @@ static int _gpu_transfer_h2d_time;
 static int _gpu_transfer_d2h_time;
 static int _mm_overhead_time;           /* Overhead time for memory management */	
 
+/* Optimization */
+#define OPTIMIZE_NO_USE_CL_SUBBUFFER
+
 #define IF_TIMING if
 
 #define TRUE 1
@@ -667,6 +670,23 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 	_CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
 		pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
 
+#ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
+#define UPLOAD_TO_GPU(type) \
+	cl_buffer_region info; \
+	info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
+	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+	_gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
+#else
+#define UPLOAD_TO_GPU(type) \
+	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + recv_it_offset, 0, 0, 0); \
+	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
+#endif
+
 #define SWITCH_SCATTER_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
@@ -677,17 +697,7 @@ do { \
 for (i = 0; i < recv_loop_num; ++i) { \
 	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
 		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_cond) { \
-		cl_buffer_region info; \
-		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
-		info.size = (size_t)(sub_size * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
-		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
-		_gfn_status = clReleaseMemObject(subbuf); \
-		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
-	} \
+	if (level2_cond) { UPLOAD_TO_GPU(type) } \
 	recv_it_offset += (elem_num * block_size); \
 } \
 } while (0)
@@ -748,21 +758,28 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
     _CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
     	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
 
+#ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
+#define DOWNLOAD_FROM_GPU(type) \
+	cl_buffer_region info; \
+	info.origin = (size_t)(send_elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_it_offset + send_elem_offset, 0, 0, 0); \
+    _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+    _gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
+#else
+#define DOWNLOAD_FROM_GPU(type) \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + send_it_offset, 0, 0, 0); \
+    _GfnCheckCLStatus(_gfn_status, "READ BUFFER");
+#endif
+
 #define SWITCH_GATHER_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
 for (i = 0; i < send_loop_num; ++i) { \
-	if (level2_cond) { \
-		cl_buffer_region info; \
-		info.origin = (size_t)(send_elem_offset * sizeof(type)); \
-		info.size = (size_t)(sub_size * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_it_offset + send_elem_offset, 0, 0, 0); \
-        _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
-        _gfn_status = clReleaseMemObject(subbuf); \
-		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
-	} \
+	if (level2_cond) { DOWNLOAD_FROM_GPU(type) } \
 	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
 		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
 	send_it_offset += (elem_num * block_size); \
@@ -770,7 +787,6 @@ for (i = 0; i < send_loop_num; ++i) { \
 	if (_gfn_rank == 0) { \
 		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 						 partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
-		printf("[%d] SEND_BACK : %.5f\n", _gfn_rank, *tmp_ptr); \
 	} \
 } while (0)
 
