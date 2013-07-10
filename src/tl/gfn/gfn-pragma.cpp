@@ -294,7 +294,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     {
         // TODO: don't add local declare variable
         DataReference data_ref(sit->get_expression());
-        //std::string name = sit->get_symbol().get_name();std::cout << "FOR VARIABLE NAME : " << name << "\n";
+        std::string name = sit->get_symbol().get_name();
 
         if (sym_name_list.find(name).size() == 0)
         {
