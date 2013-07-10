@@ -152,6 +152,13 @@ static void _CalcStartOffsetAndSize(int *start_offset, int *size,
 			break;
 	}
 	(*size) = (end_offset - (*start_offset) + 1) * block_size;
+#if 0
+	printf("[Debug Info] : _CalcStartOffsetAndSize\n");
+	printf("block_size : %d\n", block_size);
+	printf("start_offset : %d\n", *start_offset);
+	printf("end_offset : %d\n", end_offset);
+	printf("size : %d\n", *size);
+#endif
 }
 
 int _SendInputNDMsg(	void *ptr, int type_id,

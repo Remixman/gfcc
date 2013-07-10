@@ -30,10 +30,10 @@ int main() {
 	
 	#pragma gfn start
 	
-	gp0 = grid_points[0], gp1 = grid_points[1], gp2 = grid_points[2];
-	isize = IMAX/2*2+1;
-	jsize = JMAX/2*2+1; 
-	ksize = KMAX/2*2+1;
+  	gp0 = grid_points[0] = isize = IMAX/2*2+1;
+	gp1 = grid_points[1] = jsize = JMAX/2*2+1; 
+	gp2 = grid_points[2] = ksize = KMAX/2*2+1;
+
 	// TODO: remove input(gp0,gp1,gp2)
 	#pragma gfn parallel_for output(us[isize][jsize][ksize]) input(gp0,gp1,gp2)
  	for (i = 0; i < gp0; i++) {
