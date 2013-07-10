@@ -54,15 +54,15 @@ namespace TL
             REDUCTION_T     _reduction_type;
             // For multi-dimension var, what dimension that we must distributed
             // (0 is shared and must boardcast to all node)
-            unsigned        _shared_dimension;
+            int             _shared_dimension;
             unsigned        _dimension_num; // for scalar dim num equal 0
-            std::string     _dim_size[7];
+            TL::ObjectList<TL::Expression>  _dim_size;
             
             // Stencil pattern
             int             _in_pattern_type;
             int             _out_pattern_type;
-            ObjectList<std::string> _in_pattern_array;
-            ObjectList<std::string> _out_pattern_array;
+            TL::ObjectList<std::string> _in_pattern_array;
+            TL::ObjectList<std::string> _out_pattern_array;
 
             // TODO: change to bit
             bool            _is_input;
@@ -77,20 +77,19 @@ namespace TL
 
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
-                _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(0), _dimension_num(0),
+                _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(-1), _dimension_num(0),
                 _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
                 _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0), _is_loop_variable(0),
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
-                for (int i = 0; i < 7; i++) _dim_size[i] = "1";
             }
 
             // Code generated function
             std::string get_mem_size();
-            std::string get_distributed_mem_size();
-            std::string get_distributed_mem_block();
+            TL::Source get_distributed_mem_size();
+            TL::Source get_distributed_mem_block();
             std::string get_pointer_starts();
             std::string get_subscript_to_1d_buf();
-            std::string get_array_index_in_1D(std::string idx_name1,
+            TL::Source get_array_index_in_1D(std::string idx_name1,
                                               std::string idx_name2 = "",
                                               std::string idx_name3 = "");
             std::string get_allocate_size_in_byte(TL::Type vartype);

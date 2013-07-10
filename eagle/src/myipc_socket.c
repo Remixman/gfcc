@@ -163,7 +163,6 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 	va_list vl;
 
 	int size_array[size_n], pattern_array[pattern_n];
-	partitioned_dim--; // convert partition dimension to zero based
 
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
@@ -231,7 +230,6 @@ int _RecvOutputNDMsg(	void *ptr, int type_id,
 	va_list vl;
 
 	int size_array[size_n], pattern_array[pattern_n];
-	partitioned_dim--; // convert partition dimension to zero based
 
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
@@ -294,7 +292,6 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 	va_list vl;
 
 	int size_array[size_n], pattern_array[pattern_n];
-	partitioned_dim--; // convert partition dimension to zero based
 
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
@@ -374,7 +371,6 @@ int _SendOutputNDMsg(	void *ptr, int type_id,
 	int nelem_size = 1, block_size = 1;
 
 	int size_array[size_n], pattern_array[pattern_n];
-	partitioned_dim--; // convert partition dimension to zero based
 
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n

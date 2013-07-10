@@ -516,7 +516,7 @@ TL::Source create_send_input_nd_msg(std::string var_name,
                                     int pattern_type,
                                     int dim_num,
                                     int pattern_num,
-                                    std::string *dim_size,
+                                    TL::ObjectList<TL::Expression> dim_size,
                                     TL::ObjectList<std::string> &pattern_array)
 {
     TL::Source result, subscript_to_1d;
@@ -526,7 +526,7 @@ TL::Source create_send_input_nd_msg(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << ","
         << partitioned_dim << "," << pattern_type << ","
         << dim_num << "," << pattern_num;
-    for (int i = 1; i <= dim_num; ++i) result << "," << dim_size[i];
+    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i];
     for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
     result
         << ");";
@@ -542,7 +542,7 @@ TL::Source create_recv_output_nd_msg(std::string var_name,
                                      int pattern_type,
                                      int dim_num,
                                      int pattern_num,
-                                     std::string *dim_size,
+                                     TL::ObjectList<TL::Expression> dim_size,
                                      TL::ObjectList<std::string> &pattern_array)
 {
     TL::Source result, subscript_to_1d;
@@ -552,7 +552,7 @@ TL::Source create_recv_output_nd_msg(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << ","
         << partitioned_dim << "," << pattern_type << ","
         << dim_num << "," << pattern_num;
-    for (int i = 1; i <= dim_num; ++i) result << "," << dim_size[i];
+    for (int i = 0; i < dim_num; ++i) result << "," << dim_size[i];
     for (int i = 0; i < pattern_num; ++i) result << "," << pattern_array[i];
     result
         << ");";
@@ -852,7 +852,7 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
                                 std::string var_cl_name,
                                 std::string var_unique_id_name,
                                 std::string mpi_type,
-                                int dim_num, std::string *dim_size,
+                                int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                 std::string cl_mem_flags,
                                 std::string level1_cond,
                                 std::string level2_cond)
@@ -861,9 +861,9 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
     
     stars << "*";
     func_name << "_GfnMalloc" << dim_num << "D";
-    for (int i = 1; i <= dim_num; ++i)
+    for (int i = 0; i < dim_num; ++i)
     {
-        if (i != 1) size_params << ",";
+        if (i != 0) size_params << ",";
         size_params << dim_size[i];
         stars << "*";
     }
@@ -892,15 +892,15 @@ TL::Source create_gfn_free(std::string var_unique_id_name,
 TL::Source create_gfn_q_bcast_nd(std::string var_name,
                                  std::string var_cl_name,
                                  std::string mpi_type,
-                                 int dim_num, std::string *dim_size,
+                                 int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                  std::string level1_cond,
                                  std::string level2_cond)
 {
     TL::Source result, size_params, subscript_to_1d;
    
-    for (int i = 1; i <= dim_num; ++i)
+    for (int i = 0; i < dim_num; ++i)
     {
-        if (i != 1) {
+        if (i != 0) {
             size_params << ",";
             subscript_to_1d << "[0]";
         }
@@ -922,7 +922,7 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    std::string loop_start,
                                    std::string loop_end,
                                    std::string loop_step,
-                                   int dim_num, std::string *dim_size,
+                                   int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                    int partitioned_dim,
                                    std::string cl_mem_flags,
                                    TL::ObjectList<std::string> &pattern_array,
@@ -933,9 +933,9 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
 {
     TL::Source result, size_params, pattern_params, subscript_to_1d;
      
-    for (int i = 1; i <= dim_num; ++i)
+    for (int i = 0; i < dim_num; ++i)
     {
-        if (i != 1) {
+        if (i != 0) {
             size_params << ",";
             subscript_to_1d << "[0]";
         }
@@ -977,7 +977,7 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string loop_start,
                                   std::string loop_end,
                                   std::string loop_step,
-                                  int dim_num, std::string *dim_size,
+                                  int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                   int partitioned_dim,
                                   std::string cl_mem_flags,
                                   TL::ObjectList<std::string> &pattern_array,
@@ -988,9 +988,9 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
 {   
     TL::Source result, size_params, pattern_params, subscript_to_1d;
      
-    for (int i = 1; i <= dim_num; ++i)
+    for (int i = 0; i < dim_num; ++i)
     {
-        if (i != 1) {
+        if (i != 0) {
             size_params << ",";
             subscript_to_1d << "[0]";
         }

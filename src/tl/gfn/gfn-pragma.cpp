@@ -294,7 +294,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     {
         // TODO: don't add local declare variable
         DataReference data_ref(sit->get_expression());
-        std::string name = sit->get_symbol().get_name();
+        //std::string name = sit->get_symbol().get_name();std::cout << "FOR VARIABLE NAME : " << name << "\n";
 
         if (sym_name_list.find(name).size() == 0)
         {
@@ -591,46 +591,73 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
 {
     if (copy_clause.is_defined())
     {
-        ObjectList<std::string> var_list;
-
-        ObjectList<std::string> list_arg = copy_clause.get_arguments();
-        for (ObjectList<std::string>::iterator it = list_arg.begin();
-             it != list_arg.end();
+        ObjectList<TL::Expression> expr_list = copy_clause.get_expression_list();
+        for (ObjectList<TL::Expression>::iterator it = expr_list.begin();
+             it != expr_list.end();
              ++it)
         {
-            
-            parse_var_list_and_append(*it, var_list);
-        }
-
-        for (ObjectList<std::string>::iterator it = var_list.begin();
-             it != var_list.end();
-             ++it)
-        {
-            std::string var_str = *it;
+            TL::Expression var_expr = *it;
+            std::string var_name = "";
             unsigned dim_num = 0;
-            size_t start_pos = 0, obrac_pos = 0, cbrac_pos = 0;
-            ObjectList<std::string> size_list;
+            TL::ObjectList<TL::Expression> subscript_list;
             
-            // Extract 'var name' and 'size' , Ex. A[i][j]
-            obrac_pos = var_str.find("[", start_pos);
-            std::string var_name = var_str.substr(start_pos, obrac_pos - start_pos);
-          
-            while (obrac_pos != std::string::npos)
+            // Array input/output
+            if (var_expr.is_array_subscript())
             {
-                cbrac_pos = var_str.find("]", obrac_pos);
-                std::string size_str = var_str.substr(obrac_pos+1, cbrac_pos-obrac_pos-1);
-                obrac_pos = var_str.find("[", cbrac_pos);
+                TL::Expression tmp_expr = var_expr;
                 
-                if (size_str.size() == 0)
+                while (!tmp_expr.is_id_expression())
                 {
-                    std::cerr << "warning : " << __LINE__
-                              << " at " << __FILE__ << std::endl;
+                    TL::Expression subscript_expr = tmp_expr.get_subscript_expression();
+                    subscript_list.push_back( subscript_expr );
+                    /* Add size variable to input
+                       TODO: for complex expression as size like x+y+z */
+                    {
+                        ObjectList<IdExpression> symbol_list = subscript_expr.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+                        ObjectList<VariableInfo> &kernel_name_list = kernel_info->_var_info;
+                        for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
+                            sit != symbol_list.end();
+                            sit++)
+                        {
+                            DataReference data_ref(sit->get_expression());
+                            std::string name = sit->get_symbol().get_name();
+
+                            if (kernel_info->get_var_info_index_from_var_name(name) < 0)
+                            {
+                                TL::Type var_type = data_ref.get_type();
+                                VariableInfo var_info(name);
+                                if (var_type.is_array() || var_type.is_pointer())
+                                    var_info._is_array_or_pointer = true;
+                                var_info._is_input = true;
+                                kernel_info->_var_info.append(var_info);
+                                kernel_info->_var_ref.append(data_ref);
+                            }
+                        }
+                    }
+
+                    tmp_expr = tmp_expr.get_subscripted_expression();
+                    dim_num++;
                 }
-
-                size_list.push_back(size_str);
-                dim_num++;
+                
+                var_name = tmp_expr.get_id_expression().get_symbol().get_name();
             }
-
+            // Scalar input/output
+            else if (var_expr.is_id_expression())
+            {
+                var_name = var_expr.get_id_expression().get_symbol().get_name();
+                dim_num = 0;
+            }
+            // Invalid parameter
+            else
+            {
+                std::cerr << "warning : clause \"" << copy_type_str
+                          << "\" unknown variable \"" << var_expr.prettyprint()
+                          << "\" in parallel region " 
+                          << __FILE__ << ":" << __LINE__ << std::endl;
+                continue; /* Get next parameter */
+            }
+            
+            
             int idx = kernel_info->get_var_info_index_from_var_name(var_name);
             if (idx != -1)
             {
@@ -649,19 +676,16 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                     kernel_info->_var_info[idx]._is_input = false;
                     kernel_info->_var_info[idx]._is_output = false;
                 }
-                else
-                    std::cerr << "warning : " << __LINE__
-                              << " at " << __FILE__ << std::endl;
+                else std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
                               
                 // Save dimension size data
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
-
                 std::cout << "Size of " << var_name << " = ";
-                for (int i = 1; i <= dim_num; ++i)
+                for (int i = 0; i < dim_num; ++i)
                 {
-                    if (i != 1) std::cout << ":";
-                    std::cout << size_list[i-1];
-                    kernel_info->_var_info[idx]._dim_size[i] = size_list[i-1];
+                    if (i != 0) std::cout << ":";
+                    std::cout << subscript_list[i].prettyprint();
+                    kernel_info->_var_info[idx]._dim_size.push_back( subscript_list[i] );
                 }
                 std::cout << std::endl;
             }
@@ -866,13 +890,13 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         IdExpression id_expr = expr.get_id_expression();
         Symbol sym = id_expr.get_symbol();
 
-        if (found_idx_at > 0)
+        if (found_idx_at >= 0)
         {
             /*std::cout << "Found at index : " << found_idx_at
                       << " for " << sym.get_name() << "\n";*/
             int idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
 
-            if (kernel_info->_var_info[idx]._shared_dimension != 0)
+            if (kernel_info->_var_info[idx]._shared_dimension >= 0)
             {
                 std::cerr << "Conflict at " << __FILE__ << ":" << __LINE__ << "\n";
             }
@@ -888,7 +912,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         //std::cout << "Subscript : " << expr.get_subscript_expression() << "\n";
         //std::cout << "Subscripted : " << expr.get_subscripted_expression() << "\n";
 
-        if (found_idx_at == 0)
+        if (found_idx_at < 0)
         {
             bool found_idx = false;
             TL::Expression subscript = expr.get_subscript_expression();
@@ -901,7 +925,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
                 if (sym.get_name() == kernel_info->loop_index_var_name)
                 {
                     found_idx = true;
-                    found_idx_at = 1;
+                    found_idx_at = 0;
                     break;
                 }
             }

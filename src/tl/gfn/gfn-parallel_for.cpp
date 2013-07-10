@@ -341,7 +341,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_local_name = GFN_PREFIX_LOCAL + var_name;
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
         std::string ptr_stars = var_info.get_pointer_starts();
-        bool is_partition = (var_info._shared_dimension != 0);
+        bool is_partition = (var_info._shared_dimension >= 0);
 
         // TODO: _GFN_MEM_ALLOC_HOST_PTR()
         std::string var_cl_mem_type;
@@ -362,7 +362,7 @@ TL::Source ParallelFor::do_parallel_for()
         std::string mpi_type_str = type_to_mpi_type(type);
         std::string c_type_str = type_to_ctype(type);
         std::string size_str = var_info.get_allocate_size_in_byte(type);
-        //std::cout << "Type of " << var_info._name << " is " << c_type_str << std::endl;
+        //std::cout << i << ". Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         /* 1. Declaration necessary variable */
         if (var_info._is_array_or_pointer)
@@ -376,7 +376,7 @@ TL::Source ParallelFor::do_parallel_for()
                 << c_type_str << " " << var_local_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";";
         }*/
-        else
+        else 
         {
             worker_declare_variables_src
                 << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
@@ -386,6 +386,7 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 cl_kernel_var_decl
                     << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";\n";
+                    std::cout << "Add CL decl " << var_name << "\n";
             }
         }
 
@@ -506,7 +507,7 @@ TL::Source ParallelFor::do_parallel_for()
                     << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             }
         }
-
+        
         if (var_info._is_output)
         {
             /* Master code */
@@ -598,7 +599,7 @@ TL::Source ParallelFor::do_parallel_for()
     //mpi_replace_types[GFN_REPLACE_ARRAY_ND] = false;
     //mpi_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
     //replace_parallel_loop_body(cluster_loop_body, mpi_replace_types, induction_var_name, new_induction_var_name);
-    //std::cout << "Create MPI Block\n";
+    std::cout << "Create MPI Block\n";
     mpi_block_dist_for_stmt
         << "for(" << induction_var.prettyprint() << " = "
         << local_start_idx_var << ";" << induction_var.prettyprint()
@@ -610,7 +611,7 @@ TL::Source ParallelFor::do_parallel_for()
     std::vector<bool> cl_replace_types(GFN_REPLACE_LAST_TYPE, false);
     cl_replace_types[GFN_REPLACE_ARRAY_ND] = true;
     cl_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
-    replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);
+    replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);std::cout << "After replace\n";
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     cl_set_kernel_arg
@@ -678,6 +679,7 @@ TL::Source ParallelFor::do_parallel_for()
             << "}" << CL_EOL;
     }
 
+    /*== -------------  Create GPU kernel function -----------------==*/
     // Kernel main funcion
     cl_kernel
         << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
@@ -703,17 +705,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "_GfnClearKernel(_kernel);";
 
 
-    /*== -------------  Create GPU kernel function -----------------==*/
-    TL::Source result, device_var_decl, memcpy_h2d, memcpy_d2h;
-    TL::Source new_param_list;
-    std::string kernel_name = get_new_kernel_name();
-
-    // declare thread id variable
-    TL::Source thread_id_decl = do_thread_id_declaration();
-    TL::Source loop_index_decl = do_loop_index_declaration(induction_var.get_symbol(),
-                                                           step,
-                                                           lower_bound);
-
+    
     cl_launch_kernel
         << "_gfn_status = "
         << create_cl_enqueue_nd_range_kernel("_gfn_cmd_queue", "_kernel", "1", "0",
@@ -775,9 +767,9 @@ TL::Source ParallelFor::do_parallel_for()
         << "}"
         << comment("*/ #endif /*");
 
-    /*std::cout << " ================= Worker Function ================\n";
+    std::cout << " ================= Worker Function ================\n";
     std::cout << (std::string) worker_func_def << "\n";
-    std::cout << " ==================================================\n";*/
+    std::cout << " ==================================================\n";
 
     TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
@@ -921,9 +913,9 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
             int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
             VariableInfo var_info = _kernel_info->_var_info[idx];
-            std::string dim1_size = _kernel_info->_var_info[idx]._dim_size[1];
-            std::string dim2_size = _kernel_info->_var_info[idx]._dim_size[2];
-            std::string dim3_size = _kernel_info->_var_info[idx]._dim_size[3];
+            std::string dim1_size = (std::string)_kernel_info->_var_info[idx]._dim_size[0];
+            std::string dim2_size = (std::string)_kernel_info->_var_info[idx]._dim_size[1];
+            std::string dim3_size = (std::string)_kernel_info->_var_info[idx]._dim_size[2];
 
             /*
              * Declare A[d1][d2]
@@ -1120,46 +1112,6 @@ void ParallelFor::replace_loop_index_name(Expression expr,
         std::cout << "unknown type\n";
         // TODO:
     }
-}
-
-TL::Source ParallelFor::do_loop_index_declaration(TL::Symbol loop_index,
-                                                  TL::Expression loop_increment,
-                                                  TL::Expression loop_lowerbound)
-{
-    TL::Source index_declaration;
-    Type type = loop_index.get_type();
-    
-    // TOOD: simplify expression
-    index_declaration
-        << comment("loop index entity");
-    index_declaration
-        << type.get_declaration(_construct.get_scope(), loop_index.get_name())
-        << "="
-        << "(" << GFN_THREAD_ID_VAR << "*" << loop_increment << ")"
-        << "+" << loop_lowerbound << ";";
-
-    return index_declaration;
-}
-
-TL::Source ParallelFor::do_thread_id_declaration()
-{
-    TL::Source thread_id_decl;
-    
-    thread_id_decl
-        << comment("kernel thread id entity");
-    
-    if (0 /* block_num == 1 */)
-    {
-        thread_id_decl
-            << "int " GFN_THREAD_ID_VAR " = threadIdx.x;";
-    }
-    else
-    {
-        thread_id_decl
-            << "int " GFN_THREAD_ID_VAR " = blockIdx.x * blockDim.x + threadIdx.x;";
-    }
-    
-    return thread_id_decl;
 }
 
 bool ParallelFor::contain(ObjectList<DataReference> &list, DataReference &obj)

@@ -80,12 +80,12 @@ void KernelInfo::sort_var_info()
     for (int i = 0; i < _var_info.size(); ++i)
     {
         VariableInfo var_i = _var_info[i];
-        int min_size = (var_i._dim_size[1] == "1")? 1 : 100;
+        int min_size = (var_i._dimension_num == 0)? 1 : 100;
         int min_idx = i;
         for (int j = i + 1; j < _var_info.size(); ++j)
         {
             VariableInfo var_j = _var_info[j];
-            int j_size = (var_j._dim_size[1] == "1")? 1 : 100;
+            int j_size = (var_j._dimension_num == 0)? 1 : 100;
             if (j_size < min_size)
             {
                 min_size = j_size;
@@ -213,9 +213,9 @@ std::string KernelInfo::get_full_size()
         
         if (var_info._is_array_or_pointer &&
             (var_info._is_input || var_info._is_output) &&
-            var_info._shared_dimension != 0)
+            var_info._shared_dimension >= 0)
         {
-            return var_info._dim_size[ var_info._shared_dimension ];
+            return (std::string)var_info._dim_size[ var_info._shared_dimension ];
         }
     }
     
@@ -227,51 +227,44 @@ std::string VariableInfo::get_mem_size()
     std::stringstream result;
 
     result << "(";
-    result << "(" << _dim_size[1] << ")";
-    if (_dimension_num >= 2) result << " * (" << _dim_size[2] << ")";
-    if (_dimension_num >= 3) result << " * (" << _dim_size[3] << ")";
-    if (_dimension_num >= 4) result << " * (" << _dim_size[4] << ")";
-    if (_dimension_num >= 5) result << " * (" << _dim_size[5] << ")";
-    if (_dimension_num >= 6) result << " * (" << _dim_size[6] << ")";
+    result << "(" << (std::string)_dim_size[0] << ")";
+    if (_dimension_num >= 2) result << " * (" << (std::string)_dim_size[1] << ")";
+    if (_dimension_num >= 3) result << " * (" << (std::string)_dim_size[2] << ")";
+    if (_dimension_num >= 4) result << " * (" << (std::string)_dim_size[3] << ")";
+    if (_dimension_num >= 5) result << " * (" << (std::string)_dim_size[4] << ")";
+    if (_dimension_num >= 6) result << " * (" << (std::string)_dim_size[5] << ")";
     result << ")";
 
     return result.str();
 }
 
-std::string VariableInfo::get_distributed_mem_size()
+TL::Source VariableInfo::get_distributed_mem_size()
 {
-    std::string result = "";
-
-    // FIXME:
-    if (_shared_dimension == 1)
-    {
-        result = "(" + _dim_size[1] + ")";
-    }
-    else if (_shared_dimension == 2)
-    {
-        result = "(" + _dim_size[2] + ")";
-    }
-    else if (_shared_dimension == 3)
-    {
-        result = "(" + _dim_size[3] + ")";
-    }
-
+    TL::Source result;
+    result << "(" << _dim_size[_shared_dimension] << ")";
     return result;
 }
 
-std::string VariableInfo::get_distributed_mem_block()
+TL::Source VariableInfo::get_distributed_mem_block()
 {
-    std::stringstream result;
+    TL::Source result;
     
     result << "(";
-    for (int i = 1; i <= _dimension_num; ++i)
+    if (_dimension_num > 0)
     {
-        if (i != 1) result << "*";
-        if (i != _shared_dimension) result << "(" << _dim_size[i] << ")";
+        for (int i = 0; i < _dimension_num; ++i)
+        {
+            if (i != 0) result << "*";
+            if (i != _shared_dimension) result << "(" << _dim_size[i] << ")";
+        }
+    }
+    else
+    {
+        result << "1";
     }
     result << ")";
     
-    return (result.str() == "()")? "1" : result.str();
+    return result;
 }
 
 std::string VariableInfo::get_pointer_starts()
@@ -307,11 +300,11 @@ std::string VariableInfo::get_subscript_to_1d_buf()
     return "";
 }
 
-std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
+TL::Source VariableInfo::get_array_index_in_1D(std::string idx_name1,
                                                 std::string idx_name2,
                                                 std::string idx_name3)
 {
-    std::string result;
+    TL::Source result;
 
     if (idx_name3 != "")
     {
@@ -319,12 +312,13 @@ std::string VariableInfo::get_array_index_in_1D(std::string idx_name1,
     }
     else if (idx_name2 != "")
     {
-        result = "(" + idx_name1 + ") * (" + _dim_size[1]
-               + ") + (" + idx_name2 + ")";
+        result 
+            << "(" << idx_name1 << ") * (" << _dim_size[1] << ") + (" << idx_name2 << ")";
     }
     else
     {
-        result = "(" + idx_name1 + ")";
+        result 
+            << "(" << idx_name1 << ")";
     }
 
     return result;

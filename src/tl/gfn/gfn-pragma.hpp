@@ -104,7 +104,7 @@ namespace TL
                                            KernelInfo *kernel_info);
                 void collect_variable_info(Expression expr,
                                            KernelInfo *kernel_info,
-                                           int found_idx_at = 0 // For _shared_dimension
+                                           int found_idx_at = -1 // For _shared_dimension
                         );
                 void collect_loop_info(ForStatement for_stmt,
                                        KernelInfo *kernel_info);
