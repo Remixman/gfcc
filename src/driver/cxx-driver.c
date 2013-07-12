@@ -2490,6 +2490,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             file_process->already_compiled = 1;
             continue;
         }
+        
+        // Name kernel declare file
+        if (CURRENT_CONFIGURATION->enable_gfn)
+        {
+            translation_unit->kernel_decl_filename = strappend(translation_unit->input_filename, ".kerdecl");
+        }
 
 #ifndef FORTRAN_SUPPORT
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
@@ -2659,7 +2665,9 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
 
                 // 6. TL::run and TL::phase_cleanup
+                printf("before griffon run\n");
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
+                printf("after griffon run\n");
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)

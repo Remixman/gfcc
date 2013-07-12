@@ -83,6 +83,7 @@ typedef struct translation_unit_tag
 {
     const char* input_filename;
     const char* output_filename;
+    const char* kernel_decl_filename;
 
     struct AST_tag* parsed_tree;
     decl_context_t global_decl_context;

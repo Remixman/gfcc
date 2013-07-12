@@ -175,29 +175,24 @@ GFNPragmaPhase::GFNPragmaPhase()
 
 void GFNPragmaPhase::run(TL::DTO& dto)
 {
-    /* Read config file consist of
-     *  - GPU & Cluster specify & topology TODO:
-     *  - compile config (cluster, gpu, gpucluster) */
-    // TODO: change config directory
-    std::ifstream config_file("/home/remixman/Desktop/gfn_testsuite/config.gfn");
-    std::string s;
-    config_file >> s;
-    if (s == "cluster")
-        Conf_Trans_flags |= GFN_TRANS_MPI;
-    else if (s == "gpu")
-        Conf_Trans_flags |= GFN_TRANS_CUDA;
-    else if (s == "gpucluster")
-        Conf_Trans_flags |= GFN_TRANS_MPI | GFN_TRANS_CUDA;
-
     try
     {
         _scope_link = dto["scope_link"];
         _translation_unit = dto["translation_unit"];
         
+        // Not always open file
+        if (dto.kernel_decl_filename.size() > 0)
+        {
+            _kernel_decl_file = fopen(dto.kernel_decl_filename.c_str(), "w");
+        }
+        
         PragmaCustomCompilerPhase::run(dto);
-
-        //std::cout << "TRANSLATION UNIT : \n";
-        //std::cout << _translation_unit << "\n\n";
+        //std::cout << "TRANSLATION UNIT : \n" << _translation_unit << "\n\n";
+        
+        if (dto.kernel_decl_filename.size() > 0)
+        {
+            fclose(_kernel_decl_file);
+        }
     }
     catch (GFNException e)
     {
@@ -255,9 +250,13 @@ void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
 
 static void parallel_for_fun(TL::PragmaCustomConstruct construct, 
                              TL::ForStatement for_stmt, 
-                             KernelInfo *kernel_info)
+                             KernelInfo *kernel_info,
+                             TL::ScopeLink scope_link,
+                             TL::AST_t translation_unit,
+                             FILE *kernel_decl_file)
 {
-    TL::Source kernel_call_src = TL::GFN::parallel_for(construct, for_stmt, kernel_info);
+    TL::Source kernel_call_src = TL::GFN::parallel_for(construct, for_stmt, kernel_info, scope_link,
+                                                       translation_unit, kernel_decl_file);
     
     TL::AST_t kernel_call_tree = kernel_call_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -353,7 +352,8 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     }
     std::cout << "====================================================\n\n";
     
-    parallel_for_fun(construct, for_statement, kernel_info);
+    parallel_for_fun(construct, for_statement, kernel_info, 
+                     _scope_link, _translation_unit, _kernel_decl_file);
 
     construct.get_ast().replace(statement.get_ast());
 }
@@ -361,17 +361,21 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
 void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
 {
     // Add define GFN_WORKER
-    Source result;
+    TL::Source kernel_result;
     
-    result
-        << comment("*/ #ifdef GFN_WORKER /*")
-        << construct.get_statement()
-        << comment("*/ #endif /*");
+    //if (construct.is_function_definition())
+    
+    TL::AST_t decl_tree = construct.get_declaration();
+    
+    kernel_result
+        << show_cl_source_in_comment(decl_tree.prettyprint())
+        << "const char *_dump_name_src = "
+        << source_to_kernel_str(decl_tree.prettyprint()) << ";";
         
-    AST_t use_par_tree = result.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-        
-    construct.get_ast().replace(use_par_tree);
+    construct.get_ast().replace(decl_tree);
+    
+    // print to kernel declare file
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, kernel_result);
 }
 
 void GFNPragmaPhase::overlapcompute(PragmaCustomConstruct construct)

@@ -56,6 +56,10 @@ namespace TL
                 FunctionDefinition* _function_def;
                 KernelInfo *_kernel_info;
                 
+                ScopeLink _scope_link;
+                AST_t _translation_unit;
+                FILE* _kernel_decl_file;
+                
                 ObjectList<IdExpression> _var_list;
                 ObjectList<DataReference> _use_list;
                 ObjectList<DataReference> _def_list;
@@ -104,7 +108,10 @@ namespace TL
                  */
                 ParallelFor(PragmaCustomConstruct construct, 
                             ForStatement for_stmt, 
-                            KernelInfo *kernel_info);
+                            KernelInfo *kernel_info,
+                            ScopeLink scope_link,
+                            AST_t translation_unit,
+                            FILE *kernel_decl_file);
         };
 
         //! Creates a ParallelFor object
@@ -113,7 +120,10 @@ namespace TL
          */
         LIBGFN_EXTERN ParallelFor parallel_for(PragmaCustomConstruct construct,
                                                ForStatement for_stmt, 
-                                               KernelInfo *kernel_info);
+                                               KernelInfo *kernel_info,
+                                               ScopeLink scope_link,
+                                               AST_t translation_unit,
+                                               FILE *kernel_decl_file);
 
         //! @}
     }

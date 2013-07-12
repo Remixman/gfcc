@@ -35,9 +35,13 @@ using namespace TL::GFN;
 
 ParallelFor TL::GFN::parallel_for(PragmaCustomConstruct construct, 
                                   TL::ForStatement for_stmt, 
-                                  KernelInfo *kernel_info)
+                                  KernelInfo *kernel_info,
+                                  ScopeLink scope_link,
+                                  AST_t translation_unit,
+                                  FILE *kernel_decl_file)
 {
-    return ParallelFor(construct, for_stmt, kernel_info);
+    return ParallelFor(construct, for_stmt, kernel_info, scope_link,
+                       translation_unit, kernel_decl_file);
 }
 
 
@@ -49,11 +53,16 @@ TL::Source ParallelFor::get_source()
 
 ParallelFor::ParallelFor(PragmaCustomConstruct construct, 
                          ForStatement for_stmt, 
-                         KernelInfo *kernel_info)
+                         KernelInfo *kernel_info,
+                         ScopeLink scope_link,
+                         AST_t translation_unit,
+                         FILE *kernel_decl_file)
      : _construct(construct), _for_stmt(for_stmt), 
-       _function_def(0), _kernel_info(kernel_info)
+       _function_def(0), _kernel_info(kernel_info),
+       _kernel_decl_file(kernel_decl_file)
 {
-     ;
+     _scope_link = scope_link;
+     _translation_unit = translation_unit;
 }
 
 TL::Source ParallelFor::do_kernel_config(Expression &lower_bound,
@@ -704,7 +713,8 @@ TL::Source ParallelFor::do_parallel_for()
     cl_release_kernel
         << "_GfnClearKernel(_kernel);";
 
-
+    // print kernel to kernel declare file
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, cl_kernel_src_str);
     
     cl_launch_kernel
         << "_gfn_status = "
@@ -715,8 +725,7 @@ TL::Source ParallelFor::do_parallel_for()
 
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
-        << comment("*/ #ifdef GFN_WORKER /*")
-            /* GPU */ << cl_kernel_src_str
+        /* GPU */ << cl_kernel_src_str
         << "void _Function_" << int_to_string(_kernel_info->kernel_id) << " () {"
         
             << comment("Declare Variables")
@@ -764,17 +773,17 @@ TL::Source ParallelFor::do_parallel_for()
             
             << comment("Deallocate Array Memory")
             << worker_free_array_memory_src
-        << "}"
-        << comment("*/ #endif /*");
+        << "}";
 
-    std::cout << " ================= Worker Function ================\n";
+    /*std::cout << " ================= Worker Function ================\n";
     std::cout << (std::string) worker_func_def << "\n";
-    std::cout << " ==================================================\n";
+    std::cout << " ==================================================\n";*/
 
-    TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
+    /*TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
-            _function_def->get_scope_link());
-    _function_def->get_ast().prepend_sibling_function(worker_func_tree);
+            _function_def->get_scope_link());*/
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, cl_kernel_src_str);
+    //_function_def->get_ast().prepend_sibling_function(worker_func_tree);
 
 
     send_call_func

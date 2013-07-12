@@ -114,6 +114,9 @@ namespace TL
 					it->second = obj;
 				}
 			}
+			
+            // FIXME: hacking for pass input filename to griffon phase
+            std::string kernel_decl_filename;
     };
 }
 

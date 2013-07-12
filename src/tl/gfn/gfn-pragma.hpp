@@ -111,6 +111,8 @@ namespace TL
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;
+                
+                FILE* _kernel_decl_file;
         };
 
         //! @}

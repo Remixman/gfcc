@@ -404,7 +404,7 @@ int _SendOutputNDMsgCore(void *ptr, int type_id,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);	
 
-#if 1
+#if 0
 	if (_gfn_rank == 0) {
 		printf("START OFFSET = %d\n", start_offset);
 		printf("SEND SIZE = %d\n", send_size);

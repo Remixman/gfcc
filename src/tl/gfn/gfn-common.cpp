@@ -332,6 +332,13 @@ TL::Source create_run_only_root_stmt(TL::Source src)
     return result;
 }
 
+void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation_unit,
+                               FILE *kerdecl_fptr, TL::Source &src)
+{
+    TL::AST_t src_tree = src.parse_declaration(translation_unit, scope_link);
+    fprintf(kerdecl_fptr, "%s\n", src_tree.prettyprint_external().c_str());
+}
+
 
 TL::Source create_mpi_abort(std::string comm)
 {

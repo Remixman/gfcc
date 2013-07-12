@@ -121,6 +121,8 @@ std::string source_to_kernel_str(TL::Source src);
 std::string get_1d_reference(std::string var_name, unsigned dim_num);
 TL::Source show_cl_source_in_comment(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
+void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation_unit,
+                               FILE *kerdecl_fptr, TL::Source &src);
 
 #define DEFAULT_MPI_COMM "_get_mpi_comm_world()"  //"MPI_COMM_WORLD"
 #define DEFAULT_MPI_ROOT "0"
