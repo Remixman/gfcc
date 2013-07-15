@@ -472,25 +472,27 @@ TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue, std::string buff
 TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
                                     std::string type, std::string buffer)
 {
-    std::string size_str, offset_str, phase_name;
+    std::string size_str, offset_str;
+    TL::Source phase_name;
+    
     if (buffer == "0")
     {
         size_str = "sizeof(" + type + ") * _work_group_item_num";
         offset_str = "0";
-        phase_name = "SET KERNEL ARG (LOCAL SIZE)";
+        phase_name << "SET KERNEL ARG (LOCAL SIZE)";
     }
     else
     {
         size_str = "sizeof(" + type + ")";
         offset_str = "(void*)&" + buffer;
-        phase_name = "SET KERNEL ARG";
+        phase_name << "SET KERNEL ARG " << arg_no;
     }
 
     TL::Source result;
     result
         << "_gfn_status = clSetKernelArg(" << kernel << "," << arg_no << ","
         << size_str << "," << offset_str << ");"
-        << create_gfn_check_cl_status("_gfn_status", phase_name);
+        << create_gfn_check_cl_status("_gfn_status", (std::string)phase_name);
     return result;
 }
 
