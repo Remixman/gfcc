@@ -271,7 +271,7 @@ std::string source_to_kernel_str(TL::Source src)
         }
     }
 
-    result += "\"";
+    result += "\\n\"";
     return result;
 }
 
@@ -332,185 +332,18 @@ TL::Source create_run_only_root_stmt(TL::Source src)
     return result;
 }
 
+std::string get_function_declaration_from_definition(std::string func_def)
+{
+    size_t size = func_def.find("{", 0)-1;
+    std::string func_decl = func_def.substr(0,size) + ";";
+    return func_decl;
+}
+
 void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation_unit,
                                FILE *kerdecl_fptr, TL::Source &src)
 {
     TL::AST_t src_tree = src.parse_declaration(translation_unit, scope_link);
-    fprintf(kerdecl_fptr, "%s\n", src_tree.prettyprint_external().c_str());
-}
-
-
-TL::Source create_mpi_abort(std::string comm)
-{
-    TL::Source result;
-    result << "MPI_Abort(" << comm << ", -1234);";
-    return result;
-}
-
-TL::Source create_mpi_allgatherv(std::string send_buf_name, std::string send_cnt,
-                                 std::string send_mpi_type, std::string recv_buf_name,
-                                 std::string recv_cnts, std::string recv_disp,
-                                 std::string recv_mpi_type, std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Allgatherv(" << send_buf_name << ","
-        << send_buf_name << "," << send_mpi_type << ","
-        << recv_buf_name << "," << recv_cnts << ","
-        << recv_disp << "," << recv_mpi_type << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_allreduce(std::string send_buf_name, std::string recv_buf_name,
-                                std::string cnt, std::string mpi_type,
-                                std::string mpi_op, std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Allreduce(&" << send_buf_name << ",&"
-        << recv_buf_name << "," << cnt << ","
-        << mpi_type << "," << mpi_op << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_alltoallv(std::string send_buf_name, std::string send_cnt,
-                                std::string send_mpi_type, std::string recv_buf_name,
-                                std::string recv_cnt, std::string recv_mpi_type,
-                                std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Alltoallv(&" << send_buf_name << ","
-        << send_cnt << "," << send_mpi_type << ",&"
-        << recv_buf_name << "," << recv_cnt << ","
-        << recv_mpi_type << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_barrier(std::string comm)
-{
-    TL::Source result;
-    result << "MPI_Barrier(" << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_bcast(std::string buf_name, std::string cnt,
-                            std::string mpi_type, unsigned dim_num,
-                            std::string root, std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Bcast(" << get_1d_reference(buf_name, dim_num) << ", " << cnt << ", " 
-        << mpi_type << "," << root << ", " << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_gatherv(std::string send_buf_name, std::string send_cnt,
-                              std::string send_mpi_type, std::string recv_buf_name,
-                              std::string recv_cnt, std::string disps,
-                              std::string recv_mpi_type, unsigned dim_num,
-                              std::string root, std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Gatherv(" << send_buf_name << "," << send_cnt << ","
-        << send_mpi_type << "," << recv_buf_name << ","
-        << recv_cnt << "," << disps << "," << recv_mpi_type << ","
-        << root << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_iprobe(std::string src, std::string tag,
-                             std::string comm, std::string flag_name,
-                             std::string status)
-{
-    TL::Source result;
-    result
-        << "MPI_Iprobe(" << src << "," << tag << ","
-        << comm << ",&" << flag_name << "," << status << ");";
-    return result;
-}
-
-TL::Source create_mpi_irecv(std::string buf_name, std::string cnt,
-                            std::string mpi_type, std::string src,
-                            std::string tag, std::string comm,
-                            std::string handle)
-{
-    TL::Source result;
-    return result;
-}
-
-TL::Source create_mpi_isend(std::string buf_name, std::string cnt,
-                            std::string mpi_type, std::string dest,
-                            std::string tag, std::string comm,
-                            std::string handle)
-{
-    TL::Source result;
-    return result;
-}
-
-TL::Source create_mpi_probe(std::string src, std::string tag,
-                            std::string comm, std::string status)
-{
-    TL::Source result;
-    result
-        << "MPI_Probe(" << src << "," << tag << ","
-        << comm << "," << status << ");";
-    return result;
-}
-
-TL::Source create_mpi_recv(std::string buf_name, std::string cnt,
-                           std::string mpi_type, std::string src,
-                           std::string tag, std::string comm,
-                           std::string status)
-{
-    TL::Source result;
-    result
-        << "MPI_Recv(&" << buf_name << "," << cnt << ","
-        << mpi_type << "," << src << "," << tag << ","
-        << comm << "," << status << ");";
-    return result;
-}
-
-TL::Source create_mpi_send(std::string buf_name, std::string cnt,
-                           std::string mpi_type, std::string dest,
-                           std::string tag, std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Send(&" << buf_name << "," << cnt << "," << mpi_type << ","
-        << dest << "," << tag << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_reduce(std::string send_buf_name, std::string recv_buf_name,
-                             std::string cnt, std::string mpi_type,
-                             std::string mpi_op, std::string root,
-                             std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Reduce(&" << send_buf_name << ",&"
-        << recv_buf_name << "," << cnt << ","
-        << mpi_type << "," << mpi_op << ","
-        << root << "," << comm << ");";
-    return result;
-}
-
-TL::Source create_mpi_scatterv(std::string send_buf_name, std::string send_cnts,
-                               std::string send_disp, std::string send_mpi_type,
-                               std::string recv_buf_name, std::string recv_cnt,
-                               std::string recv_mpi_type, std::string root,
-                               std::string comm)
-{
-    TL::Source result;
-    result
-        << "MPI_Scatterv(" << send_buf_name << ","
-        << send_cnts << "," << send_disp << ","
-        << send_mpi_type << "," << recv_buf_name << ","
-        << recv_cnt << "," << recv_mpi_type << ","
-        << root << "," << comm << ");";
-    return result;
+    fprintf(kerdecl_fptr, "%s\n\n", src_tree.prettyprint_external().c_str());
 }
 
 

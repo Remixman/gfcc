@@ -365,14 +365,38 @@ void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
     
     //if (construct.is_function_definition())
     
-    TL::AST_t decl_tree = construct.get_declaration();
+    TL::AST_t def_tree = construct.get_declaration();
+    TL::AST_t function_def_tree = def_tree.get_enclosing_function_definition();
+    FunctionDefinition enclosing_function(function_def_tree, _scope_link);
+    
+    TL::ObjectList<IdExpression> func_list = enclosing_function.all_symbol_occurrences(TL::Statement::ONLY_FUNCTIONS);
+    IdExpression func_name = enclosing_function.get_function_name();
+    
+    std::string def_func_name = "_def_" + func_name.get_symbol().get_name() + "_src";
+    std::string decl_func_name = "_decl_" + func_name.get_symbol().get_name() + "_src";
+    
+    // print dependency
+    /*for (ObjectList<IdExpression>::iterator it = func_list.begin();
+         it != func_list.end();
+         ++it)
+    {
+        IdExpression &func_id_expr = *it;
+        TL::Source dependency_src;
+        dependency_src
+            << comment("DEPENDENCY " + def_func_name.get_symbol().get_name() + " -> " + func_id_expr.get_symbol().get_name());
+
+        print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, dependency_src);
+    }*/
     
     kernel_result
-        << show_cl_source_in_comment(decl_tree.prettyprint())
-        << "const char *_dump_name_src = "
-        << source_to_kernel_str(decl_tree.prettyprint()) << ";";
+        << comment("DEVICE_FUNCTION_DEFINITION " + func_name.get_symbol().get_name())
+        //<< show_cl_source_in_comment(def_tree.prettyprint())
+        << "const char *" << decl_func_name << " = "
+        << source_to_kernel_str(get_function_declaration_from_definition(def_tree.prettyprint())) << ";"
+        << "const char *" << def_func_name << " = "
+        << source_to_kernel_str(def_tree.prettyprint()) << ";";
         
-    construct.get_ast().replace(decl_tree);
+    construct.get_ast().replace(def_tree);
     
     // print to kernel declare file
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, kernel_result);

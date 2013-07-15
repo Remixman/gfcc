@@ -2494,7 +2494,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         // Name kernel declare file
         if (CURRENT_CONFIGURATION->enable_gfn)
         {
-            translation_unit->kernel_decl_filename = strappend(translation_unit->input_filename, ".kerdecl");
+            translation_unit->kernel_decl_filename = strappend(translation_unit->input_filename, ".kerdecl.c");
         }
 
 #ifndef FORTRAN_SUPPORT

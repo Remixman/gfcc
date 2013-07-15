@@ -54,6 +54,10 @@
 #define GFN_THREAD_ID_VAR "_thread_id"
 #define GFN_UPPER_BOUND "_upper_bound"
 
+#define DEFAULT_MPI_COMM "_get_mpi_comm_world()"  //"MPI_COMM_WORLD"
+#define DEFAULT_MPI_ROOT "0"
+#define DEFAULT_MPI_STATUS "0" //"NULL"
+
 /* Cluster define TODO: change to dynamic config */
 #define GFN_PROC_NUM 8
 #define GFN_PROC_NUM_VAR "_gfn_proc_num"
@@ -94,6 +98,16 @@ enum REDUCTION_T
     REDUCTION_MAXLOC,
     REDUCTION_MINLOC
 };
+TL::Source create_mpi_scatterv(std::string send_buf_name,
+                               std::string send_cnts,
+                               std::string send_disp,
+                               std::string send_mpi_type,
+                               std::string recv_buf_name,
+                               std::string recv_cnt,
+                               std::string recv_mpi_type,
+                               std::string root = DEFAULT_MPI_ROOT,
+                               std::string comm = DEFAULT_MPI_COMM);
+
 
 enum CUDA_MEMCPY_KIND
 {
@@ -121,104 +135,10 @@ std::string source_to_kernel_str(TL::Source src);
 std::string get_1d_reference(std::string var_name, unsigned dim_num);
 TL::Source show_cl_source_in_comment(TL::Source src);
 TL::Source create_run_only_root_stmt(TL::Source src);
+std::string get_function_declaration_from_definition(std::string func_def);
 void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation_unit,
                                FILE *kerdecl_fptr, TL::Source &src);
 
-#define DEFAULT_MPI_COMM "_get_mpi_comm_world()"  //"MPI_COMM_WORLD"
-#define DEFAULT_MPI_ROOT "0"
-#define DEFAULT_MPI_STATUS "0" //"NULL"
-
-TL::Source create_mpi_abort(std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_allgatherv(std::string send_buf_name,
-                                 std::string send_cnt,
-                                 std::string send_mpi_type,
-                                 std::string recv_buf_name,
-                                 std::string recv_cnts,
-                                 std::string recv_disp,
-                                 std::string recv_mpi_type,
-                                 std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_allreduce(std::string send_buf_name,
-                                std::string recv_buf_name,
-                                std::string cnt,
-                                std::string mpi_type,
-                                std::string mpi_op,
-                                std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_alltoallv(std::string send_buf_name,
-                                std::string send_cnt,
-                                std::string send_mpi_type,
-                                std::string recv_buf_name,
-                                std::string recv_cnt,
-                                std::string recv_mpi_type,
-                                std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_barrier(std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_bcast(std::string buf_name,
-                            std::string cnt,
-                            std::string mpi_type,
-                            unsigned dim_num = 0,
-                            std::string root = DEFAULT_MPI_ROOT,
-                            std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_gatherv(std::string send_buf_name,
-                              std::string send_cnt,
-                              std::string send_mpi_type,
-                              std::string recv_buf_name,
-                              std::string recv_cnt,
-                              std::string disps,
-                              std::string recv_mpi_type,
-                              unsigned dim_num = 0,
-                              std::string root = DEFAULT_MPI_ROOT,
-                              std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_iprobe(std::string src,
-                             std::string tag,
-                             std::string comm,
-                             std::string flag_name,
-                             std::string status);
-TL::Source create_mpi_irecv(std::string buf_name,
-                            std::string cnt,
-                            std::string mpi_type,
-                            std::string src,
-                            std::string tag,
-                            std::string comm,
-                            std::string handle);
-TL::Source create_mpi_isend(std::string buf_name,
-                            std::string cnt,
-                            std::string mpi_type,
-                            std::string dest,
-                            std::string tag,
-                            std::string comm,
-                            std::string handle);
-TL::Source create_mpi_probe(std::string src,
-                            std::string tag,
-                            std::string comm = DEFAULT_MPI_COMM,
-                            std::string status = DEFAULT_MPI_STATUS);
-TL::Source create_mpi_recv(std::string buf_name,
-                           std::string cnt,
-                           std::string mpi_type,
-                           std::string src,
-                           std::string tag,
-                           std::string comm = DEFAULT_MPI_COMM,
-                           std::string status = DEFAULT_MPI_STATUS);
-TL::Source create_mpi_send(std::string buf_name,
-                           std::string cnt,
-                           std::string mpi_type,
-                           std::string dest,
-                           std::string tag,
-                           std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_reduce(std::string send_buf_name,
-                             std::string recv_buf_name,
-                             std::string cnt,
-                             std::string mpi_type,
-                             std::string mpi_op,
-                             std::string root = DEFAULT_MPI_ROOT,
-                             std::string comm = DEFAULT_MPI_COMM);
-TL::Source create_mpi_scatterv(std::string send_buf_name,
-                               std::string send_cnts,
-                               std::string send_disp,
-                               std::string send_mpi_type,
-                               std::string recv_buf_name,
-                               std::string recv_cnt,
-                               std::string recv_mpi_type,
-                               std::string root = DEFAULT_MPI_ROOT,
-                               std::string comm = DEFAULT_MPI_COMM);
 
 TL::Source create_send_input_nd_msg(std::string var_name,
                                     std::string type_id,

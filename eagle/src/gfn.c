@@ -1161,25 +1161,21 @@ void _FinalOpenCL()
 	_GfnCheckCLStatus(_gfn_status, "clReleaseContext");
 }
 
-cl_kernel _GfnCreateKernel(const char *name, const char *src, 
-                           cl_context context, cl_device_id device_id)
+void _GfnCreateProgram(const char *src)
 {
-	// TODO: save kernel, so dont need to recompile
-	cl_int status;
-	cl_kernel kernel = NULL;
 	size_t param_value_size = 1024 * 1024;
     size_t param_value_size_ret;
     char param_value[param_value_size];
 
-    _gfn_cl_program = clCreateProgramWithSource(context, 1, 
-            (const char **)&src, NULL, &status);
-    _GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
-    status = clBuildProgram(_gfn_cl_program, 1, &device_id, NULL, NULL, NULL);
-    _GfnCheckCLStatus(status, "BUILD PROGRAM");
+    _gfn_cl_program = clCreateProgramWithSource(_gfn_context, 1, 
+            (const char **)&src, NULL, &_gfn_status);
+    _GfnCheckCLStatus(_gfn_status, "CREATE PROGRAM WITH SOURCE");
+    _gfn_status = clBuildProgram(_gfn_cl_program, 1, &_gfn_device_id, NULL, NULL, NULL);
+    _GfnCheckCLStatus(_gfn_status, "BUILD PROGRAM");
 
     /* Get kernel compiler messages */
-    status = clGetProgramBuildInfo(_gfn_cl_program,
-                                   device_id,
+    _gfn_status = clGetProgramBuildInfo(_gfn_cl_program,
+                                   _gfn_device_id,
                                    CL_PROGRAM_BUILD_LOG,
                                    param_value_size,
                                    param_value,
@@ -1190,8 +1186,22 @@ cl_kernel _GfnCreateKernel(const char *name, const char *src,
         printf("Message from kernel compiler : \n%s\n", param_value);
     }
 
-    kernel = clCreateKernel(_gfn_cl_program, name, &status);
-    _GfnCheckCLStatus(status, "CREATE KERNEL");
+    /* OUTPUT is _gfn_cl_program */
+}
+
+void _GfnClearProgram()
+{
+	_gfn_status = clReleaseProgram(_gfn_cl_program);
+	_GfnCheckCLStatus(_gfn_status, "clReleaseProgram");
+}
+
+cl_kernel _GfnCreateKernel(const char *name)
+{
+	// TODO: save kernel, so don't need to recompile
+	cl_kernel kernel = NULL;
+	
+    kernel = clCreateKernel(_gfn_cl_program, name, &_gfn_status);
+    _GfnCheckCLStatus(_gfn_status, "CREATE KERNEL");
     
     return kernel;
 }
@@ -1200,7 +1210,4 @@ void _GfnClearKernel(cl_kernel kernel)
 {
 	_gfn_status = clReleaseKernel(kernel);
 	_GfnCheckCLStatus(_gfn_status, "clReleaseKernel");
-
-	_gfn_status = clReleaseProgram(_gfn_cl_program);
-	_GfnCheckCLStatus(_gfn_status, "clReleaseProgram");
 }

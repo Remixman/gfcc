@@ -229,6 +229,12 @@ TL::Source ParallelFor::do_parallel_for()
     
     std::string level1_cond = _kernel_info->_level_1_condition;
     std::string level2_cond = _kernel_info->_level_2_condition;
+    
+    TL::Source worker_function_name;
+    TL::Source kernel_name;
+    
+    worker_function_name << "_Function_" << _kernel_info->kernel_id;
+    kernel_name << "_kernel_" << _kernel_info->kernel_id;
 
     /*== ---------- Create source about loop size ------------------==*/
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
@@ -336,7 +342,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source send_call_func;
     send_call_func
         << comment("Send call function message")
-        << "_SendCallFuncMsg(" << int_to_string(_kernel_info->kernel_id) << ");";
+        << "_SendCallFuncMsg(" << _kernel_info->kernel_id << ");";
 
     for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
     {
@@ -653,11 +659,11 @@ TL::Source ParallelFor::do_parallel_for()
         <<" + " << local_start_idx_var << ";" << CL_EOL;
     // Kernel helper function
     cl_kernel
-        << create_cl_ext_pragma()
-        << create_cl_help_barrier() // TODO: insert if use
-        << create_cl_help_atomic_add_int() // TODO: insert if use
-        << create_cl_help_atomic_add_float() // TODO: insert if use
-        << create_cl_help_atomic_add_double(); // TODO: insert if use
+        << create_cl_ext_pragma();
+        //<< create_cl_help_barrier() // TODO: insert if use
+        //<< create_cl_help_atomic_add_int() // TODO: insert if use
+        //<< create_cl_help_atomic_add_float() // TODO: insert if use
+        //<< create_cl_help_atomic_add_double(); // TODO: insert if use
 
     // Kernel reduction implement
     TL::Source cl_kernel_reduction;
@@ -691,7 +697,7 @@ TL::Source ParallelFor::do_parallel_for()
     /*== -------------  Create GPU kernel function -----------------==*/
     // Kernel main funcion
     cl_kernel
-        << "__kernel void _kernel_" << int_to_string(_kernel_info->kernel_id)
+        << "__kernel void " << kernel_name
         << "(" << cl_actual_params << ") {" << CL_EOL
         << cl_kernel_var_decl
         << cl_kernel_var_init
@@ -703,18 +709,15 @@ TL::Source ParallelFor::do_parallel_for()
         << "}" << CL_EOL;
 
     cl_kernel_src_str
-        << show_cl_source_in_comment(cl_kernel)
-        << "const char *_kernel_" << int_to_string(_kernel_info->kernel_id) << "_src = "
+        << comment("KERNEL_DEFINITION " + (std::string)kernel_name)
+        //<< show_cl_source_in_comment(cl_kernel)
+        << "const char *" << kernel_name << "_src = "
         << source_to_kernel_str(cl_kernel) << ";";
     cl_create_kernel
-        << "_kernel = _GfnCreateKernel(\"_kernel_"
-        << int_to_string(_kernel_info->kernel_id) << "\",_kernel_"
-        << int_to_string(_kernel_info->kernel_id) << "_src,_gfn_context,_gfn_device_id);";
+        << "_kernel = _GfnCreateKernel(\"" << kernel_name << "\");";
     cl_release_kernel
         << "_GfnClearKernel(_kernel);";
 
-    // print kernel to kernel declare file
-    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, cl_kernel_src_str);
     
     cl_launch_kernel
         << "_gfn_status = "
@@ -725,8 +728,8 @@ TL::Source ParallelFor::do_parallel_for()
 
     /*==----------------  Create worker function -------------------==*/
     worker_func_def
-        /* GPU */ << cl_kernel_src_str
-        << "void _Function_" << int_to_string(_kernel_info->kernel_id) << " () {"
+        << comment("WORKER_FUNCTION " + int_to_string(_kernel_info->kernel_id) + " " + (std::string)worker_function_name)
+        << "void " << worker_function_name << " () {"
         
             << comment("Declare Variables")
             << worker_declare_variables_src
@@ -782,9 +785,12 @@ TL::Source ParallelFor::do_parallel_for()
     /*TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
             _function_def->get_scope_link());*/
-    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, cl_kernel_src_str);
     //_function_def->get_ast().prepend_sibling_function(worker_func_tree);
 
+    // print kernel to kernel declare file
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, cl_kernel_src_str);
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_func_def);
+    
 
     send_call_func
         << send_loop_size
@@ -813,13 +819,6 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
         {
             FunctionDefinition func_def = it->get_enclosing_function();
             std::cout << func_def.prettyprint() << std::endl;
-            // TODO: define as __device__
-            TL::Source device_func_src;
-            //device_func_src
-                //<< "__device__"
-                //<< 
-            // TODO: change function name to gfn generate in function call and definition
-            // TODO: check that it is not recirsive
             
             TL::AST_t device_func_tree = device_func_src.parse_declaration(
                 gpu_function->get_point_of_declaration(),
@@ -832,16 +831,6 @@ void ParallelFor::extract_define_device_function(Statement compound_stmt) {
         {
             throw GFNException("Cannot found definition of '%s' function.", it->prettyprint());
         }
-    }
-    
-    FunctionDefinition (AST_t ref, ScopeLink scope_link)
-    
-    // do it recursively
-    for (ObjectList<TL::AST_t>::iterator it = device_list.begin();
-         it != device_list.end();
-         it++)
-    {
-        extract_define_device_function(*it);
     }
 }
 #endif

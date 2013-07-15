@@ -249,3 +249,12 @@ mcxx_embedder_LDADD = \
 mcxx_embedder_LDFLAGS = \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     $(END)
+
+
+# Worker Generator
+
+bin_PROGRAMS = workergen
+
+workergen_CFLAGS= -Wall
+
+workergen_SOURCES = cxx-worker-source-gen.cpp

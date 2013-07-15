@@ -336,7 +336,7 @@ namespace TL
             //! States whether this function definition has a linkage specified
             bool has_linkage_specifier() const;
 
-            //! Returns a list of LinkageSpecifiers enclosing thins declaration
+            //! Returns a list of LinkageSpecifiers enclosing this declaration
             ObjectList<LinkageSpecifier> get_linkage_specifier() const;
 
             //! Returns the declared entity of this function definition.

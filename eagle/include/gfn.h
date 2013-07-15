@@ -118,8 +118,9 @@ cl_mem_flags _GFN_MEM_ALLOC_HOST_PTR();
 // Function for OpenCL
 void _InitOpenCL();
 void _FinalOpenCL();
-cl_kernel _GfnCreateKernel(const char *name, const char *src,
-                           cl_context context, cl_device_id device_id);
+void _GfnCreateProgram(const char *src);
+void _GfnClearProgram();
+cl_kernel _GfnCreateKernel(const char *name);
 void _GfnClearKernel(cl_kernel kernel);
 
 /*----------------------------------------------------------------------------*\
