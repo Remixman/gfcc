@@ -321,13 +321,15 @@ int _RecvInputNDMsgCore(void *ptr, int type_id,
 	int start_offset, recv_size;
 	int nelem_size = 1, block_size = 1;
 
-	/*printf("LOOP_START = %d\n", loop_start);
+#if 0
+	printf("LOOP_START = %d\n", loop_start);
 	printf("LOOP_END = %d\n", loop_end);
 	printf("LOOP_STEP = %d\n", loop_step);
 	printf("PARTITION DIM = %d\n", partitioned_dim);
 	printf("PATTERN TYPE = %d\n", pattern_type);
 	printf("SIZE N = %d\n", size_n);
-	printf("PATTERN N = %d\n", pattern_n);*/
+	printf("PATTERN N = %d\n", pattern_n);
+#endif
 
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,

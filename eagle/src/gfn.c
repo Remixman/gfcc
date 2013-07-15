@@ -649,8 +649,6 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
     int recv_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 
-	partitioned_dim--;
-
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
 	pattern_n += size_n;
@@ -736,8 +734,6 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
     int send_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
     int send_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
-
-	partitioned_dim--;
 
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
