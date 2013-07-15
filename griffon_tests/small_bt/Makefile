@@ -21,4 +21,4 @@ worker: trans
 	
 	
 clean:
-	@rm -rf plaincc_small_bt.c small_bt.c.kerdecl.c small_bt worker* a.out
+	@rm -rf plaincc_small_bt.c small_bt.c.kerdecl.c small_bt worker*

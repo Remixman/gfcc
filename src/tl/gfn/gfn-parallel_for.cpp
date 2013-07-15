@@ -149,6 +149,8 @@ void ParallelFor::xxxx(TL::Statement stmt)
 
 TL::Source ParallelFor::do_parallel_for()
 {
+    bool debug = false;
+    
     if (!_for_stmt.regular_loop())
     {
         throw GFNException(_for_stmt, "support only simple for loop");
@@ -651,8 +653,6 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << loop_size_var << " = ("
             << local_end_idx_var << " - " << local_start_idx_var
             << ") / " << loop_step_var << ";" << CL_EOL
-        //<< "int _thread_id_dim_1 = get_global_id(1);"
-        //<< "int _thread_id_dim_2 = get_global_id(2);"
         << "int " << new_induction_var_name << " = "
         << "get_global_id(0) * " << loop_step_var << ";" << CL_EOL
         << "int " << induction_var << " = " << new_induction_var_name 
@@ -666,6 +666,7 @@ TL::Source ParallelFor::do_parallel_for()
         //<< create_cl_help_atomic_add_double(); // TODO: insert if use
 
     // Kernel reduction implement
+std::cout << "Create OpenCL reduction\n";
     TL::Source cl_kernel_reduction;
     if (_kernel_info->_has_reduction_clause)
     {
@@ -695,6 +696,8 @@ TL::Source ParallelFor::do_parallel_for()
     }
 
     /*== -------------  Create GPU kernel function -----------------==*/
+    std::cout << "Create OpenCL Kernel\n";
+    
     // Kernel main funcion
     cl_kernel
         << "__kernel void " << kernel_name
@@ -778,9 +781,10 @@ TL::Source ParallelFor::do_parallel_for()
             << worker_free_array_memory_src
         << "}";
 
-    /*std::cout << " ================= Worker Function ================\n";
+    if(debug){
+    std::cout << " ================= Worker Function ================\n";
     std::cout << (std::string) worker_func_def << "\n";
-    std::cout << " ==================================================\n";*/
+    std::cout << " ==================================================\n";}
 
     /*TL::AST_t worker_func_tree = worker_func_def.parse_declaration(
             _function_def->get_point_of_declaration(),
@@ -841,11 +845,16 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
                                              std::string old_idx_name,
 											 std::string new_idx_name)
 {
+    bool debug = false;
+    
     if (stmt.is_declaration())
     {
+        if(debug)std::cout<<"REPLACE STMT DECL\n";
     }
     else if (ForStatement::predicate(stmt.get_ast()))
     {
+        if(debug)std::cout<<"REPLACE STMT FOR\n";
+        
         TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: init, cond, incre ?
         replace_parallel_loop_body(for_stmt.get_loop_body(), replace_types, old_idx_name, new_idx_name);
@@ -856,6 +865,8 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
     }*/
     else if (stmt.is_compound_statement())
     {
+        if(debug)std::cout<<"REPLACE STMT COMPOUND\n";
+        
         ObjectList<Statement> statements = stmt.get_inner_statements();
         for (ObjectList<Statement>::iterator it = statements.begin();
              it != statements.end();
@@ -866,6 +877,8 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
     }
     else if (stmt.is_expression())
     {
+        if(debug)std::cout<<"REPLACE STMT EXPR\n";
+        
         replace_parallel_loop_body(stmt.get_expression(), replace_types, old_idx_name, new_idx_name);
     }
     else
@@ -880,13 +893,19 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
 											 std::string old_idx_name,
 											 std::string new_idx_name)
 {
+    bool debug = false;
+    
     if (expr.is_id_expression())
     {
+        if(debug)std::cout<<"REPLACE EXPR ID\n";
+        
         // Traverse child nodes
         // TODO: collect_variable_info(, kernel_info); ??
     }
     else if (expr.is_array_subscript())
     {
+        if(debug)std::cout<<"REPLACE EXPR ARRAY\n";
+        
         // XXX: replace multi-dimension array to 1D array
         if (replace_types[GFN_REPLACE_ARRAY_ND] == true)
         {
@@ -909,11 +928,19 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             }
 
             std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
+            if(debug)std::cout<<"REP VARNAME : "<<var_name<<"\n";
             int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
+            if(debug)std::cout<<"REP INDEX : "<<idx<<"\n";
             VariableInfo var_info = _kernel_info->_var_info[idx];
-            std::string dim1_size = (std::string)_kernel_info->_var_info[idx]._dim_size[0];
-            std::string dim2_size = (std::string)_kernel_info->_var_info[idx]._dim_size[1];
-            std::string dim3_size = (std::string)_kernel_info->_var_info[idx]._dim_size[2];
+            std::string dim1_size = (_kernel_info->_var_info[idx]._dimension_num >= 1)?
+                (std::string)_kernel_info->_var_info[idx]._dim_size[0] : "1";
+            std::string dim2_size = (_kernel_info->_var_info[idx]._dimension_num >= 2)?
+                (std::string)_kernel_info->_var_info[idx]._dim_size[1] : "1";
+            std::string dim3_size = (_kernel_info->_var_info[idx]._dimension_num >= 3)?
+                (std::string)_kernel_info->_var_info[idx]._dim_size[2] : "1";
+            if(debug)std::cout<<"REP DIM 1 SIZE : "<<dim1_size<<"\n";
+            if(debug)std::cout<<"REP DIM 2 SIZE : "<<dim2_size<<"\n";
+            if(debug)std::cout<<"REP DIM 3 SIZE : "<<dim3_size<<"\n";
 
             /*
              * Declare A[d1][d2]

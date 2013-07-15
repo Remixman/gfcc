@@ -8,19 +8,17 @@ CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 
 all: worker master
 
-#--pass-through    Disables preprocessing
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON simple.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON simple.c -lrt
+	rm simple.o
 	
-
-test: worker master
-
-master:
+master: trans
 	mpicc -o simple $(CFLAGS) plaincc_simple.c -lrt -lOpenCL
 	
-worker:
-	mpicc -DGFN_WORKER -o worker $(CFLAGS) plaincc_simple.c ../worker.c -lrt -lOpenCL  
+worker: trans
+	workergen simple.c.kerdecl.c
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 	
 clean:
-	@rm -rf simple worker a.out
+	@rm -rf plaincc_simple.c simple.c.kerdecl.c simple worker*
