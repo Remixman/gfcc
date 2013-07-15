@@ -784,8 +784,7 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     
     for (int i = 0; i < pattern_array_size; ++i)
     {
-        if (i != 1) pattern_params << ",";
-        pattern_params << pattern_array[i];
+        pattern_params << "," << pattern_array[i];
     }
 
     result
@@ -796,8 +795,10 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
         << level1_cond << "," << level2_cond << ","
         << dim_num << "," << pattern_array_size << "," 
         << size_params;
+        
     if (pattern_array_size > 0)
-        result << "," << pattern_params;
+        result << pattern_params;
+    
     result
         << ");";
     
@@ -839,8 +840,7 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
     
     for (int i = 0; i < pattern_array_size; ++i)
     {
-        if (i != 1) pattern_params << ",";
-        pattern_params << pattern_array[i];
+        pattern_params << "," << pattern_array[i];
     }
 
     result
@@ -851,8 +851,10 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
         << level1_cond << "," << level2_cond << ","
         << dim_num << "," << pattern_array_size << "," 
         << size_params;
+        
     if (pattern_array_size > 0)
-        result << "," << pattern_params;
+        result << pattern_params;
+    
     result
         << ");";
     

@@ -9,7 +9,7 @@ CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON simple.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON simple.c -lrt -D_GFN
 	rm simple.o
 	
 master: trans
