@@ -648,7 +648,7 @@ do { \
 	}
 
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
-		printf("[%d] Copy %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
+		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
 
 	return 0;
@@ -690,6 +690,10 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 
 #ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
 #define UPLOAD_TO_GPU(type) \
+	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + recv_it_offset, 0, 0, 0); \
+	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
+#else
+#define UPLOAD_TO_GPU(type) \
 	cl_buffer_region info; \
 	info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
 	info.size = (size_t)(sub_size * sizeof(type)); \
@@ -699,10 +703,6 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 	_gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
-#else
-#define UPLOAD_TO_GPU(type) \
-	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + recv_it_offset, 0, 0, 0); \
-	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
 #endif
 
 #define SWITCH_SCATTER_ND(type,mpi_type) \
@@ -741,7 +741,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	}
 
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
-		printf("[%d] Copy %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
+		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
 
 	return 0;
@@ -788,6 +788,10 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 
 #ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
 #define DOWNLOAD_FROM_GPU(type) \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + send_it_offset, 0, 0, 0); \
+    _GfnCheckCLStatus(_gfn_status, "READ BUFFER");
+#else
+#define DOWNLOAD_FROM_GPU(type) \
 	cl_buffer_region info; \
 	info.origin = (size_t)(send_elem_offset * sizeof(type)); \
 	info.size = (size_t)(sub_size * sizeof(type)); \
@@ -797,10 +801,6 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
     _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
     _gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
-#else
-#define DOWNLOAD_FROM_GPU(type) \
-	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + send_it_offset, 0, 0, 0); \
-    _GfnCheckCLStatus(_gfn_status, "READ BUFFER");
 #endif
 
 #define SWITCH_GATHER_ND(type,mpi_type) \
@@ -839,7 +839,7 @@ for (i = 0; i < send_loop_num; ++i) { \
 	}
 
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
-		printf("[%d] Copy %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
+		printf("[%d] Transfer %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
 
 	return 0;
