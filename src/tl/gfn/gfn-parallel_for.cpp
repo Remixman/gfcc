@@ -721,12 +721,8 @@ std::cout << "Create OpenCL reduction\n";
     cl_release_kernel
         << "_GfnClearKernel(_kernel);";
 
-    
     cl_launch_kernel
-        << "_gfn_status = "
-        << create_cl_enqueue_nd_range_kernel("_gfn_cmd_queue", "_kernel", "1", "0",
-            "&_global_item_num", "&_work_group_item_num", "0", "0", "0")
-        << create_gfn_check_cl_status("_gfn_status", "LAUNCH KERNEL");
+        << "_GfnLaunchKernel(_kernel,&_global_item_num,&_work_group_item_num);";
 
 
     /*==----------------  Create worker function -------------------==*/

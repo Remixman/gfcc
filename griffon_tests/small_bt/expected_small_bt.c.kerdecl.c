@@ -57,28 +57,17 @@ void _Function_1()
     if (1)
     {
         _kernel = _GfnCreateKernel("_kernel_1");
-        _gfn_status = clSetKernelArg(_kernel, 0, sizeof(int), (void *) &gp0);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(int), (void *) &gp1);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(int), (void *) &gp2);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(int), (void *) &ksize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &jsize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(int), (void *) &isize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 6, sizeof(cl_mem), (void *) &_cl_mem_us);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 7, sizeof(int), (void *) &_local_i_start);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 8, sizeof(int), (void *) &_local_i_end);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 9, sizeof(int), (void *) &_loop_step);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
-        _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
+        _GfnSetKernelArg(_kernel, 0, sizeof(int), (void *) &gp0);
+        _GfnSetKernelArg(_kernel, 1, sizeof(int), (void *) &gp1);
+        _GfnSetKernelArg(_kernel, 2, sizeof(int), (void *) &gp2);
+        _GfnSetKernelArg(_kernel, 3, sizeof(int), (void *) &ksize);
+        _GfnSetKernelArg(_kernel, 4, sizeof(int), (void *) &jsize);
+        _GfnSetKernelArg(_kernel, 5, sizeof(int), (void *) &isize);
+        _GfnSetKernelArg(_kernel, 6, sizeof(cl_mem), (void *) &_cl_mem_us);
+        _GfnSetKernelArg(_kernel, 7, sizeof(int), (void *) &_local_i_start);
+        _GfnSetKernelArg(_kernel, 8, sizeof(int), (void *) &_local_i_end);
+        _GfnSetKernelArg(_kernel, 9, sizeof(int), (void *) &_loop_step);
+        _GfnLaunchKernel(_kernel, &_global_item_num, &_work_group_item_num);
         _GfnClearKernel(_kernel);
     }
     else
@@ -202,46 +191,26 @@ void _Function_2()
     if (1)
     {
         _kernel = _GfnCreateKernel("_kernel_2");
-        _gfn_status = clSetKernelArg(_kernel, 0, sizeof(int), (void *) &gp0);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(int), (void *) &gp1);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(int), (void *) &gp2);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(int), (void *) &uksize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &ujsize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 5, sizeof(int), (void *) &uisize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 6, sizeof(int), (void *) &ksize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 7, sizeof(int), (void *) &jsize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 8, sizeof(int), (void *) &isize);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 9, sizeof(cl_mem), (void *) &_cl_mem_qs);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 10, sizeof(cl_mem), (void *) &_cl_mem_u);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 11, sizeof(cl_mem), (void *) &_cl_mem_rho_i);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 12, sizeof(cl_mem), (void *) &_cl_mem_us);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 13, sizeof(cl_mem), (void *) &_cl_mem_vs);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 14, sizeof(cl_mem), (void *) &_cl_mem_ws);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 15, sizeof(cl_mem), (void *) &_cl_mem_square);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 16, sizeof(int), (void *) &_local_i_start);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 17, sizeof(int), (void *) &_local_i_end);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 18, sizeof(int), (void *) &_loop_step);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
-        _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
+        _GfnSetKernelArg(_kernel, 0, sizeof(int), (void *) &gp0);
+        _GfnSetKernelArg(_kernel, 1, sizeof(int), (void *) &gp1);
+        _GfnSetKernelArg(_kernel, 2, sizeof(int), (void *) &gp2);
+        _GfnSetKernelArg(_kernel, 3, sizeof(int), (void *) &uksize);
+        _GfnSetKernelArg(_kernel, 4, sizeof(int), (void *) &ujsize);
+        _GfnSetKernelArg(_kernel, 5, sizeof(int), (void *) &uisize);
+        _GfnSetKernelArg(_kernel, 6, sizeof(int), (void *) &ksize);
+        _GfnSetKernelArg(_kernel, 7, sizeof(int), (void *) &jsize);
+        _GfnSetKernelArg(_kernel, 8, sizeof(int), (void *) &isize);
+        _GfnSetKernelArg(_kernel, 9, sizeof(cl_mem), (void *) &_cl_mem_qs);
+        _GfnSetKernelArg(_kernel, 10, sizeof(cl_mem), (void *) &_cl_mem_u);
+        _GfnSetKernelArg(_kernel, 11, sizeof(cl_mem), (void *) &_cl_mem_rho_i);
+        _GfnSetKernelArg(_kernel, 12, sizeof(cl_mem), (void *) &_cl_mem_us);
+        _GfnSetKernelArg(_kernel, 13, sizeof(cl_mem), (void *) &_cl_mem_vs);
+        _GfnSetKernelArg(_kernel, 14, sizeof(cl_mem), (void *) &_cl_mem_ws);
+        _GfnSetKernelArg(_kernel, 15, sizeof(cl_mem), (void *) &_cl_mem_square);
+        _GfnSetKernelArg(_kernel, 16, sizeof(int), (void *) &_local_i_start);
+        _GfnSetKernelArg(_kernel, 17, sizeof(int), (void *) &_local_i_end);
+        _GfnSetKernelArg(_kernel, 18, sizeof(int), (void *) &_loop_step);
+        _GfnLaunchKernel(_kernel, &_global_item_num, &_work_group_item_num);
         _GfnClearKernel(_kernel);
     }
     else

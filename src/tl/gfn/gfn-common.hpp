@@ -163,50 +163,11 @@ TL::Source create_recv_output_nd_msg(std::string var_name,
                                      TL::ObjectList<TL::Expression> dim_size,
                                      TL::ObjectList<std::string> &pattern_array);
 
-TL::Source create_cl_create_context();
-TL::Source create_cl_command_queue(std::string context,
-                                   std::string device,
-                                   std::string properties,
-                                   std::string status = "_gfn_status");
-TL::Source create_cl_create_buffer(std::string context,
-                                   std::string flags,
-                                   std::string size,
-                                   std::string host_ptr,
-                                   std::string status = "_gfn_status");
-TL::Source create_cl_release_mem_object(std::string buffer);
-TL::Source create_cl_enqueue_nd_range_kernel(std::string cmd_queue,
-                                             std::string kernel,
-                                             std::string work_dim,
-                                             std::string global_work_offset,
-                                             std::string global_work_size,
-                                             std::string local_work_size,
-                                             std::string num_event_wait_list = "0",
-                                             std::string event_wait_list = "0",
-                                             std::string event = "0");
-TL::Source create_cl_enqueue_write_buffer(std::string cmd_queue,
-                                          std::string buffer,
-                                          bool is_block,
-                                          std::string offset,
-                                          std::string size,
-                                          std::string var_ptr,
-                                          std::string num_event_wait_list = "0",
-                                          std::string event_wait_list = "0",
-                                          std::string event = "0");
-TL::Source create_cl_enqueue_read_buffer(std::string cmd_queue,
-                                         std::string buffer,
-                                         bool is_block,
-                                         std::string offset,
-                                         std::string size,
-                                         std::string var_ptr,
-                                         std::string num_event_wait_list = "0",
-                                         std::string event_wait_list = "0",
-                                         std::string event = "0");
+
 TL::Source create_cl_set_kernel_arg(std::string kernel,
                                     int arg_no,
                                     std::string type,
                                     std::string buffer);
-TL::Source create_cl_flush(std::string cmd_queue, std::string status = "");
-TL::Source create_cl_finish(std::string cmd_queue, std::string status = "");
 TL::Source create_cl_ext_pragma();
 
 TL::Source create_cl_help_barrier();

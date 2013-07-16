@@ -657,6 +657,7 @@ do { \
 int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	long long gpu_trans_start_t, gpu_trans_end_t;
+	long long scatter_start_t, scatter_end_t;
 
 	int i, value;
 	va_list vl;
@@ -713,8 +714,10 @@ do { \
 						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
 	} \
 for (i = 0; i < recv_loop_num; ++i) { \
+	IF_TIMING (_cluster_scatter_time) scatter_start_t = get_time(); \
 	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
 		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
+	IF_TIMING (_cluster_scatter_time) scatter_end_t = get_time(); \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
 		UPLOAD_TO_GPU(type) \
@@ -740,6 +743,10 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
 
+	IF_TIMING (_cluster_scatter_time)
+		printf("[%d] Scatter %p : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(scatter_end_t-scatter_start_t)/1000000);
+
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
 		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
@@ -755,6 +762,7 @@ int _GfnFinishDistributeArray()
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	long long gpu_trans_start_t, gpu_trans_end_t;
+	long long gather_start_t, gather_end_t;
 
 	int i, value;
 	va_list vl;
@@ -808,13 +816,14 @@ do { \
 	type * tmp_ptr = (type *) ptr; \
 for (i = 0; i < send_loop_num; ++i) { \
 	if (level2_cond) { \
-		_gfn_status = clFinish(_gfn_cmd_queue); \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
 		DOWNLOAD_FROM_GPU(type) \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
 	} \
+	IF_TIMING (_cluster_gather_time) gather_start_t = get_time(); \
 	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
 		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	IF_TIMING (_cluster_gather_time) gather_end_t = get_time(); \
 	send_it_offset += (elem_num * block_size); \
 } \
 	if (_gfn_rank == 0) { \
@@ -842,6 +851,10 @@ for (i = 0; i < send_loop_num; ++i) { \
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
 		printf("[%d] Transfer %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
+	IF_TIMING (_cluster_gather_time)
+		printf("[%d] Gather %p : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gather_end_t-gather_start_t)/1000000);
 
 	return 0;
 }
@@ -1248,5 +1261,40 @@ cl_kernel _GfnCreateKernel(const char *name)
 void _GfnClearKernel(cl_kernel kernel)
 {
 	_gfn_status = clReleaseKernel(kernel);
-	_GfnCheckCLStatus(_gfn_status, "clReleaseKernel");
+	_GfnCheckCLStatus(_gfn_status, "RELEASE KERNEL");
+}
+
+void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr)
+{
+	_gfn_status = clSetKernelArg(kernel, arg_num, size, ptr);
+	_GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
+}
+
+void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size)
+{
+	long long run_kernel_start_t, run_kernel_end_t;
+
+	IF_TIMING (_gpu_kernel_time) run_kernel_start_t = get_time();
+
+	_gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, 	/* command queue */
+									kernel, 				/* kernel */
+									1, 						/* work dimension */
+									0, 						/* global work offset */
+									global_size, 			/* global work size */
+									local_size, 			/* local work size */
+									0, 						/* number of event in wait list */
+									0, 						/* event wait list */
+									0);						/* event */
+	_GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
+
+	IF_TIMING (_gpu_kernel_time) {
+		_gfn_status = clFinish(_gfn_cmd_queue);
+		run_kernel_end_t = get_time();
+	}
+
+	IF_TIMING (_gpu_kernel_time) {
+		printf("[%d] Launch kernel : %.10f s. global size %zu , local size %zu\n", _gfn_rank, 
+			(float)(run_kernel_end_t-run_kernel_start_t)/1000000, *global_size, *local_size);
+	}
+
 }

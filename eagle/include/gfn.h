@@ -122,6 +122,8 @@ void _GfnCreateProgram(const char *src);
 void _GfnClearProgram();
 cl_kernel _GfnCreateKernel(const char *name);
 void _GfnClearKernel(cl_kernel kernel);
+void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr);
+void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size);
 
 /*----------------------------------------------------------------------------*\
                    IPC INTERFACE - source is in myipc_socket.c
