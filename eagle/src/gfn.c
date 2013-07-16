@@ -151,8 +151,10 @@ int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_nu
 	}
 
 	IF_TIMING (_gpu_malloc_time && level2_cond)
-		printf("[%d] Allocate scalar %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+		printf("[%d] Allocate scalar %p on device : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(create_buf_end_t-create_buf_start_t)/1000000);
+
+	return 0;
 }
 
 int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
@@ -704,7 +706,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 #endif
 
 #define SWITCH_SCATTER_ND(type,mpi_type) \
-do { \tw
+do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) { \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
