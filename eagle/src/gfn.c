@@ -140,13 +140,19 @@ int _GfnFinalize()
 
 int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_num, int level1_cond, int level2_cond)
 {
-	long long create_reduce_start_t, create_reduce_end_t;
+	long long create_buf_start_t, create_buf_end_t;
 
 	// TODO: allocate for array memory
 	if (level2_cond) {
+		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time();
 		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id) * group_num, 0, &_gfn_status);
 		_GfnCheckCLStatus(_gfn_status, "CREATE REDUCE BUFFER");
+		IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time();
 	}
+
+	IF_TIMING (_gpu_malloc_time && level2_cond)
+		printf("[%d] Allocate scalar %p on device : %.10f s.\n", _gfn_rank, *ptr, 
+			(float)(create_buf_end_t-create_buf_start_t)/1000000);
 }
 
 int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
@@ -594,6 +600,8 @@ int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 
 int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
 {
+	long long gpu_trans_start_t, gpu_trans_end_t;
+
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
 
@@ -614,8 +622,10 @@ do { \
 	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * total_size); \
 	MPI_Bcast((void *)(tmp_ptr), total_size, mpi_type, 0, MPI_COMM_WORLD); \
 	if (level2_cond) { \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * total_size, tmp_ptr, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
 	} \
 } while (0)
 
@@ -634,10 +644,18 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
+
+	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
+		printf("[%d] Copy %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
+	return 0;
 }
 
 int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	long long gpu_trans_start_t, gpu_trans_end_t;
+
 	int i, value;
 	va_list vl;
 
@@ -686,7 +704,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 #endif
 
 #define SWITCH_SCATTER_ND(type,mpi_type) \
-do { \
+do { \tw
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) { \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
@@ -695,7 +713,11 @@ do { \
 for (i = 0; i < recv_loop_num; ++i) { \
 	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
 		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
-	if (level2_cond) { UPLOAD_TO_GPU(type) } \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		UPLOAD_TO_GPU(type) \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
 } while (0)
@@ -716,14 +738,22 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
 
+	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
+		printf("[%d] Copy %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
 	return 0;
 }
 
 int _GfnFinishDistributeArray()
-{ return 0; }
+{
+	return 0;
+}
 
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	long long gpu_trans_start_t, gpu_trans_end_t;
+
 	int i, value;
 	va_list vl;
 
@@ -775,7 +805,11 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 do { \
 	type * tmp_ptr = (type *) ptr; \
 for (i = 0; i < send_loop_num; ++i) { \
-	if (level2_cond) { DOWNLOAD_FROM_GPU(type) } \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		DOWNLOAD_FROM_GPU(type) \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+	} \
 	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
 		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
 	send_it_offset += (elem_num * block_size); \
@@ -802,11 +836,17 @@ for (i = 0; i < send_loop_num; ++i) { \
 	case TYPE_LONG_LONG_INT:  SWITCH_GATHER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
 
+	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
+		printf("[%d] Copy %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
 	return 0;
 }
 
 int _GfnFinishGatherArray()
-{ return 0; }
+{
+	return 0;
+}
 
 
 // Higher Level function
