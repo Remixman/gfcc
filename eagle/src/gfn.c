@@ -808,6 +808,7 @@ do { \
 	type * tmp_ptr = (type *) ptr; \
 for (i = 0; i < send_loop_num; ++i) { \
 	if (level2_cond) { \
+		_gfn_status = clFinish(_gfn_cmd_queue); \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
 		DOWNLOAD_FROM_GPU(type) \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
