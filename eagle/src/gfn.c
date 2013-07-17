@@ -167,11 +167,15 @@ int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
 
 int _GfnEnqueueBoardcastScalar(void *ptr, int type_id)
 {
+	long long bcast_start_t, bcast_end_t;
+
 	// TOD0: MPI pack and bcast at _GfnFinishBoardcastScalar
 
 #define SWITCH_BCAST(mpi_type) \
 do { \
+	IF_TIMING (_cluster_bcast_time) bcast_start_t = get_time(); \
 	MPI_Bcast(ptr, 1, mpi_type, 0, MPI_COMM_WORLD); \
+	IF_TIMING (_cluster_bcast_time) bcast_end_t = get_time(); \
 } while(0)
 
 	if (_gfn_rank == 0) _RecvInputMsg(ptr, _CalcTypeSize(type_id));
@@ -191,6 +195,10 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_BCAST(MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_BCAST(MPI_LONG_LONG_INT); break;
 	}
+
+	IF_TIMING (_cluster_bcast_time)
+		printf("[%d] Boardcast %p : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(bcast_end_t-bcast_start_t)/1000000);
 
 	return 0;
 }
@@ -534,7 +542,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	// TODO: change to 1D array
 
-/*#define SWITCH_MALLOC_6D(type,size1,size2,size3,size4,size5,size6) \
+#define SWITCH_MALLOC_6D(type,size1,size2,size3,size4,size5,size6) \
 do { \
 	type ****** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
@@ -550,15 +558,15 @@ do { \
 	tmp_ptr[0][0][0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4 * size5 * size6); \
 	for (i = 1; i < size1 * size2 * size3 * size4 * size5; i++) tmp_ptr[0][0][0][0][i] = tmp_ptr[0][0][0][0][i-1] + size6; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
-	*ptr = (void *****) tmp_ptr; \
+	*ptr = (void ******) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
-		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4 * size5, 0, &_gfn_status); \
+		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1 * size2 * size3 * size4 * size5 * size6, 0, &_gfn_status); \
     	IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 5, (void *)tmp_ptr[0][0][0][0], (void **)tmp_ptr[0][0][0], (void ***)tmp_ptr[0][0], (void ****)tmp_ptr[0], (void *****)tmp_ptr, NULL); \
+	_insert_to_var_table(unique_id, *cl_ptr, 6, (void *)tmp_ptr[0][0][0][0][0], (void **)tmp_ptr[0][0][0][0], (void ***)tmp_ptr[0][0][0], (void ****)tmp_ptr[0][0], (void *****)tmp_ptr[0], (void ******)tmp_ptr); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -576,7 +584,7 @@ do { \
 	case TYPE_DOUBLE:         SWITCH_MALLOC_6D(double,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size,dim6_size); break;
 	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_6D(long double,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size,dim6_size); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_6D(long long int,dim1_size,dim2_size,dim3_size,dim4_size,dim5_size,dim6_size); break;
-	}*/
+	}
 
 	IF_TIMING (_cluster_malloc_time)
 		printf("[%d] Allocate %p on host : %.10f s.\n", _gfn_rank, *ptr, 
@@ -603,6 +611,7 @@ int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
 {
 	long long gpu_trans_start_t, gpu_trans_end_t;
+	long long bcast_start_t, bcast_end_t;
 
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
@@ -622,7 +631,9 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_co
 do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * total_size); \
+	IF_TIMING (_cluster_bcast_time) bcast_start_t = get_time(); \
 	MPI_Bcast((void *)(tmp_ptr), total_size, mpi_type, 0, MPI_COMM_WORLD); \
+	IF_TIMING (_cluster_bcast_time) bcast_end_t = get_time(); \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * total_size, tmp_ptr, 0, 0, 0); \
@@ -650,6 +661,10 @@ do { \
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
 		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
+	IF_TIMING (_cluster_bcast_time)
+		printf("[%d] Boardcast %p : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(bcast_end_t-bcast_start_t)/1000000);
 
 	return 0;
 }
@@ -1206,11 +1221,11 @@ void _FinalOpenCL()
 	//_GfnCheckCLStatus(_gfn_status, "clFlush");
 
 	// Block until all commands in queue have been removed from the queue
-    //_gfn_status = clFinish(_gfn_cmd_queue);
-    //_GfnCheckCLStatus(_gfn_status, "clFinish");
+    _gfn_status = clFinish(_gfn_cmd_queue);
+    _GfnCheckCLStatus(_gfn_status, "FINISH COMMAND QUEUE");
 
 	_gfn_status = clReleaseContext(_gfn_context);
-	_GfnCheckCLStatus(_gfn_status, "clReleaseContext");
+	_GfnCheckCLStatus(_gfn_status, "RELEASE CONTEXT");
 }
 
 void _GfnCreateProgram(const char *src)
@@ -1288,7 +1303,7 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 	_GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
 
 	IF_TIMING (_gpu_kernel_time) {
-		_gfn_status = clFinish(_gfn_cmd_queue);
+		_gfn_status = clFlush(_gfn_cmd_queue);
 		run_kernel_end_t = get_time();
 	}
 

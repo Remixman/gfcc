@@ -423,19 +423,6 @@ TL::Source create_cl_set_kernel_arg(std::string kernel, int arg_no,
     return result;
 }
 
-TL::Source create_cl_ext_pragma()
-{
-	// XXX: '\n' always must be insert
-    TL::Source result;
-    result
-        // #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
-        /* Enable ??? */
-        << "#pragma OPENCL EXTENSION cl_khr_fp64 : enable" << CL_EOL
-        /* Enable atom_cmpxchg() */
-        << "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable" << CL_EOL;
-    return result;
-}
-
 TL::Source create_cl_help_barrier()
 {
     TL::Source result;

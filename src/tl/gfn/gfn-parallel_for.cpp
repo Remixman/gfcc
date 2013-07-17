@@ -658,8 +658,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << induction_var << " = " << new_induction_var_name 
         <<" + " << local_start_idx_var << ";" << CL_EOL;
     // Kernel helper function
-    cl_kernel
-        << create_cl_ext_pragma();
+    //cl_kernel
         //<< create_cl_help_barrier() // TODO: insert if use
         //<< create_cl_help_atomic_add_int() // TODO: insert if use
         //<< create_cl_help_atomic_add_float() // TODO: insert if use

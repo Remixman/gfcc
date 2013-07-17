@@ -168,7 +168,6 @@ TL::Source create_cl_set_kernel_arg(std::string kernel,
                                     int arg_no,
                                     std::string type,
                                     std::string buffer);
-TL::Source create_cl_ext_pragma();
 
 TL::Source create_cl_help_barrier();
 TL::Source create_cl_help_atomic_add_int();

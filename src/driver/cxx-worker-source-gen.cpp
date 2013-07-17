@@ -62,6 +62,18 @@ int main(int argc, char *argv[])
 //<< "#include \"myipc.h\"" << NEW_LINE
 << NEW_LINE;
 
+	/* OpenCL extension */
+	worker_src
+<< "/* OpenCL Extension sources */" << NEW_LINE
+<< "const char *cl_ext_src = " << NEW_LINE
+	/// Enable double precision
+<< "\t\"#pragma OPENCL EXTENSION cl_khr_fp64 : enable\\n\"" << NEW_LINE
+	/// Enable atom_cmpxchg()
+<< "\t\"#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable\\n\";" << NEW_LINE
+<< NEW_LINE;
+	estimated_total_src_size += 100; // FIXME:
+	total_src_src += std::string("\tstrcat(total_src, cl_ext_src);") + NEW_LINE;
+
 	/* Struct or Global declaration */
 
 	/* Function declaration */
