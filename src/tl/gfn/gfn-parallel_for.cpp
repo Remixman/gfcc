@@ -403,7 +403,7 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 cl_kernel_var_decl
                     << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";\n";
-                    std::cout << "Add CL decl " << var_name << "\n";
+                    std::cout << "Add code declaration on kernel " << var_name << "\n";
             }
         }
 

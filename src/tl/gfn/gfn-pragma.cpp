@@ -924,7 +924,8 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
                       << " for " << sym.get_name() << "\n";*/
             int idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
 
-            if (kernel_info->_var_info[idx]._shared_dimension >= 0)
+            if (kernel_info->_var_info[idx]._shared_dimension >= 0 &&
+                kernel_info->_var_info[idx]._shared_dimension != found_idx_at)
             {
                 std::cerr << "Conflict at " << __FILE__ << ":" << __LINE__ << "\n";
             }

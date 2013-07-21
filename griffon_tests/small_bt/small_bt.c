@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <gfn.h>
 
-#define PROBLEM_SIZE 10
+#define PROBLEM_SIZE 3
 #define	IMAX	PROBLEM_SIZE
 #define	JMAX	PROBLEM_SIZE
 #define	KMAX	PROBLEM_SIZE
@@ -10,26 +10,22 @@
 /* COMMON block: global */
 static int grid_points[3];	/* grid_ponts(1:3) */
 
-static double us[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double vs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double ws[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double qs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double rho_i[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double square[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
-static double forcing[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5+1];
-static double u[(IMAX+1)/2*2+1][(JMAX+1)/2*2+1][(KMAX+1)/2*2+1][5];
-static double rhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5];
-static double lhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][3][5][5];
-
-#pragma gfn use_in_parallel
-int func(int x) {
-	return x*x;
-}
+static float us[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float vs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float ws[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float qs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float rho_i[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float square[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1];
+static float forcing[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5+1];
+static float u[(IMAX+1)/2*2+1][(JMAX+1)/2*2+1][(KMAX+1)/2*2+1][5];
+static float rhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5];
+static float lhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][3][5][5];
 
 int main() {
 	
-	int i, j, k, m;
-  	double rho_inv, uijk, up1, um1, vijk, vp1, vm1, wijk, wp1, wm1;
+	int i, j, k, m,n;
+  	float rho_inv, uijk, up1, um1, vijk, vp1, vm1, wijk, wp1, wm1;
+  	float dssp = 5.67;
   	int gp0, gp1, gp2;
   	int isize, jsize, ksize;
   	int uisize, ujsize, uksize;
@@ -53,6 +49,21 @@ int main() {
 			}
 		}
 	}
+	
+	#pragma gfn parallel_for output(lhs[isize][jsize][ksize][3][5][5]) input(gp0,gp1,gp2)
+  for (i = 0; i < gp0; i++) {
+    for (j = 0; j < gp1; j++) {
+      for (k = 0; k < gp2; k++) {
+	for (m = 0; m < 5; m++) {
+	  for (n = 0; n < 5; n++) {
+	    lhs[i][j][k][0][m][n] = 0.0;
+	    lhs[i][j][k][1][m][n] = 0.0;
+	    lhs[i][j][k][2][m][n] = 0.0;
+	  }
+	}
+      }
+    }
+  }
 
 	#pragma gfn parallel_for \
 		input(u[uisize][ujsize][uksize][5]) input(gp0,gp1,gp2) \
@@ -77,6 +88,20 @@ int main() {
 			}
 		}
 	}
+	
+	  i = 1;
+#pragma gfn parallel_for input(i,dssp) input(gp1,gp2) \
+	inout(rhs[isize][jsize][ksize][5]) \
+	input(u[uisize][ujsize][uksize][5])
+  for (j = 1; j < gp1-1; j++) {
+    for (k = 1; k < gp2-1; k++) {
+      for (m = 0; m < 5; m++) {
+	rhs[i][j][k][m] = rhs[i][j][k][m]- dssp * 
+	  ( 5.0*u[i][j][k][m] - 4.0*u[i+1][j][k][m] +
+	    u[i+2][j][k][m]);
+      }
+    }
+  }
 
 	
 	#pragma gfn finish
@@ -86,7 +111,7 @@ int main() {
 	/*for (i = 0; i < gp0; i++) {
  		for (j = 0; j < gp1; j++) {
 			for (k = 0; k < gp2; k++) {
-				double diff = us[i][j][k] - (i + j + k);
+				float diff = us[i][j][k] - (i + j + k);
 				if (diff > 0.0001 || -0.0001 > diff) {
 					printf("Failed us[%d][%d][%d] = %.5lf but expected is %.5lf\n", i, j, k, us[i][j][k], i+j+k);
 					assert(0);

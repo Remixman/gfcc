@@ -25,10 +25,13 @@ static int _gpu_transfer_h2d_time;
 static int _gpu_transfer_d2h_time;
 static int _mm_overhead_time;           /* Overhead time for memory management */	
 
+static FILE * _trace_f;
+
 /* Optimization */
 #define OPTIMIZE_NO_USE_CL_SUBBUFFER
 
 #define IF_TIMING if
+#define TRACE_LOG(...) if(_trace_f)fprintf(_trace_f, __VA_ARGS__);
 
 #define TRUE 1
 #define FALSE 0
@@ -95,7 +98,7 @@ int _GfnInit(int *argc, char **argv[])
 	_mm_overhead_time       = FALSE;
 
 	char *trace_level = getenv("GFN_TRACE");
-	if (trace_level != NULL)
+	if (trace_level != NULL) {
 	switch (trace_level[0]) {
 	case '4':
 		_mm_overhead_time        = TRUE;
@@ -114,6 +117,14 @@ int _GfnInit(int *argc, char **argv[])
 		break;
 	}
 
+	// Open trace file
+	_trace_f = fopen("trace_gfn.txt", "w");
+	if (_trace_f == NULL) {
+		fprintf(stderr, "Cannot open trace file [trace_gfn.txt]\n");
+	}
+	
+	}
+
 	_InitOpenCL();
 
 	if (_gfn_rank == 0) _OpenWorkerMsgQueue();
@@ -130,6 +141,10 @@ int _GfnFinalize()
 	IF_TIMING (_mm_overhead_time) clear_vtab_end_t = get_time();
 
 	_FinalOpenCL();
+
+	if (_trace_f != NULL) {
+		fclose(_trace_f);
+	}
 	
 	MPI_Finalize();
 
@@ -145,9 +160,11 @@ int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_nu
 	// TODO: allocate for array memory
 	if (level2_cond) {
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time();
+		TRACE_LOG ("device-malloc start %lld\n", create_buf_start_t);
 		(*cl_ptr) = clCreateBuffer(_gfn_context, CL_MEM_WRITE_ONLY, _CalcTypeSize(type_id) * group_num, 0, &_gfn_status);
 		_GfnCheckCLStatus(_gfn_status, "CREATE REDUCE BUFFER");
 		IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time();
+		TRACE_LOG ("device-malloc end %lld\n", create_buf_end_t);
 	}
 
 	IF_TIMING (_gpu_malloc_time && level2_cond)
@@ -174,8 +191,10 @@ int _GfnEnqueueBoardcastScalar(void *ptr, int type_id)
 #define SWITCH_BCAST(mpi_type) \
 do { \
 	IF_TIMING (_cluster_bcast_time) bcast_start_t = get_time(); \
+	TRACE_LOG ("node-transfer start %lld\n", bcast_start_t); \
 	MPI_Bcast(ptr, 1, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_bcast_time) bcast_end_t = get_time(); \
+	TRACE_LOG ("node-transfer end %lld\n", bcast_end_t); \
 } while(0)
 
 	if (_gfn_rank == 0) _RecvInputMsg(ptr, _CalcTypeSize(type_id));
@@ -263,8 +282,10 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 do { \
 	type * tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type *) malloc(sizeof(type) * size1); \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void *) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -316,10 +337,12 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 do { \
 	type ** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type **) malloc(sizeof(type*) * size1); \
 	tmp_ptr[0] = (type *) malloc(sizeof(type) * size1 * size2); \
 	for (i = 1; i < size1; ++i) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void **) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -370,12 +393,14 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 do { \
 	type *** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type ***) malloc(sizeof(type**) * size1); \
 	tmp_ptr[0] = (type **) malloc(sizeof(type*) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
 	tmp_ptr[0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3); \
 	for (i = 1; i < size1 * size2; i++) tmp_ptr[0][i] = tmp_ptr[0][i-1] + size3; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void ***) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -426,6 +451,7 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 do { \
 	type **** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type ****) malloc(sizeof(type***) * size1); \
 	tmp_ptr[0] = (type ***) malloc(sizeof(type**) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
@@ -434,6 +460,7 @@ do { \
 	tmp_ptr[0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4); \
 	for (i = 1; i < size1 * size2 * size3; i++) tmp_ptr[0][0][i] = tmp_ptr[0][0][i-1] + size4; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void ****) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -484,6 +511,7 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 do { \
 	type ***** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type *****) malloc(sizeof(type****) * size1); \
 	tmp_ptr[0] = (type ****) malloc(sizeof(type***) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
@@ -494,6 +522,7 @@ do { \
 	tmp_ptr[0][0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4 * size5); \
 	for (i = 1; i < size1 * size2 * size3 * size4; i++) tmp_ptr[0][0][0][i] = tmp_ptr[0][0][0][i-1] + size5; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void *****) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -546,6 +575,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 do { \
 	type ****** tmp_ptr; \
 	IF_TIMING (_cluster_malloc_time) malloc_start_t = get_time(); \
+	TRACE_LOG ("host-malloc start %lld\n", malloc_start_t); \
 	tmp_ptr = (type ******) malloc(sizeof(type*****) * size1); \
 	tmp_ptr[0] = (type *****) malloc(sizeof(type****) * size1 * size2); \
 	for (i = 1; i < size1; i++) tmp_ptr[i] = tmp_ptr[i-1] + size2; \
@@ -558,6 +588,7 @@ do { \
 	tmp_ptr[0][0][0][0][0] = (type *) malloc(sizeof(type) * size1 * size2 * size3 * size4 * size5 * size6); \
 	for (i = 1; i < size1 * size2 * size3 * size4 * size5; i++) tmp_ptr[0][0][0][0][i] = tmp_ptr[0][0][0][0][i-1] + size6; \
 	IF_TIMING (_cluster_malloc_time) malloc_end_t = get_time(); \
+	TRACE_LOG ("host-malloc end %lld\n", malloc_end_t); \
 	*ptr = (void ******) tmp_ptr; \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
@@ -632,13 +663,17 @@ do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * total_size); \
 	IF_TIMING (_cluster_bcast_time) bcast_start_t = get_time(); \
+	TRACE_LOG ("node-transfer start %lld\n", bcast_start_t); \
 	MPI_Bcast((void *)(tmp_ptr), total_size, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_bcast_time) bcast_end_t = get_time(); \
+	TRACE_LOG ("node-transfer end %lld\n", bcast_end_t); \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		TRACE_LOG ("device-transfer start %lld\n", gpu_trans_start_t); \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * total_size, tmp_ptr, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
 	} \
 } while (0)
 
@@ -730,13 +765,17 @@ do { \
 	} \
 for (i = 0; i < recv_loop_num; ++i) { \
 	IF_TIMING (_cluster_scatter_time) scatter_start_t = get_time(); \
+	TRACE_LOG ("node-transfer start %lld\n", scatter_start_t); \
 	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
 		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_scatter_time) scatter_end_t = get_time(); \
+	TRACE_LOG ("node-transfer end %lld\n", scatter_end_t); \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		TRACE_LOG ("device-transfer start %lld\n", gpu_trans_start_t); \
 		UPLOAD_TO_GPU(type) \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
 	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
@@ -832,13 +871,17 @@ do { \
 for (i = 0; i < send_loop_num; ++i) { \
 	if (level2_cond) { \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		TRACE_LOG ("device-transfer start %lld\n", gpu_trans_start_t); \
 		DOWNLOAD_FROM_GPU(type) \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
 	} \
 	IF_TIMING (_cluster_gather_time) gather_start_t = get_time(); \
+	TRACE_LOG ("node-transfer start %lld\n", gather_start_t); \
 	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
 		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_gather_time) gather_end_t = get_time(); \
+	TRACE_LOG ("node-transfer end %lld\n", gather_end_t); \
 	send_it_offset += (elem_num * block_size); \
 } \
 	if (_gfn_rank == 0) { \

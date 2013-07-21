@@ -279,7 +279,8 @@ std::string VariableInfo::get_pointer_starts()
         case 4: return " **** ";
         case 5: return " ***** ";
         case 6: return " ****** ";
-        default: std::cerr << "Unsupport multi-dimension\n";
+        default: std::cerr << "Unsupport multi-dimension ," 
+            << _name << " has " << _dimension_num << " dimension\n";
     }
 
     return " ";
