@@ -17,6 +17,9 @@ c                     config file
 c      niter_default: default number of iterations for this problem size
 --------------------------------------------------------------------*/
 
+#ifdef _GFN
+#include <gfn.h>
+#endif
 #include "npbparams.h"
 
 #define	AA		0
@@ -67,6 +70,13 @@ static double forcing[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5+1];
 static double u[(IMAX+1)/2*2+1][(JMAX+1)/2*2+1][(KMAX+1)/2*2+1][5];
 static double rhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5];
 static double lhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][3][5][5];
+
+static int ISIZE = IMAX/2*2+1;
+static int JSIZE = JMAX/2*2+1;
+static int KSIZE = KMAX/2*2+1;
+static int UISIZE = (IMAX+1)/2*2+1;
+static int UJSIZE = (JMAX+1)/2*2+1;
+static int UKSIZE = (KMAX+1)/2*2+1;
 
 /* COMMON block: work_1d */
 static double cuf[PROBLEM_SIZE];
