@@ -304,15 +304,18 @@ c-------------------------------------------------------------------*/
 
   double dtemp[5], xi, eta, zeta, dtpp;
   int m, i, j, k, ip1, im1, jp1, jm1, km1, kp1;
+  int grid_points0 = grid_points[0];
+  int grid_points1 = grid_points[1];
+  int grid_points2 = grid_points[2];
 
 /*--------------------------------------------------------------------
 c     initialize                                  
 c-------------------------------------------------------------------*/
-  //#pragma gfn parallel_for input(grid_points) size(grid_points:3) \
-  //  input(forcing) size()
-  for (i = 0; i < grid_points[0]; i++) {
-    for (j = 0; j < grid_points[1]; j++) {
-      for (k = 0; k < grid_points[2]; k++) {
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    output(forcing[isize][jsize][ksize][5+1])
+  for (i = 0; i < grid_points0; i++) {
+    for (j = 0; j < grid_points1; j++) {
+      for (k = 0; k < grid_points2; k++) {
 	for (m = 0; m < 5; m++) {
 	  forcing[i][j][k][m] = 0.0;
 	}
@@ -636,7 +639,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 --------------------------------------------------------------------*/
 
-//#pragma gfn use_in_parallel
+#pragma gfn use_in_parallel
 static void exact_solution(double xi, double eta, double zeta,
 			   double dtemp[5]) {
 
@@ -685,8 +688,7 @@ c  the corner elements are not used, but it convenient (and faster)
 c  to compute the whole thing with a simple loop. Make sure those 
 c  values are nonzero by initializing the whole thing here. 
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for input(IMAX) \
-//  output(u[UISIZE][UJSIZE][UKSIZE][5])
+//  #pragma gfn parallel_for output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < IMAX; i++) {
     for (j = 0; j < IMAX; j++) {
       for (k = 0; k < IMAX; k++) {
@@ -703,7 +705,7 @@ c-------------------------------------------------------------------*/
 
 //#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
 // input(dnxm1,dnym1,dnzm1) temp(Pface[2][3][5]) \
-// output(u[UISIZE][UJSIZE][UKSIZE][5])
+// output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     
@@ -753,8 +755,9 @@ c     west face
 c-------------------------------------------------------------------*/
   i = 0;
   xi = 0.0;
-//#pragma gfn parallel_for input(grid_points1,grid_points2,i,xi,dnym1) temp(temp[5])
-//  output(u[UISIZE][UJSIZE][UKSIZE][5])
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,xi,dnym1,dnzm1) \
+//    temp(temp[5]) output(u[uisize][ujsize][uksize][5])
   for (j = 0; j < grid_points1; j++) {
     eta = (double)j * dnym1;
     for (k = 0; k < grid_points2; k++) {
@@ -772,8 +775,9 @@ c-------------------------------------------------------------------*/
 
   i = grid_points[0]-1;
   xi = 1.0;
-//#pragma gfn parallel_for input(grid_points1,grid_points2,i,xi,dnym1) temp(temp[5])
-//  output(u[UISIZE][UJSIZE][UKSIZE][5])
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,xi,dnym1,dnzm1) temp(temp[5]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (j = 0; j < grid_points1; j++) {
     eta = (double)j * dnym1;
     for (k = 0; k < grid_points2; k++) {
@@ -790,8 +794,9 @@ c     south face
 c-------------------------------------------------------------------*/
   j = 0;
   eta = 0.0;
-//#pragma gfn parallel_for input(grid_points0,grid_points2,j,eta,dnym1) temp(temp[5])
-//  output(u[UISIZE][UJSIZE][UKSIZE][5])
+//  #pragma gfn parallel_for input(grid_points0,grid_points2) \
+//    input(j,eta,dnxm1,dnzm1) temp(temp[5]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     for (k = 0; k < grid_points2; k++) {
@@ -808,7 +813,9 @@ c     north face
 c-------------------------------------------------------------------*/
   j = grid_points[1]-1;
   eta = 1.0;
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points2) \
+//    input(j,eta,dnxm1,dnzm1) temp(temp[5]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     for (k = 0; k < grid_points2; k++) {
@@ -825,7 +832,9 @@ c     bottom face
 c-------------------------------------------------------------------*/
   k = 0;
   zeta = 0.0;
-//#pragma omp for nowait
+//  #pragma gfn parallel_for input(grid_points0,grid_points1) \
+//    input(k,zeta,dnxm1,dnym1) temp(temp[5]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i *dnxm1;
     for (j = 0; j < grid_points1; j++) {
@@ -842,7 +851,9 @@ c     top face
 c-------------------------------------------------------------------*/
   k = grid_points[2]-1;
   zeta = 1.0;
-//#pragma omp for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1) \
+//    input(k,zeta,dnxm1,dnym1) temp(temp[5]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     for (j = 0; j < grid_points1; j++) {
@@ -871,8 +882,8 @@ static void lhsinit(void) {
 /*--------------------------------------------------------------------
 c     zero the whole left hand side for starters
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
-//  output(lhs[ISIZE][JSIZE][KSIZE][3][5][5])
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    output(lhs[isize][jsize][ksize][3][5][5])
   for (i = 0; i < grid_points0; i++) {
     for (j = 0; j < grid_points1; j++) {
       for (k = 0; k < grid_points2; k++) {
@@ -890,8 +901,8 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     next, set all diagonal values to 1. This is overkill, but convenient
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
-//  output(lhs[ISIZE][JSIZE][KSIZE][3][5][5])
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    output(lhs[isize][jsize][ksize][3][5][5])
   for (i = 0; i < grid_points0; i++) {
     for (j = 0; j < grid_points1; j++) {
       for (k = 0; k < grid_points2; k++) {
@@ -922,8 +933,14 @@ c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
 c     determine a (labeled f) and n jacobians
-c-------------------------------------------------------------------*/  
-//#pragma gfn parallel_for input(grid_points1,grid_points2,grid_points0)
+c-------------------------------------------------------------------*/ 
+// TODO: fjac and njac is temp or output 
+//  #pragma gfn parallel_for input(grid_points1,grid_points2,grid_points0) \
+//    input(c2,c1,con43,c3c4,c1345,tx1,tx2,dx1,dx2,dx3,dx4,dx5) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    output(fjac[isize][jsize][jacksize][5][5]) \
+//    output(njac[isize][jsize][jacksize][5][5]) \
+//    output(lhs[isize][jsize][ksize][3][5][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (i = 0; i < grid_points0; i++) {
@@ -1019,7 +1036,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     now jacobians set, so form left hand side in x direction
 c-------------------------------------------------------------------*/
-      for (i = 1; i < grid_points[0]-1; i++) {
+      for (i = 1; i < grid_points0-1; i++) {
 
 	tmp1 = dt * tx1;
 	tmp2 = dt * tx2;
@@ -1210,7 +1227,12 @@ c-------------------------------------------------------------------*/
 c     Compute the indices for storing the tri-diagonal matrix;
 c     determine a (labeled f) and n jacobians for cell c
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for
+// TODO: fjac and njac is temp or output
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(c2,c1,c3c4,con43,c1345) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    output(fjac[isize][jsize][jacksize][5][5]) \
+//    output(njac[isize][jsize][jacksize][5][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 0; j < grid_points1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
@@ -1238,7 +1260,7 @@ c-------------------------------------------------------------------*/
 			     + u[i][j][k][3] * u[i][j][k][3] )
 			  * tmp2 );
 	fjac[i][j][k][2][1] = - c2 *  u[i][j][k][1] * tmp1;
-	fjac[i][j][k][2][2] = ( 2.0 - c2 )
+	fjac[i][j][k][2][2] = ( 2.0 - c2 ) 
 	  *  u[i][j][k][2] * tmp1;
 	fjac[i][j][k][2][3] = - c2 * u[i][j][k][3] * tmp1;
 	fjac[i][j][k][2][4] = c2;
@@ -1312,8 +1334,11 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     now joacobians set, so form left hand side in y direction
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
-//  input(dt,ty1,ty2) input(fjac[][][][][]) output(lhs)
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dt,ty1,ty2,dy1,dy2,dy3,dy4,dy5) \
+//    input(fjac[isize][jsize][jacksize][5][5]) \
+//    input(njac[isize][jsize][jacksize][5][5]) \
+//    output(lhs[isize][jsize][ksize][3][5][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
@@ -1508,7 +1533,10 @@ c-------------------------------------------------------------------*/
 c     Compute the indices for storing the block-diagonal matrix;
 c     determine c (labeled f) and s jacobians
 c---------------------------------------------------------------------*/
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    output(fjac[isize][jsize][jacksize][5][5]) \
+//    output(njac[isize][jsize][jacksize][5][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 0; k < grid_points2; k++) {
@@ -1609,7 +1637,11 @@ c---------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     now jacobians set, so form left hand side in z direction
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dt,tz1,tz2,dz1,dz2,dz3,dz4)
+//    input(fjac[isize][jsize][jacksize][5][5]) \
+//    input(njac[isize][jsize][jacksize][5][5]) \
+//    output(lhs[isize][jsize][ksize][3][5][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
@@ -1797,7 +1829,15 @@ static void compute_rhs(void) {
 c     compute the reciprocal of density, and the kinetic energy, 
 c     and the speed of sound.
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2)
+// TODO: square is temp or output ?
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    output(rho_i[isize][jsize][ksize]) \
+//    output(us[isize][jsize][ksize]) \
+//    output(vs[isize][jsize][ksize]) \
+//    output(ws[isize][jsize][ksize]) \
+//    output(square[isize][jsize][ksize]) \
+//    output(qs[isize][jsize][ksize])
   for (i = 0; i < grid_points0; i++) {
     for (j = 0; j < grid_points1; j++) {
       for (k = 0; k < grid_points2; k++) {
@@ -1820,7 +1860,9 @@ c this forcing term is known, we can store it on the whole grid
 c including the boundary                   
 c-------------------------------------------------------------------*/
 
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(forcing[isize][jsize][ksize][5+1]) \
+//    output(rhs[isize][jsize][ksize][5])
   for (i = 0; i < grid_points0; i++) {
     for (j = 0; j < grid_points1; j++) {
       for (k = 0; k < grid_points2; k++) {
@@ -1834,7 +1876,14 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     compute xi-direction fluxes 
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dx1tx1,tx2,dx2tx1,xxcon2,con43,dx4tx1) \
+//    input(us[isize][jsize][ksize]) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    input(square[isize][jsize][ksize]) \
+//    input(vs[isize][jsize][ksize]) \
+//    input(ws[isize][jsize][ksize]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
@@ -1895,7 +1944,10 @@ c-------------------------------------------------------------------*/
 c     add fourth order xi-direction dissipation               
 c-------------------------------------------------------------------*/
   i = 1;
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,dssp) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (m = 0; m < 5; m++) {
@@ -1907,7 +1959,10 @@ c-------------------------------------------------------------------*/
   }
 
   i = 2;
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,dssp) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (m = 0; m < 5; m++) {
@@ -1918,13 +1973,16 @@ c-------------------------------------------------------------------*/
     }
   }
 
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dssp) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (i = 3; i < grid_points0-3; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
 	for (m = 0; m < 5; m++) {
 	  rhs[i][j][k][m] = rhs[i][j][k][m] - dssp * 
-	    (  u[i-2][j][k][m] - 4.0*u[i-1][j][k][m] + 
+ 	    (  u[i-2][j][k][m] - 4.0*u[i-1][j][k][m] + 
 	       6.0*u[i][j][k][m] - 4.0*u[i+1][j][k][m] + 
 	       u[i+2][j][k][m] );
 	}
@@ -1933,8 +1991,10 @@ c-------------------------------------------------------------------*/
   }
          
   i = grid_points[0]-3;
-//#pragma gfn parallel_for input(grid_points1,grid_points2) \
-//  input(i,dssp)
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,dssp) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (m = 0; m < 5; m++) {
@@ -1946,7 +2006,10 @@ c-------------------------------------------------------------------*/
   }
 
   i = grid_points[0]-2;
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points1,grid_points2) \
+//    input(i,dssp) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (m = 0; m < 5; m++) {
@@ -1960,7 +2023,13 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     compute eta-direction fluxes 
 c-------------------------------------------------------------------*/
-//#pragma gfn parallel_for
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dy1ty1,ty2,dy2ty1,yycon2,c2,dy3ty1,con43,dy4ty1,dy5ty1,yycon3,yycon4,yycon5) \
+//    input(vs[isize][jsize][ksize]) \
+//    input(u[uisize][ujsize][uksize][5]) \
+//    input(us[isize][jsize][ksize]) \
+//    input(square[isize][jsize][ksize]) \
+//    inout(rhs[isize][jsize][ksize][5])
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
       for (k = 1; k < grid_points2-1; k++) {
@@ -2193,7 +2262,7 @@ c-------------------------------------------------------------------*/
 
   k = grid_points[2]-2;
 //#pragma gfn parallel_for input(grid_points0,grid_points1) \
-//  input(k,dssp) inout(rhs[ISIZE][JSIZE][KSIZE][5])
+//  input(k,dssp) inout(rhs[isize][jsize][ksize][5])
 //  input(u)
   for (i = 1; i < grid_points0-1; i++) {
     for (j = 1; j < grid_points1-1; j++) {
@@ -2206,7 +2275,7 @@ c-------------------------------------------------------------------*/
   }
 
 //#pragma gfn parallel_for input(grid_points1,grid_points2,grid_points0) \
-//  input(dt) inout(rhs[ISIZE][JSIZE][KSIZE][5])
+//  input(dt) inout(rhs[isize][jsize][ksize][5])
   for (j = 1; j < grid_points1-1; j++) {
     for (k = 1; k < grid_points2-1; k++) {
       for (m = 0; m < 5; m++) {

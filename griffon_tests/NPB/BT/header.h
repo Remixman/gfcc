@@ -17,7 +17,7 @@ c                     config file
 c      niter_default: default number of iterations for this problem size
 --------------------------------------------------------------------*/
 
-#ifdef _GFN
+#ifdef _GRIFFON
 #include <gfn.h>
 #endif
 #include "npbparams.h"
@@ -71,13 +71,6 @@ static double u[(IMAX+1)/2*2+1][(JMAX+1)/2*2+1][(KMAX+1)/2*2+1][5];
 static double rhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][5];
 static double lhs[IMAX/2*2+1][JMAX/2*2+1][KMAX/2*2+1][3][5][5];
 
-static int ISIZE = IMAX/2*2+1;
-static int JSIZE = JMAX/2*2+1;
-static int KSIZE = KMAX/2*2+1;
-static int UISIZE = (IMAX+1)/2*2+1;
-static int UJSIZE = (JMAX+1)/2*2+1;
-static int UKSIZE = (KMAX+1)/2*2+1;
-
 /* COMMON block: work_1d */
 static double cuf[PROBLEM_SIZE];
 static double q[PROBLEM_SIZE];
@@ -97,3 +90,27 @@ static double njac[IMAX/2*2+1][JMAX/2*2+1][KMAX-1+1][5][5];
 /* njac(5, 5, 0:IMAX/2*2, 0:JMAX/2*2, 0:KMAX-1) */
 static double tmp1, tmp2, tmp3;
 
+static int isize = IMAX/2*2+1;
+static int jsize = JMAX/2*2+1;
+static int ksize = KMAX/2*2+1;
+static int jacksize = KMAX-1+1;
+static int uisize = (IMAX+1)/2*2+1;
+static int ujsize = (JMAX+1)/2*2+1;
+static int uksize = (KMAX+1)/2*2+1;
+
+/*
+
+u[uisize][ujsize][uksize][5]
+lhs[isize][jsize][ksize][3][5][5]
+fjac[isize][jsize][jacksize][5][5]
+njac[isize][jsize][jacksize][5][5]
+rho_i[isize][jsize][ksize]
+us[isize][jsize][ksize]
+vs[isize][jsize][ksize]
+ws[isize][jsize][ksize]
+qs[isize][jsize][ksize]
+square[isize][jsize][ksize]
+forcing[isize][jsize][ksize][5+1]
+rhs[isize][jsize][ksize][5]
+
+*/
