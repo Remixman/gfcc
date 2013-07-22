@@ -44,7 +44,7 @@ static void error_norm(double rms[5]);
 static void rhs_norm(double rms[5]);
 static void exact_rhs(void);
 static void exact_solution(double xi, double eta, double zeta,
-			   double dtemp[5]);
+			   double ce[5][13], double dtemp[5]);
 static void initialize(void);
 static void lhsinit(void);
 static void lhsx(void);
@@ -237,7 +237,7 @@ c-------------------------------------------------------------------*/
       eta = (double)j * dnym1;
       for (k = 0; k < grid_points[2]; k++) {
 	zeta = (double)k * dnzm1;
-	exact_solution(xi, eta, zeta, u_exact);
+	exact_solution(xi, eta, zeta, ce, u_exact);
 
 	for (m = 0; m < 5; m++) {
 	  add = u[i][j][k][m] - u_exact[m];
@@ -336,7 +336,7 @@ c-------------------------------------------------------------------*/
       for (i = 0; i < grid_points[0]; i++) {
 	xi = (double)i * dnxm1;
 
-	exact_solution(xi, eta, zeta, dtemp);
+	exact_solution(xi, eta, zeta, ce, dtemp);
 	for (m = 0; m < 5; m++) {
 	  ue[i][m] = dtemp[m];
 	}
@@ -435,7 +435,7 @@ c-------------------------------------------------------------------*/
       for (j = 0; j < grid_points[1]; j++) {
 	eta = (double)j * dnym1;
 
-	exact_solution(xi, eta, zeta, dtemp);
+	exact_solution(xi, eta, zeta, ce, dtemp);
 	for (m = 0; m < 5; m++) {
 	  ue[j][m] = dtemp[m];
 	}
@@ -535,7 +535,7 @@ c-------------------------------------------------------------------*/
       for (k = 0; k < grid_points[2]; k++) {
 	zeta = (double)k * dnzm1;
 
-	exact_solution(xi, eta, zeta, dtemp);
+	exact_solution(xi, eta, zeta, ce, dtemp);
 	for (m = 0; m < 5; m++) {
 	  ue[k][m] = dtemp[m];
 	}
@@ -641,7 +641,7 @@ c-------------------------------------------------------------------*/
 
 #pragma gfn use_in_parallel
 static void exact_solution(double xi, double eta, double zeta,
-			   double dtemp[5]) {
+			   double ce[5][13], double dtemp[5]) {
 
 /*--------------------------------------------------------------------
 --------------------------------------------------------------------*/
@@ -703,9 +703,10 @@ c-------------------------------------------------------------------*/
 c     first store the "interpolated" values everywhere on the grid    
 c-------------------------------------------------------------------*/
 
-//#pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
-// input(dnxm1,dnym1,dnzm1) temp(Pface[2][3][5]) \
-// output(u[uisize][ujsize][uksize][5])
+//  #pragma gfn parallel_for input(grid_points0,grid_points1,grid_points2) \
+//    input(dnxm1,dnym1,dnzm1) temp(Pface[2][3][5]) \
+//    input(ce[5][13]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     
@@ -716,17 +717,17 @@ c-------------------------------------------------------------------*/
 	zeta = (double)k * dnzm1;
                   
 	for (ix = 0; ix < 2; ix++) {
-	  exact_solution((double)ix, eta, zeta, 
+	  exact_solution((double)ix, eta, zeta, ce,
                          &(Pface[ix][0][0]));
 	}
 
 	for (iy = 0; iy < 2; iy++) {
-	  exact_solution(xi, (double)iy , zeta, 
+	  exact_solution(xi, (double)iy , zeta, ce,
                          &Pface[iy][1][0]);
 	}
 
 	for (iz = 0; iz < 2; iz++) {
-	  exact_solution(xi, eta, (double)iz,   
+	  exact_solution(xi, eta, (double)iz, ce,
                          &Pface[iz][2][0]);
 	}
 
@@ -762,7 +763,7 @@ c-------------------------------------------------------------------*/
     eta = (double)j * dnym1;
     for (k = 0; k < grid_points2; k++) {
       zeta = (double)k * dnzm1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
@@ -782,7 +783,7 @@ c-------------------------------------------------------------------*/
     eta = (double)j * dnym1;
     for (k = 0; k < grid_points2; k++) {
       zeta = (double)k * dnzm1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
@@ -801,7 +802,7 @@ c-------------------------------------------------------------------*/
     xi = (double)i * dnxm1;
     for (k = 0; k < grid_points2; k++) {
       zeta = (double)k * dnzm1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
@@ -820,7 +821,7 @@ c-------------------------------------------------------------------*/
     xi = (double)i * dnxm1;
     for (k = 0; k < grid_points2; k++) {
       zeta = (double)k * dnzm1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
@@ -839,7 +840,7 @@ c-------------------------------------------------------------------*/
     xi = (double)i *dnxm1;
     for (j = 0; j < grid_points1; j++) {
       eta = (double)j * dnym1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
@@ -858,7 +859,7 @@ c-------------------------------------------------------------------*/
     xi = (double)i * dnxm1;
     for (j = 0; j < grid_points1; j++) {
       eta = (double)j * dnym1;
-      exact_solution(xi, eta, zeta, temp);
+      exact_solution(xi, eta, zeta, ce, temp);
       for (m = 0; m < 5; m++) {
 	u[i][j][k][m] = temp[m];
       }
