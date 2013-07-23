@@ -883,10 +883,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         if (idx >= 0)
         {
             if (kernel_info->_var_info[idx]._is_use == false)
-            {
                 kernel_info->_var_info[idx]._is_def_before_use = true;
-                kernel_info->_var_info[idx]._is_input = true;
-            }
             kernel_info->_var_info[idx]._is_def = true;
         }
         //else
