@@ -312,7 +312,6 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     kernel_info->loop_index_var_name = for_statement.get_induction_variable()
             .get_symbol().get_name();
     collect_loop_info(for_statement, kernel_info);
-    find_use_and_def_list(loop_body, kernel_info);
     collect_variable_info(loop_body, kernel_info);
 
     // get data from clauses
@@ -334,23 +333,30 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     // DEBUG: print use and def list
     std::cout << "\n====================================================\n";
     std::cout << "USE LIST for kernel\n";
-    for (ObjectList<DataReference>::iterator it = kernel_info->_use_list.begin();
-         it != kernel_info->_use_list.end();
-         ++it)
+    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
+        it != kernel_info->_var_info.end(); ++it)
     {
-        std::string var = it->prettyprint();
-        std::cout << " - " << var << "\n";
+        if (it->_is_use)
+            std::cout << " - " << it->_name << "\n";
     }
     std::cout << "====================================================\n";
     std::cout << "DEF LIST for kernel\n";
-    for (ObjectList<DataReference>::iterator it = kernel_info->_def_list.begin();
-         it != kernel_info->_def_list.end();
-         ++it)
+    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
+        it != kernel_info->_var_info.end(); ++it)
     {
-        std::string var = it->prettyprint();
-        std::cout << " - " << var << "\n";
+        if (it->_is_def)
+            std::cout << " - " << it->_name << "\n";
+    }
+    std::cout << "====================================================\n";
+    std::cout << "DEF BEFORE USE LIST for kernel\n";
+    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
+        it != kernel_info->_var_info.end(); ++it)
+    {
+        if (it->_is_def_before_use)
+            std::cout << " - " << it->_name << "\n";
     }
     std::cout << "====================================================\n\n";
+    
     
     parallel_for_fun(construct, for_statement, kernel_info, 
                      _scope_link, _translation_unit, _kernel_decl_file);
@@ -690,20 +696,18 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             if (idx != -1)
             {
                 //std::cout << "Found " << copy_type_str << " : " << *it << std::endl;
+                kernel_info->_var_info[idx]._is_input = false;
+                kernel_info->_var_info[idx]._is_output = false;
+                kernel_info->_var_info[idx]._is_temp = false;   
+                
                 if (copy_type_str == "input")
                     kernel_info->_var_info[idx]._is_input = true;
                 else if (copy_type_str == "output")
                     kernel_info->_var_info[idx]._is_output = true;
                 else if (copy_type_str == "inout")
-                {
-                    kernel_info->_var_info[idx]._is_input = true;
-                    kernel_info->_var_info[idx]._is_output = true;
-                }
+                    kernel_info->_var_info[idx]._is_input = kernel_info->_var_info[idx]._is_output = true;
                 else if (copy_type_str == "temp")
-                {
-                    kernel_info->_var_info[idx]._is_input = false;
-                    kernel_info->_var_info[idx]._is_output = false;
-                }
+                    kernel_info->_var_info[idx]._is_temp = true;
                 else std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
                               
                 // Save dimension size data
@@ -808,78 +812,6 @@ void GFNPragmaPhase::get_pattern_clause(PragmaCustomClause &pattern_clause,
     }
 }
 
-void GFNPragmaPhase::find_use_and_def_list(TL::Statement compound_stmt,
-                                           KernelInfo *kernel_info)
-{
-
-    /*if (!compound_stmt.is_compound_statement())
-    {
-        std::cerr
-            << "Error at gfn-parallel_for.cpp:find_use_and_def_list\n";
-        return;
-    }*/
-
-    ObjectList<Statement> statements;
-    if (compound_stmt.is_compound_statement())
-    {
-        statements = compound_stmt.get_inner_statements();
-    }
-    else
-    {
-        statements.push_back(compound_stmt);
-    }
-
-    /* FIXME: if def before use eg.
-     * A[i] = 6;
-     * B[i] = A[i];
-     * A is def but also use;
-     *
-     * A[i] = 6
-     * B[i] = A[i-1]??
-     *
-     * A[i] += 9; ?
-     */
-    for (ObjectList<Statement>::iterator it = statements.begin();
-         it != statements.end();
-         ++it)
-    {
-        Expression expression = it->get_expression();
-        ObjectList<IdExpression> stmt_var_list;
-
-        /* XXX: if pass to function we don't know use or def
-         * add to both list.
-         */
-
-        if (it->is_compound_statement())
-        {
-            find_use_and_def_list(*it, kernel_info);
-        }
-        else if (expression.is_assignment() || expression.is_operation_assignment())
-        {
-            DataReference def_var_ref(expression.get_first_operand());
-
-            kernel_info->push_to_def_list(def_var_ref);
-
-            stmt_var_list = expression.get_second_operand().all_symbol_occurrences(Statement::ONLY_VARIABLES);
-        }
-        else
-        {
-            // XXX: get all variable in statement
-            stmt_var_list = it->all_symbol_occurrences(Statement::ONLY_VARIABLES);
-        }
-
-
-        //
-        for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
-             iit != stmt_var_list.end();
-             iit++)
-        {
-            DataReference data_ref(iit->get_expression());
-            kernel_info->push_to_use_list(data_ref);
-        }
-    }
-}
-
 void GFNPragmaPhase::collect_variable_info(Statement stmt,
                                            KernelInfo *kernel_info)
 {
@@ -890,7 +822,7 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
     else if (ForStatement::predicate(stmt.get_ast()))
     {
         TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
-        // TODO: init, cond, incre ?
+        // TODO: analysis init, cond, incre ? (use/def)
         collect_variable_info(for_stmt.get_loop_body(), kernel_info);
     }
     else if (stmt.is_compound_statement())
@@ -907,12 +839,79 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
     {
         collect_variable_info(stmt.get_expression(), kernel_info);
     }
+    else
+    {
+        std::cerr << "Error in collect_variable_info, What type of this stmt : "
+                  << stmt << "\n";
+    }
 }
 
 void GFNPragmaPhase::collect_variable_info(Expression expr,
                                            KernelInfo *kernel_info,
                                            int found_idx_at)
 {
+    /* FIXME: if def before use eg.
+     * A[i] = 6;
+     * B[i] = A[i];
+     * A is def but also use;
+     *
+     * A[i] = 6
+     * B[i] = A[i-1]??
+     *
+     * A[i] += 9; ?
+     */
+    
+    /* Find USE/DEF section */
+    TL::ObjectList<IdExpression> stmt_var_list;
+    
+    /* XXX: if pass to function we don't know use or def
+     * add to both list.
+     */
+    if (expr.is_assignment() || expr.is_operation_assignment())
+    {
+        //std::cout << "ASSIGN STMT : " << expr.prettyprint() << "\n";
+        stmt_var_list = expr.get_second_operand().all_symbol_occurrences(Statement::ONLY_VARIABLES);
+        
+        Expression tmp_expr = expr.get_first_operand();
+        while (tmp_expr.is_array_subscript()) {
+            stmt_var_list.append( tmp_expr.get_subscript_expression().all_symbol_occurrences(Statement::ONLY_VARIABLES) );
+            tmp_expr = tmp_expr.get_subscripted_expression();
+        }
+        
+        std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
+        int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+        if (idx >= 0)
+        {
+            if (kernel_info->_var_info[idx]._is_use == false)
+            {
+                kernel_info->_var_info[idx]._is_def_before_use = true;
+                kernel_info->_var_info[idx]._is_input = true;
+            }
+            kernel_info->_var_info[idx]._is_def = true;
+        }
+        //else
+            // TOOD: error
+    }
+    else
+    {
+        stmt_var_list = expr.all_symbol_occurrences(Statement::ONLY_VARIABLES);
+    }
+    
+    // Add to use list
+    for (ObjectList<IdExpression>::iterator iit = stmt_var_list.begin();
+         iit != stmt_var_list.end();
+         iit++)
+    {
+        std::string var_name = iit->get_symbol().get_name();
+        int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+        
+        if (idx >= 0)
+            kernel_info->_var_info[idx]._is_use = true;
+        //else
+            // TOOD: error
+    }
+    /* End Find USE/DEF */
+    
     if (expr.is_id_expression())
     {
         IdExpression id_expr = expr.get_id_expression();

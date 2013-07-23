@@ -2665,9 +2665,9 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
 
                 // 6. TL::run and TL::phase_cleanup
-                printf("before griffon run\n");
+                //printf("before griffon run\n");
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
-                printf("after griffon run\n");
+                //printf("after griffon run\n");
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)

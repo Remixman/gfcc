@@ -758,7 +758,8 @@ c-------------------------------------------------------------------*/
   xi = 0.0;
 //  #pragma gfn parallel_for input(grid_points1,grid_points2) \
 //    input(i,xi,dnym1,dnzm1) \
-//    temp(temp[5]) output(u[uisize][ujsize][uksize][5])
+//    temp(temp[5]) input(ce[5][13]) \
+//    output(u[uisize][ujsize][uksize][5])
   for (j = 0; j < grid_points1; j++) {
     eta = (double)j * dnym1;
     for (k = 0; k < grid_points2; k++) {
@@ -777,7 +778,8 @@ c-------------------------------------------------------------------*/
   i = grid_points[0]-1;
   xi = 1.0;
 //  #pragma gfn parallel_for input(grid_points1,grid_points2) \
-//    input(i,xi,dnym1,dnzm1) temp(temp[5]) \
+//    input(i,xi,dnym1,dnzm1) \
+//    temp(temp[5]) input(ce[5][13]) \
 //    output(u[uisize][ujsize][uksize][5])
   for (j = 0; j < grid_points1; j++) {
     eta = (double)j * dnym1;

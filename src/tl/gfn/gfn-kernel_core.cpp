@@ -154,57 +154,6 @@ ObjectList<DataReference> KernelInfo::get_private_list()
     return _private_list;
 }
 
-int KernelInfo::get_use_list_index(std::string var)
-{
-    int i = 0;
-    for (ObjectList<DataReference>::iterator it = _use_list.begin();
-         it != _use_list.end();
-         ++it, ++i)
-    {
-        if (it->get_base_symbol().get_name() == var)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int KernelInfo::get_def_list_index(std::string var)
-{
-    int i = 0;
-    for (ObjectList<DataReference>::iterator it = _def_list.begin();
-         it != _def_list.end();
-         ++it, ++i)
-    {
-        if (it->get_base_symbol().get_name() == var)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void KernelInfo::push_to_use_list(DataReference &data_ref)
-{
-    if (loop_index_var_name == data_ref.get_base_symbol().get_name())
-    {
-        return;
-    }
-
-    if (get_use_list_index(data_ref.get_base_symbol().get_name()) == -1)
-    {
-        _use_list.push_back(data_ref);
-    }
-}
-
-void KernelInfo::push_to_def_list(DataReference &data_ref)
-{
-    if (get_def_list_index(data_ref.get_base_symbol().get_name()) == -1)
-    {
-        _def_list.push_back(data_ref);
-    }
-}
-
 std::string KernelInfo::get_full_size()
 {
     for (int i = 0; i < _var_info.size(); ++i)

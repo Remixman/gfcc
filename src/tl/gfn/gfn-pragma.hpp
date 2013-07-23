@@ -98,8 +98,6 @@ namespace TL
                                         std::string inout_pattern);
 
                 // TODO: Change name to gather_data_for_analysis (and write data that it graps)
-                void find_use_and_def_list(Statement compound_stmt,
-                                           KernelInfo *kernel_info);
                 void collect_variable_info(Statement stmt,
                                            KernelInfo *kernel_info);
                 void collect_variable_info(Expression expr,

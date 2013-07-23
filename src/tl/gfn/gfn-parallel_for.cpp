@@ -382,7 +382,19 @@ TL::Source ParallelFor::do_parallel_for()
         //std::cout << i << ". Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         /* 1. Declaration necessary variable */
-        if (var_info._is_array_or_pointer)
+        if (var_info._is_temp)
+        {
+            // define as size in temp() clause
+            TL::Source tmp_decl_src;
+            tmp_decl_src << c_type_str << " " << var_name;
+            for (int i = 0; i < var_info._dimension_num; ++i)
+                tmp_decl_src << "[" << var_info._dim_size[i] << "]";
+            tmp_decl_src << ";";
+                
+            worker_declare_variables_src << tmp_decl_src;
+            cl_kernel_var_decl << tmp_decl_src;
+        }
+        else if (var_info._is_array_or_pointer)
         {
             worker_declare_variables_src
                 << c_type_str << ptr_stars << var_name << ";";
@@ -393,7 +405,7 @@ TL::Source ParallelFor::do_parallel_for()
                 << c_type_str << " " << var_local_name << " = "
                 << reduction_op_init_value(var_info._reduction_type) << ";";
         }*/
-        else 
+        else
         {
             worker_declare_variables_src
                 << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
@@ -628,7 +640,8 @@ TL::Source ParallelFor::do_parallel_for()
     std::vector<bool> cl_replace_types(GFN_REPLACE_LAST_TYPE, false);
     cl_replace_types[GFN_REPLACE_ARRAY_ND] = true;
     cl_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
-    replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);std::cout << "After replace\n";
+    replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);
+    std::cout << "After replace\n";
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     cl_set_kernel_arg
@@ -927,6 +940,9 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
             if(debug)std::cout<<"REP INDEX : "<<idx<<"\n";
             VariableInfo var_info = _kernel_info->_var_info[idx];
+            
+            if (var_info._is_temp) return; // Don't need to replace temp variable
+            
             std::string dim1_size = (_kernel_info->_var_info[idx]._dimension_num >= 1)?
                 (std::string)_kernel_info->_var_info[idx]._dim_size[0] : "1";
             std::string dim2_size = (_kernel_info->_var_info[idx]._dimension_num >= 2)?
@@ -1077,9 +1093,13 @@ void ParallelFor::replace_loop_index_name(Expression expr,
     if (expr.is_id_expression())
     {
         std::string var_name = expr.get_id_expression().get_symbol().get_name();
-        if (var_name == old_name)
+        int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
+        std::cout << var_name << " index is " << idx << ((_kernel_info->_var_info[idx]._is_temp)? " and temp" : " and not temp")
+            << "\n";
+        if (var_name == old_name &&
+            !_kernel_info->_var_info[idx]._is_temp) /// Don't need to replace temp variable
         {
-        TL::Source new_name_expr;
+            TL::Source new_name_expr;
             new_name_expr << new_name;
 
             std::cout << "REPLACE {" << (std::string)var_name << "} with {" << (std::string)new_name_expr << "}\n";

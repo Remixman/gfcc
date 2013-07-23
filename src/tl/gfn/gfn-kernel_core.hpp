@@ -67,19 +67,24 @@ namespace TL
             // TODO: change to bit
             bool            _is_input;
             bool            _is_output;
+            bool            _is_temp;
             bool            _is_index;
             bool            _is_reduction;
             bool            _is_array_or_pointer;
+            bool            _is_loop_variable; // use in for expr e.g. 'n' in for(i=0;i<n;i++)
+            
             bool            _is_use;
             bool            _is_prop_use; // e.g. pass reference to function
             bool            _is_def;
-            bool            _is_loop_variable; // use in for expr e.g. 'n' in for(i=0;i<n;i++)
+            bool            _is_def_before_use;
+            
 
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(-1), _dimension_num(0),
-                _is_input(0), _is_output(0), _is_index(0), _is_reduction(0),
-                _is_array_or_pointer(0), _is_use(0), _is_prop_use(0), _is_def(0), _is_loop_variable(0),
+                _is_input(0), _is_output(0), _is_temp(0), _is_index(0), _is_reduction(0),
+                _is_array_or_pointer(0), _is_loop_variable(0), _is_use(0), _is_prop_use(0), 
+                _is_def(0), _is_def_before_use(0),
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
             }
 
@@ -142,11 +147,6 @@ namespace TL
 
                 void set_private_list(ObjectList<DataReference> &private_list);
                 ObjectList<DataReference> get_private_list();
-
-                int get_use_list_index(std::string var);
-                int get_def_list_index(std::string var);
-                void push_to_use_list(DataReference &data_ref);
-                void push_to_def_list(DataReference &data_ref);
                 
                 // return empty if don't have partitioned shared array
                 std::string get_full_size();
@@ -155,8 +155,6 @@ namespace TL
 
                 std::string loop_index_var_name;
                 bool _has_reduction_clause;
-                ObjectList<DataReference> _use_list;
-                ObjectList<DataReference> _def_list;
 
                 std::string _level_1_condition;
                 std::string _level_2_condition;
