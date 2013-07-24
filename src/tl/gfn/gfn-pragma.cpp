@@ -313,6 +313,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
             .get_symbol().get_name();
     collect_loop_info(for_statement, kernel_info);
     collect_variable_info(loop_body, kernel_info);
+    post_collect_variable_info(kernel_info);
 
     // get data from clauses
     get_kernelname_clause(construct, kernel_info);
@@ -1038,6 +1039,25 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     {
         std::cerr << "Error in collect_variable_info, What type of this expr : "
                   << expr << "\n";
+    }
+}
+
+void GFNPragmaPhase::post_collect_variable_info(KernelInfo *kernel_info)
+{
+    TL::ObjectList< VariableInfo > &var_info_list = kernel_info->_var_info;
+    
+    for (TL::ObjectList< VariableInfo >::iterator it = var_info_list.begin();
+        it != var_info_list.end(); ++it)
+    {
+        VariableInfo &var_info = *it;
+        
+        /*  */
+        if (var_info._is_use && !var_info._is_def_before_use)
+        {
+            var_info._is_input = true;
+        }
+        
+        /* assert */
     }
 }
 
