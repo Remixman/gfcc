@@ -107,6 +107,8 @@ namespace TL
                 void post_collect_variable_info(KernelInfo *kernel_info);
                 void collect_loop_info(ForStatement for_stmt,
                                        KernelInfo *kernel_info);
+                
+                void show_variable_prop(KernelInfo *kernel_info);
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;

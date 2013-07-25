@@ -312,8 +312,13 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     kernel_info->loop_index_var_name = for_statement.get_induction_variable()
             .get_symbol().get_name();
     collect_loop_info(for_statement, kernel_info);
+    {
+        collect_variable_info(for_statement.get_lower_bound(), kernel_info);
+        collect_variable_info(for_statement.get_upper_bound(), kernel_info);
+        collect_variable_info(for_statement.get_step(), kernel_info);
+    }
     collect_variable_info(loop_body, kernel_info);
-    post_collect_variable_info(kernel_info);
+    post_collect_variable_info(kernel_info); // XXX: must call before process in/out clauses
 
     // get data from clauses
     get_kernelname_clause(construct, kernel_info);
@@ -332,7 +337,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_out_pattern_clause(construct, kernel_info);
 
     // DEBUG: print use and def list
-    std::cout << "\n====================================================\n";
+    /*std::cout << "\n====================================================\n";
     std::cout << "USE LIST for kernel\n";
     for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
         it != kernel_info->_var_info.end(); ++it)
@@ -356,8 +361,9 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
         if (it->_is_def_before_use)
             std::cout << " - " << it->_name << "\n";
     }
-    std::cout << "====================================================\n\n";
+    std::cout << "====================================================\n\n";*/
     
+    show_variable_prop(kernel_info);
     
     parallel_for_fun(construct, for_statement, kernel_info, 
                      _scope_link, _translation_unit, _kernel_decl_file);
@@ -695,21 +701,35 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             
             int idx = kernel_info->get_var_info_index_from_var_name(var_name);
             if (idx != -1)
-            {
-                //std::cout << "Found " << copy_type_str << " : " << *it << std::endl;
-                kernel_info->_var_info[idx]._is_input = false;
-                kernel_info->_var_info[idx]._is_output = false;
-                kernel_info->_var_info[idx]._is_temp = false;   
-                
+            {                
                 if (copy_type_str == "input")
+                {
                     kernel_info->_var_info[idx]._is_input = true;
+                    kernel_info->_var_info[idx]._is_output = false;
+                    kernel_info->_var_info[idx]._is_temp = false;
+                }
                 else if (copy_type_str == "output")
+                {
+                    kernel_info->_var_info[idx]._is_input = false;
                     kernel_info->_var_info[idx]._is_output = true;
+                    kernel_info->_var_info[idx]._is_temp = false;
+                }
                 else if (copy_type_str == "inout")
-                    kernel_info->_var_info[idx]._is_input = kernel_info->_var_info[idx]._is_output = true;
+                {
+                    kernel_info->_var_info[idx]._is_input = true;
+                    kernel_info->_var_info[idx]._is_output = true;
+                    kernel_info->_var_info[idx]._is_temp = false;
+                }
                 else if (copy_type_str == "temp")
+                {
+                    kernel_info->_var_info[idx]._is_input = false;
+                    kernel_info->_var_info[idx]._is_output = false;
                     kernel_info->_var_info[idx]._is_temp = true;
-                else std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
+                }
+                else
+                {
+                    std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
+                }
                               
                 // Save dimension size data
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
@@ -824,6 +844,20 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
     {
         TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: analysis init, cond, incre ? (use/def)
+        // if not use before induction variable is def before use
+        std::string ind_var_name = for_stmt.get_induction_variable().get_symbol().get_name();
+        int idx = kernel_info->get_var_info_index_from_var_name(ind_var_name);
+        if (idx >= 0)
+        {
+            if (kernel_info->_var_info[idx]._is_use == false)
+                kernel_info->_var_info[idx]._is_def_before_use = true;
+            kernel_info->_var_info[idx]._is_def = true;
+        }
+        
+        collect_variable_info(for_stmt.get_lower_bound(), kernel_info);
+        collect_variable_info(for_stmt.get_upper_bound(), kernel_info);
+        collect_variable_info(for_stmt.get_step(), kernel_info);
+        
         collect_variable_info(for_stmt.get_loop_body(), kernel_info);
     }
     else if (stmt.is_compound_statement())
@@ -1052,9 +1086,15 @@ void GFNPragmaPhase::post_collect_variable_info(KernelInfo *kernel_info)
         VariableInfo &var_info = *it;
         
         /*  */
-        if (var_info._is_use && !var_info._is_def_before_use)
+        if (var_info._is_use && !var_info._is_def_before_use && !var_info._is_index)
         {
             var_info._is_input = true;
+        }
+        
+        if (var_info._is_array_or_pointer)
+        {
+            var_info._is_input = true;
+            var_info._is_output = true;
         }
         
         /* assert */
@@ -1081,6 +1121,18 @@ void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
         //std::cout << "Upper bound expr : " << (std::string)upper_bound_expr << std::endl;
     }
 }
+
+void GFNPragmaPhase::show_variable_prop(KernelInfo *kernel_info)
+{
+    TL::ObjectList< VariableInfo > &var_info_list = kernel_info->_var_info;
+    
+    for (TL::ObjectList< VariableInfo >::iterator it = var_info_list.begin();
+        it != var_info_list.end(); ++it)
+    {
+        it->print();
+    }
+}
+
 
 
 EXPORT_PHASE(TL::GFN::GFNPragmaPhase)
