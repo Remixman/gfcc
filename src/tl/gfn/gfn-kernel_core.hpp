@@ -102,37 +102,38 @@ namespace TL
             void print();
         };
 
+        //! GFN Transfer Infomation
+        /*!
+          .........
+         */
+        struct LIBGFN_CLASS TransferInfo
+        {
+            public:
+                ObjectList<DataReference> _var_ref;
+                ObjectList<VariableInfo> _var_info;
+                int get_var_info_index_from_var_name(std::string var_name);
+                void sort_var_info();
+                VariableInfo& get_var_info(std::string var_name);
+        };
+        
         //! GFN Kernel Infomation
         /*!
           .........
          */
-        struct LIBGFN_CLASS KernelInfo
+        struct LIBGFN_CLASS KernelInfo : public LIBGFN_CLASS TransferInfo
         {
             private:
                 std::string _kernel_name;
 
                 ObjectList<std::string> _wait_for;
-                ObjectList<std::string> _all_var;
-                
-                ObjectList<DataReference> _private_list;
-
-                ObjectList<std::string> _shared_var;
                 
                 Source _thread_num;
                 Source _block_num;
                 Source _thread_per_block;
 
             public:
-                //operator Source();
-                //operator std::string();
-
                 static int kernel_count;
                 int kernel_id;
-
-                ObjectList<DataReference> _var_ref;
-                ObjectList<VariableInfo> _var_info;
-                int get_var_info_index_from_var_name(std::string var_name);
-                void sort_var_info();
 
                 KernelInfo();
                 KernelInfo(std::string &kernel_name);
@@ -144,9 +145,6 @@ namespace TL
                 Source get_thread_num();
                 void set_wait_for(ObjectList<std::string> &wait_for);
                 ObjectList<std::string> get_wait_for();
-
-                void set_private_list(ObjectList<DataReference> &private_list);
-                ObjectList<DataReference> get_private_list();
                 
                 // return empty if don't have partitioned shared array
                 std::string get_full_size();

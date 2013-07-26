@@ -33,6 +33,62 @@
 using namespace TL;
 using namespace GFN;
 
+
+int TransferInfo::get_var_info_index_from_var_name(std::string var_name)
+{
+    for (int i = 0; i < _var_info.size(); ++i)
+    {
+        if (var_name == _var_info[i]._name)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void TransferInfo::sort_var_info()
+{
+    for (int i = 0; i < _var_info.size(); ++i)
+    {
+        VariableInfo var_i = _var_info[i];
+        int min_size = (var_i._dimension_num == 0)? 1 : 100;
+        int min_idx = i;
+        for (int j = i + 1; j < _var_info.size(); ++j)
+        {
+            VariableInfo var_j = _var_info[j];
+            int j_size = (var_j._dimension_num == 0)? 1 : 100;
+            if (j_size < min_size)
+            {
+                min_size = j_size;
+                min_idx = j;
+            }
+        }
+
+        VariableInfo var_tmp = _var_info[i];
+        _var_info[i] = _var_info[min_idx];
+        _var_info[min_idx] = var_tmp;
+
+        DataReference ref_tmp = _var_ref[i];
+        _var_ref[i] = _var_ref[min_idx];
+        _var_ref[min_idx] = ref_tmp;
+    }
+}
+
+VariableInfo& TransferInfo::get_var_info(std::string var_name)
+{
+    int idx = get_var_info_index_from_var_name(var_name);
+    
+    if (idx >= 0)
+    {
+        return _var_info[idx];
+    }
+    else
+    {
+        std::cerr << "Error : get_var_info " << __FILE__ << ":" << __LINE__ << "\n";
+    }
+}
+
+
 int KernelInfo::kernel_count = 0;
 
 KernelInfo::KernelInfo() : 
@@ -61,46 +117,6 @@ KernelInfo::KernelInfo(std::string &kernel_name) :
 
 KernelInfo::~KernelInfo()
 {
-}
-
-int KernelInfo::get_var_info_index_from_var_name(std::string var_name)
-{
-    for (int i = 0; i < _var_info.size(); ++i)
-    {
-        if (var_name == _var_info[i]._name)
-        {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void KernelInfo::sort_var_info()
-{
-    for (int i = 0; i < _var_info.size(); ++i)
-    {
-        VariableInfo var_i = _var_info[i];
-        int min_size = (var_i._dimension_num == 0)? 1 : 100;
-        int min_idx = i;
-        for (int j = i + 1; j < _var_info.size(); ++j)
-        {
-            VariableInfo var_j = _var_info[j];
-            int j_size = (var_j._dimension_num == 0)? 1 : 100;
-            if (j_size < min_size)
-            {
-                min_size = j_size;
-                min_idx = j;
-            }
-        }
-
-        VariableInfo var_tmp = _var_info[i];
-        _var_info[i] = _var_info[min_idx];
-        _var_info[min_idx] = var_tmp;
-
-        DataReference ref_tmp = _var_ref[i];
-        _var_ref[i] = _var_ref[min_idx];
-        _var_ref[min_idx] = ref_tmp;
-    }
 }
 
 void KernelInfo::set_kernel_name(std::string &name)
@@ -142,16 +158,6 @@ void KernelInfo::set_wait_for(ObjectList<std::string> &wait_for)
 ObjectList<std::string> KernelInfo::get_wait_for()
 {
     return _wait_for;
-}
-
-void KernelInfo::set_private_list(ObjectList<DataReference> &private_list)
-{
-    _private_list = private_list;
-}
-
-ObjectList<DataReference> KernelInfo::get_private_list()
-{
-    return _private_list;
 }
 
 std::string KernelInfo::get_full_size()

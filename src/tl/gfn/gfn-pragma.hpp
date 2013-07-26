@@ -60,6 +60,7 @@ namespace TL
                 void start(PragmaCustomConstruct construct);
                 void finish(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);
+                void data(PragmaCustomConstruct construct);
                 void use_in_parallel(PragmaCustomConstruct construct);
                 void overlapcompute(PragmaCustomConstruct construct);
                 void barrier(PragmaCustomConstruct construct);
@@ -79,15 +80,15 @@ namespace TL
                 void get_size_clause(PragmaCustomConstruct construct,
                                      KernelInfo *kernel_info);
                 void get_input_clause(PragmaCustomConstruct construct,
-                                      KernelInfo *kernel_info);
+                                      TransferInfo *transfer_info);
                 void get_output_clause(PragmaCustomConstruct construct,
-                                       KernelInfo *kernel_info);
+                                       TransferInfo *transfer_info);
                 void get_inout_clause(PragmaCustomConstruct construct,
-                                      KernelInfo *kernel_info);
+                                      TransferInfo *transfer_info);
                 void get_temp_clause(PragmaCustomConstruct construct,
-                                     KernelInfo *kernel_info);
+                                     TransferInfo *transfer_info);
                 void get_copy_clause(PragmaCustomClause &copy_clause,
-                                     KernelInfo *kernel_info,
+                                     TransferInfo *transfer_info,
                                      std::string copy_type_str);
                 void get_in_pattern_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info);

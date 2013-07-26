@@ -163,6 +163,9 @@ GFNPragmaPhase::GFNPragmaPhase()
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
     // XXX: on_directive_pre ???
     
+    register_construct("data");
+    on_directive_post["data"].connect(functor(&GFNPragmaPhase::data, *this));
+    
     register_construct("use_in_parallel");
     on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));
     
@@ -335,33 +338,6 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     
     get_in_pattern_clause(construct, kernel_info);
     get_out_pattern_clause(construct, kernel_info);
-
-    // DEBUG: print use and def list
-    /*std::cout << "\n====================================================\n";
-    std::cout << "USE LIST for kernel\n";
-    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
-        it != kernel_info->_var_info.end(); ++it)
-    {
-        if (it->_is_use)
-            std::cout << " - " << it->_name << "\n";
-    }
-    std::cout << "====================================================\n";
-    std::cout << "DEF LIST for kernel\n";
-    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
-        it != kernel_info->_var_info.end(); ++it)
-    {
-        if (it->_is_def)
-            std::cout << " - " << it->_name << "\n";
-    }
-    std::cout << "====================================================\n";
-    std::cout << "DEF BEFORE USE LIST for kernel\n";
-    for (ObjectList<VariableInfo>::iterator it = kernel_info->_var_info.begin();
-        it != kernel_info->_var_info.end(); ++it)
-    {
-        if (it->_is_def_before_use)
-            std::cout << " - " << it->_name << "\n";
-    }
-    std::cout << "====================================================\n\n";*/
     
     show_variable_prop(kernel_info);
     
@@ -369,6 +345,11 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
                      _scope_link, _translation_unit, _kernel_decl_file);
 
     construct.get_ast().replace(statement.get_ast());
+}
+
+void GFNPragmaPhase::data(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
 }
 
 void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
@@ -554,7 +535,7 @@ void GFNPragmaPhase::get_private_clause(PragmaCustomConstruct construct,
             }
         }
 
-        kernel_info->set_private_list(private_name_list);
+        // TODO: set private flags
     }
 }
 
@@ -599,35 +580,35 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
 }
 
 void GFNPragmaPhase::get_input_clause(TL::PragmaCustomConstruct construct,
-                                      KernelInfo *kernel_info)
+                                      TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause input_clause = construct.get_clause("input");
-    get_copy_clause(input_clause, kernel_info, "input");
+    get_copy_clause(input_clause, transfer_info, "input");
 }
 
 void GFNPragmaPhase::get_output_clause(TL::PragmaCustomConstruct construct,
-                                       KernelInfo *kernel_info)
+                                       TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause output_clause = construct.get_clause("output");
-    get_copy_clause(output_clause, kernel_info, "output");
+    get_copy_clause(output_clause, transfer_info, "output");
 }
 
 void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct, 
-                                      KernelInfo* kernel_info)
+                                      TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
-    get_copy_clause(inout_clause, kernel_info, "inout");
+    get_copy_clause(inout_clause, transfer_info, "inout");
 }
 
 void GFNPragmaPhase::get_temp_clause(PragmaCustomConstruct construct,
-                                     KernelInfo* kernel_info)
+                                     TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause temp_clause = construct.get_clause("temp");
-    get_copy_clause(temp_clause, kernel_info, "temp");
+    get_copy_clause(temp_clause, transfer_info, "temp");
 }
 
 void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
-                                     KernelInfo *kernel_info,
+                                     TransferInfo *transfer_info,
                                      std::string copy_type_str)
 {
     if (copy_clause.is_defined())
@@ -655,7 +636,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                        TODO: for complex expression as size like x+y+z */
                     {
                         ObjectList<IdExpression> symbol_list = subscript_expr.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
-                        ObjectList<VariableInfo> &kernel_name_list = kernel_info->_var_info;
+                        ObjectList<VariableInfo> &kernel_name_list = transfer_info->_var_info;
                         for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
                             sit != symbol_list.end();
                             sit++)
@@ -663,15 +644,15 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                             DataReference data_ref(sit->get_expression());
                             std::string name = sit->get_symbol().get_name();
 
-                            if (kernel_info->get_var_info_index_from_var_name(name) < 0)
+                            if (transfer_info->get_var_info_index_from_var_name(name) < 0)
                             {
                                 TL::Type var_type = data_ref.get_type();
                                 VariableInfo var_info(name);
                                 if (var_type.is_array() || var_type.is_pointer())
                                     var_info._is_array_or_pointer = true;
                                 var_info._is_input = true;
-                                kernel_info->_var_info.append(var_info);
-                                kernel_info->_var_ref.append(data_ref);
+                                transfer_info->_var_info.append(var_info);
+                                transfer_info->_var_ref.append(data_ref);
                             }
                         }
                     }
@@ -699,32 +680,32 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             }
             
             
-            int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+            int idx = transfer_info->get_var_info_index_from_var_name(var_name);
             if (idx != -1)
             {                
                 if (copy_type_str == "input")
                 {
-                    kernel_info->_var_info[idx]._is_input = true;
-                    kernel_info->_var_info[idx]._is_output = false;
-                    kernel_info->_var_info[idx]._is_temp = false;
+                    transfer_info->_var_info[idx]._is_input = true;
+                    transfer_info->_var_info[idx]._is_output = false;
+                    transfer_info->_var_info[idx]._is_temp = false;
                 }
                 else if (copy_type_str == "output")
                 {
-                    kernel_info->_var_info[idx]._is_input = false;
-                    kernel_info->_var_info[idx]._is_output = true;
-                    kernel_info->_var_info[idx]._is_temp = false;
+                    transfer_info->_var_info[idx]._is_input = false;
+                    transfer_info->_var_info[idx]._is_output = true;
+                    transfer_info->_var_info[idx]._is_temp = false;
                 }
                 else if (copy_type_str == "inout")
                 {
-                    kernel_info->_var_info[idx]._is_input = true;
-                    kernel_info->_var_info[idx]._is_output = true;
-                    kernel_info->_var_info[idx]._is_temp = false;
+                    transfer_info->_var_info[idx]._is_input = true;
+                    transfer_info->_var_info[idx]._is_output = true;
+                    transfer_info->_var_info[idx]._is_temp = false;
                 }
                 else if (copy_type_str == "temp")
                 {
-                    kernel_info->_var_info[idx]._is_input = false;
-                    kernel_info->_var_info[idx]._is_output = false;
-                    kernel_info->_var_info[idx]._is_temp = true;
+                    transfer_info->_var_info[idx]._is_input = false;
+                    transfer_info->_var_info[idx]._is_output = false;
+                    transfer_info->_var_info[idx]._is_temp = true;
                 }
                 else
                 {
@@ -732,13 +713,13 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                 }
                               
                 // Save dimension size data
-                kernel_info->_var_info[idx]._dimension_num = dim_num;
+                transfer_info->_var_info[idx]._dimension_num = dim_num;
                 std::cout << "Size of " << var_name << " = ";
                 for (int i = 0; i < dim_num; ++i)
                 {
                     if (i != 0) std::cout << ":";
                     std::cout << subscript_list[i].prettyprint();
-                    kernel_info->_var_info[idx]._dim_size.push_back( subscript_list[i] );
+                    transfer_info->_var_info[idx]._dim_size.push_back( subscript_list[i] );
                 }
                 std::cout << std::endl;
             }
