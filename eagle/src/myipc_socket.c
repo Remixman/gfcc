@@ -101,22 +101,26 @@ int _SendConstInputMsg(long long c) {
 	return 0;
 }
 
-int _SendInputMsg(	void *ptr, size_t size) {
+int _SendInputMsg(void *ptr, size_t size) {
+	if (_is_lock_transfer((long long)ptr)) return 0;
 	_SendMasterMsg(ptr, size);
 	return 0;
 }
 
-int _RecvOutputMsg(	void *ptr, size_t size) {
+int _RecvOutputMsg(void *ptr, size_t size) {
+	if (_is_lock_transfer((long long)ptr)) return 0;
 	_RecvMasterMsg(ptr, size);
 	return 0;
 }
 
-int _RecvInputMsg(	void *ptr, size_t size) {
+int _RecvInputMsg(void *ptr, size_t size) {
+	if (_is_lock_transfer((long long)ptr)) return 0;
 	_RecvWorkerMsg(ptr, size);
 	return 0;
 }
 
-int _SendOutputMsg(	void *ptr, size_t size) {
+int _SendOutputMsg(void *ptr, size_t size) {
+	if (_is_lock_transfer((long long)ptr)) return 0;
 	_SendWorkerMsg(ptr, size);
 	return 0;
 }
@@ -165,6 +169,8 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 						int loop_start, int loop_end, int loop_step,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, ... ) {
+
+	if (_is_lock_transfer((long long)ptr)) return 0;
 
 	int i, value;
 	va_list vl;
@@ -233,6 +239,8 @@ int _RecvOutputNDMsg(	void *ptr, int type_id,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, ... ) {
 
+	if (_is_lock_transfer((long long)ptr)) return 0;
+
 	int i, value;
 	va_list vl;
 
@@ -294,6 +302,8 @@ int _RecvInputNDMsg(	void *ptr, int type_id,
 						int loop_start, int loop_end, int loop_step,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, ... ) {
+
+	if (_is_lock_transfer((long long)ptr)) return 0;
 
 	int i, value;
 	va_list vl;
@@ -373,6 +383,8 @@ int _SendOutputNDMsg(	void *ptr, int type_id,
 						int loop_start, int loop_end, int loop_step,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, ... ) {
+
+	if (_is_lock_transfer((long long)ptr)) return 0;
 
 	int i, value;
 	va_list vl;

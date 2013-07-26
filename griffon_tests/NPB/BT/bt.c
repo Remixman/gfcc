@@ -706,8 +706,8 @@ c-------------------------------------------------------------------*/
 c     first store the "interpolated" values everywhere on the grid    
 c-------------------------------------------------------------------*/
 
-  //#pragma gfn parallel_for temp(Pface[2][3][5]) \
-    //input(ce[5][13]) output(u[uisize][ujsize][uksize][5])
+  #pragma gfn parallel_for temp(Pface[2][3][5]) \
+    input(ce[5][13]) output(u[uisize][ujsize][uksize][5])
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     

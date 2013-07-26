@@ -54,6 +54,10 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 int _GfnFinishGatherArray();
 
 
+int _GfnLockTransfer(void * ptr);
+int _GfnUnlockTransfer(void * ptr);
+
+
 // High Level function for trnsformation
 void _GfnBarrier();
 void _GfnCheckCLStatus(cl_int status, const char *phase_name);
@@ -147,10 +151,12 @@ void _CloseWorkerMsgQueue();
 
 
 int _SendConstInputMsg(long long c);
-int _SendInputMsg(	void *ptr, size_t size);
-int _RecvOutputMsg(	void *ptr, size_t size);
-int _RecvInputMsg(	void *ptr, size_t size);
-int _SendOutputMsg(	void *ptr, size_t size);
+
+int _SendInputMsg(void *ptr, size_t size);
+int _RecvOutputMsg(void *ptr, size_t size);
+int _RecvInputMsg(void *ptr, size_t size);
+int _SendOutputMsg(void *ptr, size_t size);
+
 int _SendInputNDMsg(	void *ptr, int type_id,
 						int loop_start, int loop_end, int loop_step,
 						int partitioned_dim, int pattern_type,
@@ -195,4 +201,3 @@ void _SendWorkerMsg(void *buffer, size_t size /*,status&*/);
 void _RecvWorkerMsg(void *buffer, size_t size /*, status&*/);
 
 #endif
-

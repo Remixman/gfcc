@@ -7,3 +7,9 @@ int _retieve_var_table( long long id, int *dimension_num,
 	                    void ** host_ptr, cl_mem device_ptr, int *found );
 int _free_mem_and_delete_from_var_table(long long id);
 int _free_mem_and_clear_var_table();
+
+
+int _lock_transfer( long long id );
+int _unlock_transfer( long long id );
+int _is_lock_transfer( long long id );
+int _clear_lock_table();

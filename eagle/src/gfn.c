@@ -641,6 +641,8 @@ int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 
 int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
 {
+	if (_is_lock_transfer((long long)ptr)) return 0;
+
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long bcast_start_t, bcast_end_t;
 
@@ -706,6 +708,8 @@ do { \
 
 int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	if (_is_lock_transfer((long long)ptr)) return 0;
+	
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
 
@@ -815,6 +819,8 @@ int _GfnFinishDistributeArray()
 
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	if (_is_lock_transfer((long long)ptr)) return 0;
+
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long gather_start_t, gather_end_t;
 

@@ -132,3 +132,43 @@ int _free_mem_and_clear_var_table() {
 
 	return 0;
 }
+
+
+int _lock_var_compare(const void *l, const void *r) {
+	const long long *lm = (const long long *)l;
+	const long long *lr = (const long long *)r;
+	return lm - lr;
+}
+
+void * _lock_var_tab_root;
+
+int _lock_transfer( long long id ) {
+
+	long long * id_ptr = (long long *) malloc(sizeof(long long));
+	*id_ptr = id;
+	tsearch(id_ptr, &_lock_var_tab_root, _lock_var_compare);
+
+	return 0;
+}
+
+int _unlock_transfer( long long id ) {
+
+	tdelete((void *)&id, &_lock_var_tab_root, _lock_var_compare);
+
+	return 0;
+}
+
+int _is_lock_transfer( long long id ) {
+
+	void *retieved_id = NULL;
+	retieved_id = tfind((void *)&id, &_lock_var_tab_root, _lock_var_compare);
+
+	return (retieved_id != NULL);
+}
+
+int _clear_lock_table() {
+
+	tdestroy(_lock_var_tab_root, free);
+
+	return 0;
+}
