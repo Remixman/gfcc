@@ -59,21 +59,12 @@ namespace TL
                 ScopeLink _scope_link;
                 AST_t _translation_unit;
                 FILE* _kernel_decl_file;
-                
-                ObjectList<IdExpression> _var_list;
-                ObjectList<DataReference> _use_list;
-                ObjectList<DataReference> _def_list;
 
+                
                 // FIXME: move to file scope
                 ObjectList<std::string> _device_function_name_list;
 
                 Source do_parallel_for();
-                void xxxx(TL::Statement stmt);
-                
-                // kernel config <<<block_num, thread_per_block>>>
-                Source do_kernel_config(Expression &lower_bound,
-                                        Expression &upper_bound,
-                                        Expression &step);
 
                 void extract_define_device_function(AST_t gpu_function);
                 void replace_parallel_loop_body(Statement stmt,
@@ -88,16 +79,6 @@ namespace TL
 				void replace_loop_index_name(Expression expr, 
 											 std::string old_name, std::string new_name);
                 
-                Source do_loop_index_declaration(Symbol loop_index,
-                                                 Expression loop_increment,
-                                                 Expression loop_lowerbound);
-                Source do_thread_id_declaration();        
-
-                Source do_cuda_malloc(std::string &identifier, Source &malloc_size);
-                Source do_cuda_free(std::string &identifier);
-                Source do_cuda_memcpy(std::string &identifier, Source &malloc_size, 
-                           CUDA_MEMCPY_KIND memcpy_kind);
-                           
                 /// helper method
                 bool contain(ObjectList<DataReference> &list, DataReference &obj);
 

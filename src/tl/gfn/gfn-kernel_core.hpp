@@ -88,6 +88,10 @@ namespace TL
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
             }
 
+            std::string get_name();
+            std::string get_id_name();
+            std::string get_cl_name();
+            
             // Code generated function
             std::string get_mem_size();
             TL::Source get_distributed_mem_size();
@@ -111,6 +115,7 @@ namespace TL
             public:
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;
+                
                 int get_var_info_index_from_var_name(std::string var_name);
                 void sort_var_info();
                 VariableInfo& get_var_info(std::string var_name);

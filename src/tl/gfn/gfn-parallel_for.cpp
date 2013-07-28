@@ -65,88 +65,6 @@ ParallelFor::ParallelFor(PragmaCustomConstruct construct,
      _translation_unit = translation_unit;
 }
 
-TL::Source ParallelFor::do_kernel_config(Expression &lower_bound,
-                                         Expression &upper_bound,
-                                         Expression &step)
-{
-    // calculate thread num [ ast-node.cxx : SetThreadNum() ]
-    TL::Source range, thread_num, block_num, thread_p_block_num;
-    {
-        // range = (upper - lower)
-        bool lower_bound_is_const = false;
-        int lower_bound_val = lower_bound.evaluate_constant_int_expression(lower_bound_is_const);
-        if (lower_bound_is_const && (lower_bound_val == 0)) {
-            range
-                << "( " << upper_bound.prettyprint() << " )";
-        } else {
-            range
-                << "( " << upper_bound.prettyprint() << " - " << lower_bound.prettyprint() << " )";
-        }
-
-        // thread_num = (range / step) + 1
-        bool step_is_const = false;
-        int step_val = step.evaluate_constant_int_expression(step_is_const);
-        if (step_is_const && (step_val == 1)) {
-            thread_num
-                << "( " << range << " + 1 )";
-        } else {
-            thread_num
-                << "( ( " << range << " / " << step.prettyprint() << " ) + 1 )";
-        }
-
-        // TODO: reduce expr?
-        bool valid = true;
-        /*if (!expr.is_constant())
-        {
-            throw HLTException(expr, "factor clause argument should be a constant expression");
-        }
-        thread_num.parse_expression(_for_stmt.get_ast(), _for_stmt.get_scope_link()).get_expression();
-        unroll_factor = expr.evaluate_constant_int_expression(valid);
-        if (!valid)
-        {
-            throw HLTException(expr, "factor clause argument expression could not be evaluated");
-        }*/
-        
-        
-        if (0 /* thread_num is integer literal */) 
-        {
-            ;
-        }
-        else
-        {
-            // thread_p_block = 512
-            thread_p_block_num
-                << "512";
-            // block_num = 
-            block_num
-                << "( ( " << thread_num << " - 1 ) + 512.0) / 512";
-            // TODO: reduce expr??
-        }
-    }
-    TL::Source new_config;
-    new_config << "<<<" << block_num << "," << thread_p_block_num << ">>>" ;
-    return new_config;
-}
-
-void ParallelFor::xxxx(TL::Statement stmt)
-{
-    if (stmt.is_compound_statement())
-    {
-
-        TL::ObjectList<TL::Statement> list = stmt.get_inner_statements();
-        for (TL::ObjectList<TL::Statement>::iterator it = list.begin();
-                it != list.end();
-                it++)
-        {
-            xxxx(*it);
-        }
-    }
-    else
-    {
-
-    }
-}
-
 TL::Source ParallelFor::do_parallel_for()
 {
     bool debug = false;
@@ -351,9 +269,9 @@ TL::Source ParallelFor::do_parallel_for()
         VariableInfo var_info = _kernel_info->_var_info[i];
         DataReference var_ref = _kernel_info->_var_ref[i];
 
-        std::string var_name = var_info._name;
-        std::string var_unique_id_name = "_id_" + var_name;
-        std::string var_cl_name = "_cl_mem_" + var_name;
+        std::string var_name = var_info.get_name();
+        std::string var_unique_id_name = var_info.get_id_name();
+        std::string var_cl_name = var_info.get_cl_name();
         std::string var_cl_global_reduction = "_global_reduction_" + var_name;
         std::string var_local_name = GFN_PREFIX_LOCAL + var_name;
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;

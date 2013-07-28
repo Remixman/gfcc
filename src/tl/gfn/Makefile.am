@@ -55,6 +55,8 @@ libtl_gfn_la_SOURCES = \
       gfn-atomic.cpp \
       gfn-parallel_for.hpp \
       gfn-parallel_for.cpp \
+      gfn-data.hpp \
+      gfn-data.cpp \
      $(END)
 
 libtl_gfn_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)

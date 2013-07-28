@@ -28,6 +28,7 @@
 
 #include "gfn-pragma.hpp"
 #include "gfn-parallel_for.hpp"
+#include "gfn-data.hpp"
 #include "gfn-atomic.hpp"
 #include "gfn-exception.hpp"
 #include "gfn-config.hpp"
@@ -345,11 +346,63 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
                      _scope_link, _translation_unit, _kernel_decl_file);
 
     construct.get_ast().replace(statement.get_ast());
+    
+    delete kernel_info;
+}
+
+static void data_fun(TL::PragmaCustomConstruct construct, 
+                     TL::Statement stmt, 
+                     TransferInfo *transfer_info,
+                     TL::ScopeLink scope_link,
+                     TL::AST_t translation_unit,
+                     FILE *kernel_decl_file)
+{
+    TL::Source transfer_n_compute_src = 
+        TL::GFN::data(construct, stmt, transfer_info, scope_link,
+                      translation_unit, kernel_decl_file);
+    
+    TL::AST_t transfer_n_compute_tree = transfer_n_compute_src.
+        parse_statement(stmt.get_ast(), stmt.get_scope_link());
+
+    stmt.get_ast().replace(transfer_n_compute_tree);
 }
 
 void GFNPragmaPhase::data(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
+    TransferInfo *transfer_info = new TransferInfo();
+    
+    ObjectList<IdExpression> symbol_list = statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
+         sit != symbol_list.end();
+         sit++)
+    {
+        // TODO: don't add local declare variable
+        DataReference data_ref(sit->get_expression());
+        std::string name = sit->get_symbol().get_name();
+        
+        if (transfer_info->get_var_info_index_from_var_name(name) < 0)
+        {
+            TL::Type var_type = data_ref.get_type();
+            VariableInfo var_info(name);
+            if (var_type.is_array() || var_type.is_pointer())
+                var_info._is_array_or_pointer = true;
+            transfer_info->_var_info.append(var_info);
+            transfer_info->_var_ref.append(data_ref);
+        }
+    }
+    
+    get_input_clause(construct, transfer_info);
+    get_output_clause(construct, transfer_info);
+    get_inout_clause(construct, transfer_info);
+    get_temp_clause(construct, transfer_info);
+    
+    data_fun(construct, construct.get_statement(), transfer_info,
+             _scope_link, _translation_unit, _kernel_decl_file);
+    
+    construct.get_ast().replace(statement.get_ast());
+    
+    delete transfer_info;
 }
 
 void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
@@ -368,20 +421,7 @@ void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
     
     std::string def_func_name = "_def_" + func_name.get_symbol().get_name() + "_src";
     std::string decl_func_name = "_decl_" + func_name.get_symbol().get_name() + "_src";
-    
-    // print dependency
-    /*for (ObjectList<IdExpression>::iterator it = func_list.begin();
-         it != func_list.end();
-         ++it)
-    {
-        IdExpression &func_id_expr = *it;
-        TL::Source dependency_src;
-        dependency_src
-            << comment("DEPENDENCY " + def_func_name.get_symbol().get_name() + " -> " + func_id_expr.get_symbol().get_name());
 
-        print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, dependency_src);
-    }*/
-    
     kernel_result
         << comment("DEVICE_FUNCTION_DEFINITION " + func_name.get_symbol().get_name())
         //<< show_cl_source_in_comment(def_tree.prettyprint())
@@ -622,7 +662,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             std::string var_name = "";
             unsigned dim_num = 0;
             TL::ObjectList<TL::Expression> subscript_list;
-            
+
             // Array input/output
             if (var_expr.is_array_subscript())
             {
@@ -681,7 +721,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             
             
             int idx = transfer_info->get_var_info_index_from_var_name(var_name);
-            if (idx != -1)
+            if (idx >= 0)
             {                
                 if (copy_type_str == "input")
                 {
@@ -727,7 +767,8 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             {
                 std::cerr << "warning : clause \"" << copy_type_str
                           << "\" unknown variable \"" << *it
-                          << "\" in parallel region " << std::endl;
+                          << "\" in parallel region "
+                          << __FILE__ << ":" << __LINE__ << std::endl;
             }
         }
     }

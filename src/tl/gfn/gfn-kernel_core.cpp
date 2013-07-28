@@ -177,6 +177,21 @@ std::string KernelInfo::get_full_size()
     return "";
 }
 
+std::string VariableInfo::get_name()
+{
+    return _name;
+}
+
+std::string VariableInfo::get_id_name()
+{
+    return ("_id_" + _name);
+}
+
+std::string VariableInfo::get_cl_name()
+{
+    return ("_cl_mem_" + _name);
+}
+
 std::string VariableInfo::get_mem_size()
 {
     std::stringstream result;

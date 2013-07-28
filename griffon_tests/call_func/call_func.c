@@ -26,10 +26,16 @@ int main(int argc, char *argv[]) {
   	B[i] = i;
   }
   
+  #pragma gfn data input(B[500]) output(A[500])
+  {
+  
   #pragma gfn parallel_for input(B[500]) output(A[500])
   for (i=0;i<500;i++) {
     A[i] = a(B[i],8);
   }
+  
+  } /* end acc data */
+  
   
   #pragma gfn finish
   
