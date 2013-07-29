@@ -140,6 +140,8 @@ int _GfnFinalize()
 	_free_mem_and_clear_var_table();
 	IF_TIMING (_mm_overhead_time) clear_vtab_end_t = get_time();
 
+	_clear_lock_table();
+
 	_FinalOpenCL();
 
 	if (_trace_f != NULL) {
@@ -926,6 +928,17 @@ for (i = 0; i < send_loop_num; ++i) { \
 int _GfnFinishGatherArray()
 {
 	return 0;
+}
+
+
+int _GfnLockTransfer(void * ptr)
+{
+	return _lock_transfer((long long) ptr);
+}
+
+int _GfnUnlockTransfer(void * ptr)
+{
+	return _unlock_transfer((long long) ptr);
 }
 
 

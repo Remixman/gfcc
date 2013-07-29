@@ -88,9 +88,6 @@ VariableInfo& TransferInfo::get_var_info(std::string var_name)
     }
 }
 
-
-int KernelInfo::kernel_count = 0;
-
 KernelInfo::KernelInfo() : 
     _has_reduction_clause(false)
 {

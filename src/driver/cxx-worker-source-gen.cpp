@@ -227,7 +227,10 @@ bool is_kernel_def(std::string &buffer) {
 bool is_device_def(std::string &buffer) { return (string_is(buffer, "DEVICE_FUNCTION_DEFINITION")); }
 
 bool is_worker_func(std::string &buffer, std::string &rand_num, std::string &func_name) {
-	if (string_is(buffer, "WORKER_FUNCTION")) {
+	if ( string_is(buffer, "WORKER_FUNCTION") ||
+         string_is(buffer, "SEND_FUNCTION") ||
+         string_is(buffer, "RECV_FUNCTION") )
+    {
 		std::stringstream ss(buffer);
 		std::string open_comment, close_comment;
 		std::string keyword;

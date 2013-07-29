@@ -68,6 +68,8 @@ TL::Source Data::do_data()
 {
     bool debug = false;
     
+    TL::Source worker_send_func_name, worker_recv_func_name;
+    
     TL::Source ret_src;
     
     TL::Source master_send_call_function_send, master_send_call_function_recv;
@@ -79,10 +81,14 @@ TL::Source Data::do_data()
     TL::Source worker_recv_src, worker_send_src;
     TL::Source worker_lock_transfer_src, worker_unlock_transfer_src;
     
+    TL::Source worker_send_function, worker_recv_function;
+    
     // Transfer information configuration
     std::string level1_cond = "1";//_kernel_info->_level_1_condition;
     std::string level2_cond = "1";//_kernel_info->_level_2_condition;
     
+    worker_send_func_name << "_Function_send_" << _transfer_info->send_func_id;
+    worker_recv_func_name << "_Function_recv_" << _transfer_info->recv_func_id;
 
     for (int i = 0; i < _transfer_info->_var_info.size(); ++i)
     {
@@ -111,6 +117,14 @@ TL::Source Data::do_data()
                 << create_gfn_q_bcast_nd(var_name, var_cl_name, mpi_type_str, 
                                          var_info._dimension_num, var_info._dim_size,
                                          level1_cond, level2_cond);
+                
+            master_lock_transfer_src
+                << "_GfnLockTransfer((void*)" << var_name 
+                << var_info.get_subscript_to_1d_buf() << ");";
+                
+            worker_lock_transfer_src
+                << "_GfnLockTransfer((void*)" << var_name 
+                << var_info.get_subscript_to_1d_buf() << ");";
         }
         
         
@@ -122,16 +136,24 @@ TL::Source Data::do_data()
                 
             /*worker_send_src
                 <<*/
+            
+            master_unlock_transfer_src
+                << "_GfnUnlockTransfer((void*)" << var_name 
+                << var_info.get_subscript_to_1d_buf() << ");";
+                
+            worker_unlock_transfer_src
+                << "_GfnUnlockTransfer((void*)" << var_name 
+                << var_info.get_subscript_to_1d_buf() << ");";
         }
     }
     
     master_send_call_function_send
-        << "_SendCallFuncMsg(3);"; // TODO: random number
+        << "_SendCallFuncMsg(" << _transfer_info->send_func_id << ");";
         
     master_send_call_function_recv
-        << "_SendCallFuncMsg(3);"; // TODO: random number
+        << "_SendCallFuncMsg(" << _transfer_info->recv_func_id << ");";
         
-        
+    /* Create master source */
     ret_src
         << comment("Send call send function message")
         << master_send_call_function_send
@@ -142,6 +164,24 @@ TL::Source Data::do_data()
         << master_send_call_function_recv
         << master_unlock_transfer_src
         << master_recv_src;
+        
+    /* Create send function source */
+    worker_send_function
+        << comment("SEND_FUNCTION " + int_to_string(_transfer_info->send_func_id) + " " + (std::string)worker_send_func_name)
+        << "void " << worker_send_func_name << "() {"
+            << worker_lock_transfer_src
+        << "}";
+        
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_send_function);
+    
+    /* Create receive function source */
+    worker_recv_function
+        << comment("RECV_FUNCTION " + int_to_string(_transfer_info->recv_func_id) + " " + (std::string)worker_recv_func_name)
+        << "void " << worker_recv_func_name << "() {"
+            << worker_unlock_transfer_src
+        << "}";
+        
+    print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_recv_function);
 
     return ret_src;
 }

@@ -71,6 +71,7 @@
 #define GFN_PATTERN_RANGE  1
 #define GFN_PATTERN_SPEC   2
 
+#define GFN_MAX_RAND 1000000
 #define GFN_PREFIX_LOCAL   "_local_"
 
 #define CL_EOL "\\n\n"

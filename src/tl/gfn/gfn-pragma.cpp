@@ -36,6 +36,8 @@
 
 #include <algorithm>
 #include <fstream>
+#include <cstdlib>
+#include <ctime>
 
 using namespace TL::GFN;
 
@@ -181,6 +183,9 @@ void GFNPragmaPhase::run(TL::DTO& dto)
 {
     try
     {
+        // Set kernel and transfer id random seed
+        srand(time(0));
+        
         _scope_link = dto["scope_link"];
         _translation_unit = dto["translation_unit"];
         
@@ -273,8 +278,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     Statement statement = construct.get_statement();
     KernelInfo *kernel_info = new KernelInfo();
     
-    /* Update kernel count */
-    kernel_info->kernel_id = ++KernelInfo::kernel_count;
+    kernel_info->kernel_id = (rand() % GFN_MAX_RAND) + 1;
 
     /* Get for_statement and for loop body */
     ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
@@ -371,6 +375,9 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
     TransferInfo *transfer_info = new TransferInfo();
+    
+    transfer_info->send_func_id = (rand() % GFN_MAX_RAND) + 1;
+    transfer_info->recv_func_id = (rand() % GFN_MAX_RAND) + 1;
     
     ObjectList<IdExpression> symbol_list = statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
     for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();

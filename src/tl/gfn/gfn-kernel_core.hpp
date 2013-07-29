@@ -113,6 +113,9 @@ namespace TL
         struct LIBGFN_CLASS TransferInfo
         {
             public:
+                int send_func_id;
+                int recv_func_id;
+                
                 ObjectList<DataReference> _var_ref;
                 ObjectList<VariableInfo> _var_info;
                 
@@ -137,7 +140,6 @@ namespace TL
                 Source _thread_per_block;
 
             public:
-                static int kernel_count;
                 int kernel_id;
 
                 KernelInfo();
