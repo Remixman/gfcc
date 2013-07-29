@@ -280,6 +280,14 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
 
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 1D Again\n");
+		return 0;
+	}
+
 #define SWITCH_MALLOC_1D(type,size1) \
 do { \
 	type * tmp_ptr; \
@@ -334,6 +342,14 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	long long malloc_start_t, malloc_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 2D Again\n");
+		return 0;
+	}
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
 do { \
@@ -390,6 +406,14 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 	long long malloc_start_t, malloc_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 3D Again\n");
+		return 0;
+	}
 
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
 do { \
@@ -448,6 +472,14 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 	long long malloc_start_t, malloc_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 4D Again\n");
+		return 0;
+	}
 
 #define SWITCH_MALLOC_4D(type,size1,size2,size3,size4) \
 do { \
@@ -508,6 +540,14 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 	long long malloc_start_t, malloc_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
+
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 5D Again\n");
+		return 0;
+	}
 
 #define SWITCH_MALLOC_5D(type,size1,size2,size3,size4,size5) \
 do { \
@@ -571,6 +611,14 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
 
+	int found = 0;
+	int retieve_dim_num = 0;
+	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	if (found) {
+		printf("Don't Allocate 6D Again\n");
+		return 0;
+	}
+
 	// TODO: change to 1D array
 
 #define SWITCH_MALLOC_6D(type,size1,size2,size3,size4,size5,size6) \
@@ -632,13 +680,16 @@ do { \
 
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 {
-	long long del_from_vtab_start_t, del_from_vtab_end_t;
+	// Don't free now
+	return 0;
+
+	/*long long del_from_vtab_start_t, del_from_vtab_end_t;
 
 	IF_TIMING (_mm_overhead_time) del_from_vtab_start_t = get_time();
 	_free_mem_and_delete_from_var_table(unique_id);
 	IF_TIMING (_mm_overhead_time) del_from_vtab_end_t = get_time();
 
-	return 0;
+	return 0;*/
 }
 
 int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...)

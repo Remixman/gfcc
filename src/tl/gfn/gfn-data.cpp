@@ -81,9 +81,15 @@ TL::Source Data::do_data()
     TL::Source worker_recv_src, worker_send_src;
     TL::Source worker_lock_transfer_src, worker_unlock_transfer_src;
     
-    TL::Source worker_send_function, worker_recv_function;
+    /* Send and recieve function source */
+    TL::Source worker_send_function;
+    TL::Source worker_recv_function;
+    TL::Source worker_decl_var_src;
+    TL::Source worker_decl_gen_var_src;
+    TL::Source worker_allocate_src;
+    TL::Source worker_free_src;
     
-    // Transfer information configuration
+    /* Transfer information configuration */
     std::string level1_cond = "1";//_kernel_info->_level_1_condition;
     std::string level2_cond = "1";//_kernel_info->_level_2_condition;
     
@@ -99,6 +105,7 @@ TL::Source Data::do_data()
         std::string var_name = var_info.get_name();
         std::string var_unique_id_name = var_info.get_id_name();
         std::string var_cl_name = var_info.get_cl_name();
+        std::string ptr_stars = var_info.get_pointer_starts();
         
         /* Datatype */
         TL::Type type = var_ref.get_type();
@@ -106,6 +113,45 @@ TL::Source Data::do_data()
         std::string c_type_str = type_to_ctype(type);
         std::string size_str = var_info.get_allocate_size_in_byte(type);
         
+        // TODO: _GFN_MEM_ALLOC_HOST_PTR()
+        std::string var_cl_mem_type;
+        if (var_info._is_input && var_info._is_output)
+            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
+        else if (var_info._is_output)
+            var_cl_mem_type = "_GFN_MEM_WRITE_ONLY()";
+        else if (var_info._is_input)
+            var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
+        /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
+        
+        /* (1). Declare array variables */
+        if (var_info._is_array_or_pointer &&
+            (var_info._is_input || var_info._is_output))
+        {
+            worker_decl_var_src
+                << c_type_str << ptr_stars << var_name << ";";
+        }
+        
+        /* (2). Declaration generated variables */
+        if (var_info._is_array_or_pointer &&
+            (var_info._is_input || var_info._is_output))
+        {
+            worker_decl_gen_var_src
+                << "long long " << var_unique_id_name << ";"
+                << "cl_mem " << var_cl_name << " = 0;";
+        }
+        
+        /* (XX). Allocate and Deallocate memory */
+        if (var_info._is_array_or_pointer &&
+            (var_info._is_input || var_info._is_output))
+        {
+            worker_allocate_src
+                << create_gfn_malloc_nd(var_name, var_cl_name, var_unique_id_name,
+                                        mpi_type_str, var_info._dimension_num, var_info._dim_size,
+                                        var_cl_mem_type, level1_cond, level2_cond);
+            
+            worker_free_src
+                << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
+        }
         
         if (var_info._is_input)
         {
@@ -134,8 +180,9 @@ TL::Source Data::do_data()
                 << "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
                 << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
                 
-            /*worker_send_src
-                <<*/
+            worker_send_src
+                << "_SendOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
             
             master_unlock_transfer_src
                 << "_GfnUnlockTransfer((void*)" << var_name 
@@ -169,7 +216,25 @@ TL::Source Data::do_data()
     worker_send_function
         << comment("SEND_FUNCTION " + int_to_string(_transfer_info->send_func_id) + " " + (std::string)worker_send_func_name)
         << "void " << worker_send_func_name << "() {"
+            
+            << comment("Declare Variables")
+            << worker_decl_var_src
+            
+            << comment("Declare Generated Variables")
+            << worker_decl_gen_var_src
+            
+            << comment("Allocate Array Memory")
+            << worker_allocate_src
+            
+            << comment("Distribute Array Memory")
+            << worker_recv_src
+            
+            << comment("Lock Transfer")
             << worker_lock_transfer_src
+            
+            << comment("Deallocate Array Memory")
+            << worker_free_src
+            
         << "}";
         
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_send_function);
@@ -178,7 +243,25 @@ TL::Source Data::do_data()
     worker_recv_function
         << comment("RECV_FUNCTION " + int_to_string(_transfer_info->recv_func_id) + " " + (std::string)worker_recv_func_name)
         << "void " << worker_recv_func_name << "() {"
+            
+            << comment("Declare Variables")
+            << worker_decl_var_src
+            
+            << comment("Declare Generated Variables")
+            << worker_decl_gen_var_src
+            
+            << comment("Allocate Array Memory")
+            << worker_allocate_src
+            
+            << comment("Unlock Transfer")
             << worker_unlock_transfer_src
+            
+            << comment("Gather Array Memory")
+            << worker_send_src
+            
+            << comment("Deallocate Array Memory")
+            << worker_free_src
+            
         << "}";
         
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_recv_function);

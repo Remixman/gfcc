@@ -67,7 +67,8 @@ int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num,
 	return 0;
 }
 
-int _retieve_var_table( long long id, int *dimension_num, void ** host_ptr, cl_mem device_ptr, int *found ) {
+int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
+						void ** host_ptr, int *found ) {
 	// FIND
 	// void * tfind (const void *key, void *const *rootp, comparison_fn_t compar)
 	void *retieved_rec = NULL;
