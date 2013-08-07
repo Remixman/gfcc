@@ -1,35 +1,28 @@
 GFN_INCLUDE_PATH = ../../eagle/include
 GFN_LIB_PATH = ../../eagle/lib
 
-# maeka config
-#MPI_PATH = /opt/openmpi/include/
-#CL_INC_PATH = /san01/home/pisit_m/OpenCL/common/inc
-#CL_LIB_PATH = /san01/home/pisit_m/OpenCL/common/lib
-
-# yggdrasil config
-MPI_PATH = /usr/lib/openmpi/include
-CL_INC_PATH = /usr/include
-CL_LIB_PATH = 
-
+# should set MPI_PATH , CL_INC_PATH , CL_LIB_PATH in ~/.bashrc
 
 CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 -I$(GFN_INCLUDE_PATH) $(GFN_LIB_PATH)/gfn.o
 
 all: worker master
 
-#--pass-through    Disables preprocessing
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -D_GRIFFON nd_array.c -lrt
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON nd_array.c -lrt -D_GFN
+	rm nd_array.o
 	
-
-test: worker master
-
-master:
+master: trans
 	mpicc -o nd_array $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL
 	
-worker:
-	mpicc -DGFN_WORKER -o worker $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL  
+worker: trans
+	workergen nd_array.c.kerdecl.c
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
+	
+modify:
+	mpicc -o nd_array $(CFLAGS) plaincc_nd_array.c -lrt -lOpenCL
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 clean:
-	@rm -rf nd_array worker a.out
+	@rm -rf plaincc_nd_array.c nd_array.c.kerdecl.c nd_array worker*

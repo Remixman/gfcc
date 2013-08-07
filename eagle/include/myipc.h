@@ -1,8 +1,6 @@
 #include <mqueue.h>
 #include <sys/stat.h>
 
-#define IPC_DEBUG
-
 extern mqd_t _master_send_qid;
 extern mqd_t _master_recv_qid;
 extern mqd_t _worker_send_qid;

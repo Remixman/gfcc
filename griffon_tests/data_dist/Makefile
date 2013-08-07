@@ -20,5 +20,9 @@ worker: trans
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 	
+modify:
+	mpicc -o data_dist $(CFLAGS) plaincc_data_dist.c -lrt -lOpenCL
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	
 clean:
 	@rm -rf plaincc_data_dist.c data_dist.c.kerdecl.c data_dist worker*

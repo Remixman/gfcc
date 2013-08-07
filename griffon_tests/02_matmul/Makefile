@@ -20,5 +20,9 @@ worker: trans
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 	
+modify:
+	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	
 clean:
 	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker*

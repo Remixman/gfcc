@@ -20,5 +20,9 @@ worker: trans
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 	
+modify:
+	mpicc -o small_bt $(CFLAGS) plaincc_small_bt.c -lrt -lOpenCL
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	
 clean:
 	@rm -rf plaincc_small_bt.c small_bt.c.kerdecl.c small_bt worker*

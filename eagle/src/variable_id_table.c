@@ -31,6 +31,15 @@ void _var_free_action(const void *nodep, const VISIT which, const int depth) {
 		case postorder:
 		case endorder:
         case leaf:
+
+#ifdef DEBUG_AUTO_ALLOCATE
+	printf("[DEBUG]: Deallocate : xxx : %p\n", datap->host_ptr1);
+#endif
+			if (datap->host_ptr1 == NULL) {
+				/* Already deallocate host and device memory */
+				return;
+			}
+
 			if (dim_num >= 6) free(datap->host_ptr6);
 			if (dim_num >= 5) free(datap->host_ptr5);
 			if (dim_num >= 4) free(datap->host_ptr4);
@@ -40,6 +49,8 @@ void _var_free_action(const void *nodep, const VISIT which, const int depth) {
 
 			_gfn_status = clReleaseMemObject(datap->device_ptr);
     		_GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER");
+
+    		datap->host_ptr1 = NULL;
 			break;
     }
 }
@@ -49,6 +60,11 @@ void * _var_tab_root;
 int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num, 
 						  void * host_ptr1, void ** host_ptr2, void *** host_ptr3,
 						  void **** host_ptr4, void ***** host_ptr5, void ****** host_ptr6 ) {
+
+#ifdef DEBUG_AUTO_ALLOCATE
+	printf("[DEBUG]: Allocate : %ld : %p\n", id, host_ptr1);
+#endif
+
 	// INSERT
 	// void * tsearch (const void *key, void **rootp, comparison_fn_t compar)
 	var_record * new_rec = (var_record *) malloc(sizeof(var_record));
@@ -69,6 +85,7 @@ int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num,
 
 int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
 						void ** host_ptr, int *found ) {
+
 	// FIND
 	// void * tfind (const void *key, void *const *rootp, comparison_fn_t compar)
 	void *retieved_rec = NULL;
@@ -85,6 +102,10 @@ int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
 	} else {
 		*found = 0 /* FALSE */;
 	}
+
+#ifdef DEBUG_AUTO_ALLOCATE
+	printf("[DEBUG]: Found [%d] Retieve : %ld : %p\n", *found, id, *host_ptr);
+#endif
 
 	return 0;
 }

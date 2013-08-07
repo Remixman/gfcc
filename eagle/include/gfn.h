@@ -8,6 +8,10 @@
 #include <CL/cl.h>
 
 
+#define DEBUG_AUTO_ALLOCATE
+//#define DEBUG_INTER_PROC_COMM
+
+
 extern int _gfn_rank;		/**/
 extern int _gfn_num_proc;	/**/
 extern cl_platform_id _gfn_platform_id;
@@ -132,7 +136,6 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 /*----------------------------------------------------------------------------*\
                    IPC INTERFACE - source is in myipc_socket.c
 \*----------------------------------------------------------------------------*/
-#define IPC_DEBUG
 
 extern mqd_t _master_send_qid;
 extern mqd_t _master_recv_qid;

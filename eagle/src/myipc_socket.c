@@ -473,9 +473,9 @@ void _SendMasterMsg(void *buffer, size_t size /*,status&*/) {
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_send_size += send_size;
 	}
-#ifdef IPC_DEBUG
+#ifdef DEBUG_INTER_PROC_COMM
 	printf("Worker write buffer for %zu bytes\n", total_send_size);
-#endif // IPC_DEBUG
+#endif // DEBUG_INTER_PROC_COMM
 }
 
 void _RecvMasterMsg(void *buffer, size_t size /*, status&*/) {
@@ -493,9 +493,9 @@ void _RecvMasterMsg(void *buffer, size_t size /*, status&*/) {
 		fprintf(stderr, "Error: _RecvMasterMsg, Expected size is %zu but transfered size is %zu\n",
 			size, total_recv_size);
 	}
-#ifdef IPC_DEBUG
+#ifdef DEBUG_INTER_PROC_COMM
 	printf("Worker read buffer for %zu bytes\n", total_recv_size);
-#endif // IPC_DEBUG
+#endif // DEBUG_INTER_PROC_COMM
 }
 
 void _SendWorkerMsg(void *buffer, size_t size /*,status&*/) { 
@@ -509,9 +509,9 @@ void _SendWorkerMsg(void *buffer, size_t size /*,status&*/) {
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_send_size += send_size;
 	}
-#ifdef IPC_DEBUG
+#ifdef DEBUG_INTER_PROC_COMM
 	printf("Master write buffer for %zu bytes\n", total_send_size);
-#endif // IPC_DEBUG
+#endif // DEBUG_INTER_PROC_COMM
 }
 
 void _RecvWorkerMsg(void *buffer, size_t size /*, status&*/) {
@@ -529,7 +529,7 @@ void _RecvWorkerMsg(void *buffer, size_t size /*, status&*/) {
 		fprintf(stderr, "Error: _RecvWorkerMsg, Expected size is %zu but transfered size is %zu\n",
 			size, recv_size);
 	}
-#ifdef IPC_DEBUG
+#ifdef DEBUG_INTER_PROC_COMM
 	printf("Master read buffer for %zu bytes\n", total_recv_size);
-#endif // IPC_DEBUG
+#endif // DEBUG_INTER_PROC_COMM
 }
