@@ -79,21 +79,21 @@ namespace TL
                                         ObjectList<IdExpression> &symbol_list);
                 void get_reduction_clause(PragmaCustomConstruct construct,
                                           KernelInfo *kernel_info);
-                void get_size_clause(PragmaCustomConstruct construct,
-                                     KernelInfo *kernel_info);
-                void get_input_clause(PragmaCustomConstruct construct,
-                                      TransferInfo *transfer_info);
-                void get_output_clause(PragmaCustomConstruct construct,
-                                       TransferInfo *transfer_info);
-                void get_inout_clause(PragmaCustomConstruct construct,
-                                      TransferInfo *transfer_info);
-                void get_temp_clause(PragmaCustomConstruct construct,
-                                     TransferInfo *transfer_info);
-                void get_copy_clause(PragmaCustomClause &copy_clause,
+                /* Data Clauses */
+                void get_copy_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_copyin_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_copyout_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_present_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_pcopy_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_pcopyin_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_pcopyout_clause(PragmaCustomConstruct construct, TransferInfo *transfer_info);
+                void get_data_clause(PragmaCustomClause &copy_clause,
                                      TransferInfo *transfer_info,
                                      AST_t ref_tree, 
                                      TL::ScopeLink scope_link,
+                                     bool ispresent,
                                      std::string copy_type_str);
+                /* Pattern Clauses */
                 void get_in_pattern_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info);
                 void get_out_pattern_clause(PragmaCustomConstruct construct,

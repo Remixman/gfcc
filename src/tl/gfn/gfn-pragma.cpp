@@ -334,13 +334,19 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_private_clause(construct, kernel_info, symbol_list);
     get_reduction_clause(construct, kernel_info);
     
-    get_input_clause(construct, kernel_info);
-    get_output_clause(construct, kernel_info);
-    get_inout_clause(construct, kernel_info);
-    get_temp_clause(construct, kernel_info);
+    // data clauses - order by override order
+    get_present_clause(construct, kernel_info);
+    get_pcopyin_clause(construct, kernel_info);
+    get_pcopyout_clause(construct, kernel_info);
+    get_pcopy_clause(construct, kernel_info);
+    get_copyin_clause(construct, kernel_info);
+    get_copyout_clause(construct, kernel_info);
+    get_copy_clause(construct, kernel_info);
     
+    // condition clause
     get_if_clause(construct, kernel_info);
     
+    // pattern clauses
     get_in_pattern_clause(construct, kernel_info);
     get_out_pattern_clause(construct, kernel_info);
     
@@ -399,10 +405,14 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
         }
     }
     
-    get_input_clause(construct, transfer_info);
-    get_output_clause(construct, transfer_info);
-    get_inout_clause(construct, transfer_info);
-    get_temp_clause(construct, transfer_info);
+    // data clauses - order by override order
+    get_present_clause(construct, transfer_info);
+    get_pcopyin_clause(construct, transfer_info);
+    get_pcopyout_clause(construct, transfer_info);
+    get_pcopy_clause(construct, transfer_info);
+    get_copyin_clause(construct, transfer_info);
+    get_copyout_clause(construct, transfer_info);
+    get_copy_clause(construct, transfer_info);
     
     data_fun(construct, construct.get_statement(), transfer_info,
              _scope_link, _translation_unit, _kernel_decl_file);
@@ -626,46 +636,89 @@ void GFNPragmaPhase::get_reduction_clause(PragmaCustomConstruct construct,
     }
 }
 
-void GFNPragmaPhase::get_input_clause(TL::PragmaCustomConstruct construct,
-                                      TransferInfo *transfer_info)
-{
-    TL::PragmaCustomClause input_clause = construct.get_clause("input");
-    get_copy_clause(input_clause, transfer_info, 
-                    construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), "input");
-}
-
-void GFNPragmaPhase::get_output_clause(TL::PragmaCustomConstruct construct,
-                                       TransferInfo *transfer_info)
-{
-    TL::PragmaCustomClause output_clause = construct.get_clause("output");
-    get_copy_clause(output_clause, transfer_info, 
-                    construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), "output");
-}
-
-void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct, 
-                                      TransferInfo *transfer_info)
-{
-    TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
-    get_copy_clause(inout_clause, transfer_info, 
-                    construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), "inout");
-}
-
-void GFNPragmaPhase::get_temp_clause(PragmaCustomConstruct construct,
+void GFNPragmaPhase::get_copy_clause(PragmaCustomConstruct construct, 
                                      TransferInfo *transfer_info)
 {
-    TL::PragmaCustomClause temp_clause = construct.get_clause("temp");
-    get_copy_clause(temp_clause, transfer_info, 
+    TL::PragmaCustomClause copy_clause = construct.get_clause("copy");
+    get_data_clause(copy_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), "temp");
+                    construct.get_scope_link(), false, "copy");
 }
 
-void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
+void GFNPragmaPhase::get_copyin_clause(PragmaCustomConstruct construct, 
+                                       TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause copyin_clause = construct.get_clause("copyin");
+    get_data_clause(copyin_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), false, "copyin");
+}
+
+void GFNPragmaPhase::get_copyout_clause(PragmaCustomConstruct construct, 
+                                        TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause copyout_clause = construct.get_clause("copyout");
+    get_data_clause(copyout_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), false, "copyout");
+}
+
+void GFNPragmaPhase::get_present_clause(PragmaCustomConstruct construct, 
+                                        TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause present_clause = construct.get_clause("present");
+    get_data_clause(present_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "present");
+}
+
+void GFNPragmaPhase::get_pcopy_clause(PragmaCustomConstruct construct, 
+                                      TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause pcopy_clause = construct.get_clause("pcopy");
+    get_data_clause(pcopy_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copy");
+    
+    TL::PragmaCustomClause fpcopy_clause = construct.get_clause("present_or_copy");
+    get_data_clause(fpcopy_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copy");
+}
+
+void GFNPragmaPhase::get_pcopyin_clause(PragmaCustomConstruct construct, 
+                                        TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause pcopyin_clause = construct.get_clause("pcopyin");
+    get_data_clause(pcopyin_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copyin");
+    
+    TL::PragmaCustomClause fpcopyin_clause = construct.get_clause("present_or_copyin");
+    get_data_clause(fpcopyin_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copyin");
+}
+
+void GFNPragmaPhase::get_pcopyout_clause(PragmaCustomConstruct construct, 
+                                         TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause pcopyout_clause = construct.get_clause("pcopyout");
+    get_data_clause(pcopyout_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copyout");
+    
+    TL::PragmaCustomClause fpcopyout_clause = construct.get_clause("present_or_copyout");
+    get_data_clause(fpcopyout_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "copyout");
+}
+
+void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                                      TransferInfo *transfer_info,
                                      AST_t ref_tree, 
                                      TL::ScopeLink scope_link,
+                                     bool ispresent,
                                      std::string copy_type_str)
 {
     if (copy_clause.is_defined())
@@ -747,25 +800,25 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
             int idx = transfer_info->get_var_info_index_from_var_name(varname);
             if (idx >= 0)
             {                
-                if (copy_type_str == "input")
+                if (copy_type_str == "copyin")
                 {
                     transfer_info->_var_info[idx]._is_input = true;
                     transfer_info->_var_info[idx]._is_output = false;
                     transfer_info->_var_info[idx]._is_temp = false;
                 }
-                else if (copy_type_str == "output")
+                else if (copy_type_str == "copyout")
                 {
                     transfer_info->_var_info[idx]._is_input = false;
                     transfer_info->_var_info[idx]._is_output = true;
                     transfer_info->_var_info[idx]._is_temp = false;
                 }
-                else if (copy_type_str == "inout")
+                else if (copy_type_str == "copy")
                 {
                     transfer_info->_var_info[idx]._is_input = true;
                     transfer_info->_var_info[idx]._is_output = true;
                     transfer_info->_var_info[idx]._is_temp = false;
                 }
-                else if (copy_type_str == "temp")
+                else if (copy_type_str == "present")
                 {
                     transfer_info->_var_info[idx]._is_input = false;
                     transfer_info->_var_info[idx]._is_output = false;
@@ -779,6 +832,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                 // Save dimension size data
                 transfer_info->_var_info[idx]._dimension_num = dim_num;
                 transfer_info->_var_info[idx]._shared_dimension = shared_dim;
+                transfer_info->_var_info[idx]._is_present = ispresent;
                 std::cout << "Size of " << varname << " = ";
                 for (int i = 0; i < dim_num; ++i)
                 {
