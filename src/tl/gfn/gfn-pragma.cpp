@@ -680,6 +680,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
         {
             TL::ObjectList<TL::Expression> startexpr_list;
             TL::ObjectList<TL::Expression> endexpr_list;
+            int shared_dim = -1;
             
             pos = arg.find(delimiter);
             subarray = arg.substr(0, pos);
@@ -706,6 +707,13 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                 std::string disttype = (openb_pos != std::string::npos) ?
                     subarray.substr(openb_pos+1, closeb_pos-openb_pos-1) : "";
                     
+                // TODO: trim end
+                if (end == "")
+                {
+                    // have varname only
+                    break;
+                }
+                    
                 /* Create start expression */
                 TL::Source start_src(start);
                 TL::AST_t start_tree = start_src.parse_expression(ref_tree, scope_link);
@@ -724,7 +732,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                 
                 if (disttype == "partition")
                 {
-                    
+                    shared_dim = dim_num;
                 }
                 
                 dim_num++;
@@ -770,6 +778,7 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                               
                 // Save dimension size data
                 transfer_info->_var_info[idx]._dimension_num = dim_num;
+                transfer_info->_var_info[idx]._shared_dimension = shared_dim;
                 std::cout << "Size of " << varname << " = ";
                 for (int i = 0; i < dim_num; ++i)
                 {
