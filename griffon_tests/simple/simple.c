@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
   	B[i] = i;
   }
   
-  #pragma gfn parallel_for input(B[300]) output(A[300])
+  #pragma gfn parallel_for input(B[0:300{partition}]) output(A[0:300{partition}])
   for (i=0;i<300;i++) {
     A[i] = B[i];
     A[i] *= -1;

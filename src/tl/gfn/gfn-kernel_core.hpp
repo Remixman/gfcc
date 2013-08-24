@@ -56,7 +56,9 @@ namespace TL
             // (0 is shared and must boardcast to all node)
             int             _shared_dimension;
             unsigned        _dimension_num; // for scalar dim num equal 0
-            TL::ObjectList<TL::Expression>  _dim_size;
+            TL::ObjectList<TL::Expression> _subarray_start;
+            TL::ObjectList<TL::Expression> _subarray_end;
+            TL::ObjectList<TL::Expression>  _dim_size; // TODO: remove this
             
             // Stencil pattern
             int             _in_pattern_type;

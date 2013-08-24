@@ -630,104 +630,113 @@ void GFNPragmaPhase::get_input_clause(TL::PragmaCustomConstruct construct,
                                       TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause input_clause = construct.get_clause("input");
-    get_copy_clause(input_clause, transfer_info, "input");
+    get_copy_clause(input_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), "input");
 }
 
 void GFNPragmaPhase::get_output_clause(TL::PragmaCustomConstruct construct,
                                        TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause output_clause = construct.get_clause("output");
-    get_copy_clause(output_clause, transfer_info, "output");
+    get_copy_clause(output_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), "output");
 }
 
 void GFNPragmaPhase::get_inout_clause(TL::PragmaCustomConstruct construct, 
                                       TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause inout_clause = construct.get_clause("inout");
-    get_copy_clause(inout_clause, transfer_info, "inout");
+    get_copy_clause(inout_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), "inout");
 }
 
 void GFNPragmaPhase::get_temp_clause(PragmaCustomConstruct construct,
                                      TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause temp_clause = construct.get_clause("temp");
-    get_copy_clause(temp_clause, transfer_info, "temp");
+    get_copy_clause(temp_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), "temp");
 }
 
 void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                                      TransferInfo *transfer_info,
+                                     AST_t ref_tree, 
+                                     TL::ScopeLink scope_link,
                                      std::string copy_type_str)
 {
     if (copy_clause.is_defined())
     {
-        ObjectList<TL::Expression> expr_list = copy_clause.get_expression_list();
-        for (ObjectList<TL::Expression>::iterator it = expr_list.begin();
-             it != expr_list.end();
-             ++it)
+        std::string arg = copy_clause.get_arguments()[0];
+        std::string delimiter = ",";
+        std::string subarray;
+        size_t pos = 0;
+
+        /* Parse subarray with distributed pattern */
+        while (true)
         {
-            TL::Expression var_expr = *it;
-            std::string var_name = "";
+            TL::ObjectList<TL::Expression> startexpr_list;
+            TL::ObjectList<TL::Expression> endexpr_list;
+            
+            pos = arg.find(delimiter);
+            subarray = arg.substr(0, pos);
+            
+            /* Extract variable name */
+            std::string varname = subarray.substr(0, subarray.find("["));
+            subarray.erase(0, subarray.find("["));
+            //std::cout << varname << " : ";
+
+            /* Extract subarray sizes */
             unsigned dim_num = 0;
-            TL::ObjectList<TL::Expression> subscript_list;
-
-            // Array input/output
-            if (var_expr.is_array_subscript())
+            while (true)
             {
-                TL::Expression tmp_expr = var_expr;
+                size_t opensb_pos = subarray.find("[");
+                size_t closesb_pos = subarray.find("]");
+                size_t colon_pos = subarray.find(":");
+                size_t openb_pos = subarray.find("{");
+                size_t closeb_pos = subarray.find("}");
                 
-                while (!tmp_expr.is_id_expression())
+                std::string start = subarray.substr(opensb_pos+1, colon_pos-opensb_pos-1);
+                std::string end = (openb_pos != std::string::npos) ?
+                    subarray.substr(colon_pos+1, openb_pos-colon_pos-1) :
+                    subarray.substr(colon_pos+1, closesb_pos-colon_pos-1) ;
+                std::string disttype = (openb_pos != std::string::npos) ?
+                    subarray.substr(openb_pos+1, closeb_pos-openb_pos-1) : "";
+                    
+                /* Create start expression */
+                TL::Source start_src(start);
+                TL::AST_t start_tree = start_src.parse_expression(ref_tree, scope_link);
+                TL::Expression start_expr(start_tree, scope_link);
+                add_expr_to_input_var(transfer_info, start_expr);
+                startexpr_list.push_back(start_expr);
+                //std::cout << start_expr << " : ";
+
+                /* Create end expression */
+                TL::Source end_src(end);
+                TL::AST_t end_tree = end_src.parse_expression(ref_tree, scope_link);
+                TL::Expression end_expr(end_tree, scope_link);
+                add_expr_to_input_var(transfer_info, end_expr);
+                endexpr_list.push_back(end_expr);
+                //std::cout << end_expr << "\n";
+                
+                if (disttype == "partition")
                 {
-                    TL::Expression subscript_expr = tmp_expr.get_subscript_expression();
-                    subscript_list.push_back( subscript_expr );
-                    /* Add size variable to input
-                       TODO: for complex expression as size like x+y+z */
-                    {
-                        ObjectList<IdExpression> symbol_list = subscript_expr.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
-                        ObjectList<VariableInfo> &kernel_name_list = transfer_info->_var_info;
-                        for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
-                            sit != symbol_list.end();
-                            sit++)
-                        {
-                            DataReference data_ref(sit->get_expression());
-                            std::string name = sit->get_symbol().get_name();
-
-                            if (transfer_info->get_var_info_index_from_var_name(name) < 0)
-                            {
-                                TL::Type var_type = data_ref.get_type();
-                                VariableInfo var_info(name);
-                                if (var_type.is_array() || var_type.is_pointer())
-                                    var_info._is_array_or_pointer = true;
-                                var_info._is_input = true;
-                                transfer_info->_var_info.append(var_info);
-                                transfer_info->_var_ref.append(data_ref);
-                            }
-                        }
-                    }
-
-                    tmp_expr = tmp_expr.get_subscripted_expression();
-                    dim_num++;
+                    
                 }
                 
-                var_name = tmp_expr.get_id_expression().get_symbol().get_name();
-            }
-            // Scalar input/output
-            else if (var_expr.is_id_expression())
-            {
-                var_name = var_expr.get_id_expression().get_symbol().get_name();
-                dim_num = 0;
-            }
-            // Invalid parameter
-            else
-            {
-                std::cerr << "warning : clause \"" << copy_type_str
-                          << "\" unknown variable \"" << var_expr.prettyprint()
-                          << "\" in parallel region " 
-                          << __FILE__ << ":" << __LINE__ << std::endl;
-                continue; /* Get next parameter */
+                dim_num++;
+                
+                subarray = subarray.substr(closesb_pos+1, subarray.size());
+                if (subarray.size() == 0)
+                    break;
             }
             
+            arg.erase(0, pos + delimiter.length());
             
-            int idx = transfer_info->get_var_info_index_from_var_name(var_name);
+            int idx = transfer_info->get_var_info_index_from_var_name(varname);
             if (idx >= 0)
             {                
                 if (copy_type_str == "input")
@@ -761,22 +770,30 @@ void GFNPragmaPhase::get_copy_clause(TL::PragmaCustomClause &copy_clause,
                               
                 // Save dimension size data
                 transfer_info->_var_info[idx]._dimension_num = dim_num;
-                std::cout << "Size of " << var_name << " = ";
+                std::cout << "Size of " << varname << " = ";
                 for (int i = 0; i < dim_num; ++i)
                 {
+                    transfer_info->_var_info[idx]._subarray_start.push_back( startexpr_list[i] );
+                    transfer_info->_var_info[idx]._subarray_end.push_back( endexpr_list[i] );
+                    
+                    // TODO: remove this
+                    transfer_info->_var_info[idx]._dim_size.push_back( endexpr_list[i] );
+                    
                     if (i != 0) std::cout << ":";
-                    std::cout << subscript_list[i].prettyprint();
-                    transfer_info->_var_info[idx]._dim_size.push_back( subscript_list[i] );
+                    std::cout << transfer_info->_var_info[idx]._subarray_end[i].prettyprint();
                 }
                 std::cout << std::endl;
             }
             else
             {
                 std::cerr << "warning : clause \"" << copy_type_str
-                          << "\" unknown variable \"" << *it
+                          << "\" unknown variable \"" << varname
                           << "\" in parallel region "
                           << __FILE__ << ":" << __LINE__ << std::endl;
             }
+            
+            if (pos == std::string::npos)
+                break;
         }
     }
 }
@@ -1148,6 +1165,30 @@ void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
         kernel_info->_is_const_loop_upper_bound = true;
         kernel_info->_const_upper_bound = (std::string)upper_bound_expr;
         //std::cout << "Upper bound expr : " << (std::string)upper_bound_expr << std::endl;
+    }
+}
+
+void GFNPragmaPhase::add_expr_to_input_var(TransferInfo *transfer_info, TL::Expression &expr)
+{
+    ObjectList<IdExpression> symbol_list = expr.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    ObjectList<VariableInfo> &kernel_name_list = transfer_info->_var_info;
+    for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
+         sit != symbol_list.end(); sit++)
+    {
+        IdExpression &idexpr = *sit;
+        DataReference data_ref(idexpr.get_expression());
+        std::string name = idexpr.get_symbol().get_name();
+
+        if (transfer_info->get_var_info_index_from_var_name(name) < 0)
+        {
+            TL::Type var_type = data_ref.get_type();
+            VariableInfo var_info(name);
+            if (var_type.is_array() || var_type.is_pointer())
+                var_info._is_array_or_pointer = true;
+            var_info._is_input = true;
+            transfer_info->_var_info.append(var_info);
+            transfer_info->_var_ref.append(data_ref);
+        }
     }
 }
 

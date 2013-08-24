@@ -91,6 +91,8 @@ namespace TL
                                      TransferInfo *transfer_info);
                 void get_copy_clause(PragmaCustomClause &copy_clause,
                                      TransferInfo *transfer_info,
+                                     AST_t ref_tree, 
+                                     TL::ScopeLink scope_link,
                                      std::string copy_type_str);
                 void get_in_pattern_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info);
@@ -110,6 +112,9 @@ namespace TL
                 void post_collect_variable_info(KernelInfo *kernel_info);
                 void collect_loop_info(ForStatement for_stmt,
                                        KernelInfo *kernel_info);
+                
+                void add_expr_to_input_var(TransferInfo *transfer_info, 
+                                           TL::Expression &expr);
                 
                 void show_variable_prop(KernelInfo *kernel_info);
 

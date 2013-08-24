@@ -44,19 +44,13 @@ void _Function_1()
     /* Compute Workload */
     if (1)
     {
-        _kernel = _GfnCreateKernel("_kernel_1");
-        _gfn_status = clSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_A);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_B);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 2, sizeof(int), (void *) &_local_i_start);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_end);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clSetKernelArg(_kernel, 4, sizeof(int), (void *) &_loop_step);
-        _GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
-        _gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, _kernel, 1, 0, &_global_item_num, &_work_group_item_num, 0, 0, 0);
-        _GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
+        _kernel = _GfnCreateKernel("_kernel_167162");
+        _GfnSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_A);
+        _GfnSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_B);
+        _GfnSetKernelArg(_kernel, 2, sizeof(int), (void *) &_local_i_start);
+        _GfnSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_end);
+        _GfnSetKernelArg(_kernel, 4, sizeof(int), (void *) &_loop_step);
+        _GfnLaunchKernel(_kernel, &_global_item_num, &_work_group_item_num);
         _GfnClearKernel(_kernel);
     }
     else
