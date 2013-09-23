@@ -551,48 +551,28 @@ void GFNPragmaPhase::get_private_clause(PragmaCustomConstruct construct,
 
         //ObjectList<std::string> identifier_list = private_clause.get_arguments();
         ObjectList<Expression> identifier_list = private_clause.get_expression_list();
-        ObjectList<DataReference> private_name_list;
 
         for (ObjectList<Expression>::iterator it = identifier_list.begin();
              it != identifier_list.end();
              it++)
         {
-            // FIXME: scope of variable. it is able to have two or more variables
-            // that has the same name
+            std::string varname = it->prettyprint();
 
-            Type var_type = it->get_type();
-
-            bool found = false;
-            for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
-                 sit != symbol_list.end();
-                 sit++)
+            int idx = kernel_info->get_var_info_index_from_var_name(varname);
+            if (idx >= 0)
             {
-                if (sit->get_symbol().get_name() == it->prettyprint())
-                {
-                    found = true;
-                    DataReference data_ref(*it);
-
-                    if (0 /*!data_ref.is_valid(warning)*/)
-                    {
-                        /*std::cerr << warning;
-                        std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref
-                            << "' is not a valid name for private variables" << std::endl;*/
-                    }
-                    else
-                    {
-                        private_name_list.push_back(data_ref);
-                    }
-                    break;
-                }
+                kernel_info->_var_info[idx]._is_private = true;
+                kernel_info->_var_info[idx]._is_input = false;
+                kernel_info->_var_info[idx]._is_input = false;
             }
-            if (!found)
+            else
             {
-                // Remove from list
-                std::cerr << it->prettyprint() << " is not variable.\n";
+                std::cerr << "warning : clause private"
+                          << "\" unknown variable \"" << varname
+                          << "\" in parallel region "
+                          << __FILE__ << ":" << __LINE__ << std::endl;
             }
         }
-
-        // TODO: set private flags
     }
 }
 
@@ -663,6 +643,13 @@ void GFNPragmaPhase::get_copyout_clause(PragmaCustomConstruct construct,
                     construct.get_scope_link(), false, "copyout");
 }
 
+void GFNPragmaPhase::get_create_clause(PragmaCustomConstruct construct, 
+                                       TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause create_clause = construct.get_clause("create");
+    // TODO:
+}
+
 void GFNPragmaPhase::get_present_clause(PragmaCustomConstruct construct, 
                                         TransferInfo *transfer_info)
 {
@@ -714,6 +701,16 @@ void GFNPragmaPhase::get_pcopyout_clause(PragmaCustomConstruct construct,
                     construct.get_scope_link(), true, "copyout");
 }
 
+void GFNPragmaPhase::get_pcreate_clause(PragmaCustomConstruct construct, 
+                                        TransferInfo *transfer_info)
+{
+    TL::PragmaCustomClause pcreate_clause = construct.get_clause("pcreate");
+    // TODO:
+    
+    TL::PragmaCustomClause fpcreate_clause = construct.get_clause("present_or_create");
+    // TODO:
+}
+
 void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                                      TransferInfo *transfer_info,
                                      AST_t ref_tree, 
@@ -728,6 +725,142 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
         std::string subarray;
         size_t pos = 0;
 
+        /* Parse subarray with distributed pattern */
+        while (true)
+        {
+            TL::ObjectList<TL::Expression> startexpr_list;
+            TL::ObjectList<TL::Expression> endexpr_list;
+            
+            pos = arg.find(delimiter);
+            subarray = arg.substr(0, pos);
+            
+            /* Extract variable name */
+            std::string varname = subarray.substr(0, subarray.find("["));
+            subarray.erase(0, subarray.find("["));
+            //std::cout << varname << " : ";
+
+            /* Extract subarray sizes */
+            unsigned dim_num = 0;
+            while (true)
+            {
+                size_t opensb_pos = subarray.find("[");
+                size_t closesb_pos = subarray.find("]");
+                size_t colon_pos = subarray.find(":");
+                size_t openb_pos = subarray.find("{");
+                size_t closeb_pos = subarray.find("}");
+                
+                std::string start = subarray.substr(opensb_pos+1, colon_pos-opensb_pos-1);
+                std::string end = subarray.substr(colon_pos+1, closesb_pos-colon_pos-1);
+                    
+                // TODO: trim end
+                if (end == "")
+                {
+                    // have varname only
+                    break;
+                }
+                    
+                /* Create start expression */
+                TL::Source start_src(start);
+                TL::AST_t start_tree = start_src.parse_expression(ref_tree, scope_link);
+                TL::Expression start_expr(start_tree, scope_link);
+                add_expr_to_input_var(transfer_info, start_expr);
+                startexpr_list.push_back(start_expr);
+                //std::cout << start_expr << " : ";
+
+                /* Create end expression */
+                TL::Source end_src(end);
+                TL::AST_t end_tree = end_src.parse_expression(ref_tree, scope_link);
+                TL::Expression end_expr(end_tree, scope_link);
+                add_expr_to_input_var(transfer_info, end_expr);
+                endexpr_list.push_back(end_expr);
+                //std::cout << end_expr << "\n";
+                
+                dim_num++;
+                
+                subarray = subarray.substr(closesb_pos+1, subarray.size());
+                if (subarray.size() == 0)
+                    break;
+            }
+            
+            arg.erase(0, pos + delimiter.length());
+            
+            int idx = transfer_info->get_var_info_index_from_var_name(varname);
+            if (idx >= 0)
+            {                
+                if (copy_type_str == "copyin")
+                {
+                    transfer_info->_var_info[idx]._is_input = true;
+                    transfer_info->_var_info[idx]._is_output = false;
+                    transfer_info->_var_info[idx]._is_temp = false;
+                }
+                else if (copy_type_str == "copyout")
+                {
+                    transfer_info->_var_info[idx]._is_input = false;
+                    transfer_info->_var_info[idx]._is_output = true;
+                    transfer_info->_var_info[idx]._is_temp = false;
+                }
+                else if (copy_type_str == "copy")
+                {
+                    transfer_info->_var_info[idx]._is_input = true;
+                    transfer_info->_var_info[idx]._is_output = true;
+                    transfer_info->_var_info[idx]._is_temp = false;
+                }
+                else if (copy_type_str == "present")
+                {
+                    transfer_info->_var_info[idx]._is_input = false;
+                    transfer_info->_var_info[idx]._is_output = false;
+                    transfer_info->_var_info[idx]._is_temp = true;
+                }
+                else
+                {
+                    std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
+                }
+                              
+                // Save dimension size data
+                transfer_info->_var_info[idx]._dimension_num = dim_num;
+                //transfer_info->_var_info[idx]._shared_dimension = shared_dim;
+                transfer_info->_var_info[idx]._is_present = ispresent;
+                std::cout << "Size of " << varname << " = ";
+                for (int i = 0; i < dim_num; ++i)
+                {
+                    transfer_info->_var_info[idx]._subarray_start.push_back( startexpr_list[i] );
+                    transfer_info->_var_info[idx]._subarray_end.push_back( endexpr_list[i] );
+                    
+                    // TODO: remove this
+                    transfer_info->_var_info[idx]._dim_size.push_back( endexpr_list[i] );
+                    
+                    if (i != 0) std::cout << ":";
+                    std::cout << transfer_info->_var_info[idx]._subarray_end[i].prettyprint();
+                }
+                std::cout << std::endl;
+            }
+            else
+            {
+                std::cerr << "warning : clause \"" << copy_type_str
+                          << "\" unknown variable \"" << varname
+                          << "\" in parallel region "
+                          << __FILE__ << ":" << __LINE__ << std::endl;
+            }
+            
+            if (pos == std::string::npos)
+                break;
+        }
+    }
+}
+
+void GFNPragmaPhase::get_allocate_clause(PragmaCustomConstruct construct, 
+                                         TransferInfo *transfer_info,
+                                         AST_t ref_tree,
+                                         TL::ScopeLink scope_link)
+{
+    TL::PragmaCustomClause alloc_clause = construct.get_clause("allocate");
+    if (alloc_clause.is_defined())
+    {
+        std::string arg = alloc_clause.get_arguments()[0];
+        std::string delimiter = ",";
+        std::string subarray;
+        size_t pos = 0;
+        
         /* Parse subarray with distributed pattern */
         while (true)
         {
@@ -799,57 +932,25 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
             
             int idx = transfer_info->get_var_info_index_from_var_name(varname);
             if (idx >= 0)
-            {                
-                if (copy_type_str == "copyin")
-                {
-                    transfer_info->_var_info[idx]._is_input = true;
-                    transfer_info->_var_info[idx]._is_output = false;
-                    transfer_info->_var_info[idx]._is_temp = false;
-                }
-                else if (copy_type_str == "copyout")
-                {
-                    transfer_info->_var_info[idx]._is_input = false;
-                    transfer_info->_var_info[idx]._is_output = true;
-                    transfer_info->_var_info[idx]._is_temp = false;
-                }
-                else if (copy_type_str == "copy")
-                {
-                    transfer_info->_var_info[idx]._is_input = true;
-                    transfer_info->_var_info[idx]._is_output = true;
-                    transfer_info->_var_info[idx]._is_temp = false;
-                }
-                else if (copy_type_str == "present")
-                {
-                    transfer_info->_var_info[idx]._is_input = false;
-                    transfer_info->_var_info[idx]._is_output = false;
-                    transfer_info->_var_info[idx]._is_temp = true;
-                }
-                else
-                {
-                    std::cerr << "warning : " << __LINE__ << " at " << __FILE__ << std::endl;
-                }
-                              
+            {                              
                 // Save dimension size data
                 transfer_info->_var_info[idx]._dimension_num = dim_num;
                 transfer_info->_var_info[idx]._shared_dimension = shared_dim;
-                transfer_info->_var_info[idx]._is_present = ispresent;
-                std::cout << "Size of " << varname << " = ";
+                std::cout << "Size of allocate " << varname << " = ";
                 for (int i = 0; i < dim_num; ++i)
                 {
-                    transfer_info->_var_info[idx]._subarray_start.push_back( startexpr_list[i] );
-                    transfer_info->_var_info[idx]._subarray_end.push_back( endexpr_list[i] );
-                    
-                    // TODO: remove this
-                    transfer_info->_var_info[idx]._dim_size.push_back( endexpr_list[i] );
-                    
+                    transfer_info->_var_info[idx]._alloc_start.push_back( startexpr_list[i] );
+                    transfer_info->_var_info[idx]._alloc_end.push_back( endexpr_list[i] );
+
                     if (i != 0) std::cout << ":";
+                    std::cout << transfer_info->_var_info[idx]._subarray_start[i].prettyprint() << ":";
                     std::cout << transfer_info->_var_info[idx]._subarray_end[i].prettyprint();
                 }
                 std::cout << std::endl;
             }
             else
             {
-                std::cerr << "warning : clause \"" << copy_type_str
+                std::cerr << "warning : clause \"allocate"
                           << "\" unknown variable \"" << varname
                           << "\" in parallel region "
                           << __FILE__ << ":" << __LINE__ << std::endl;

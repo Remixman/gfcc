@@ -58,7 +58,9 @@ namespace TL
             unsigned        _dimension_num; // for scalar dim num equal 0
             TL::ObjectList<TL::Expression> _subarray_start;
             TL::ObjectList<TL::Expression> _subarray_end;
-            TL::ObjectList<TL::Expression>  _dim_size; // TODO: remove this
+            TL::ObjectList<TL::Expression> _alloc_start;
+            TL::ObjectList<TL::Expression> _alloc_end;
+            TL::ObjectList<TL::Expression> _dim_size; // TODO: remove this
             
             // Stencil pattern
             int             _in_pattern_type;
@@ -72,6 +74,7 @@ namespace TL
             bool            _is_temp;
             bool            _is_index;
             bool            _is_present;
+            bool            _is_private;
             bool            _is_reduction;
             bool            _is_array_or_pointer;
             bool            _is_loop_variable; // use in for expr e.g. 'n' in for(i=0;i<n;i++)
@@ -85,7 +88,7 @@ namespace TL
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(-1), _dimension_num(0),
-                _is_input(0), _is_output(0), _is_temp(0), _is_index(0), _is_present(0), 
+                _is_input(0), _is_output(0), _is_temp(0), _is_index(0), _is_present(0), _is_private(0),
                 _is_reduction(0), _is_array_or_pointer(0), _is_loop_variable(0), _is_use(0), 
                 _is_prop_use(0), _is_def(0), _is_def_before_use(0),
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {

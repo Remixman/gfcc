@@ -300,7 +300,7 @@ TL::Source ParallelFor::do_parallel_for()
         //std::cout << i << ". Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         /* 1. Declaration necessary variable */
-        if (var_info._is_temp)
+        if (var_info._is_temp || var_info._is_private)
         {
             // define as size in temp() clause
             TL::Source tmp_decl_src;
