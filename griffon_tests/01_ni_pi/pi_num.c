@@ -17,7 +17,7 @@ double integrate(int n) {
 	double sum, h, x;
 	int i;
 	h = 1.0 / (double) n;
-	#pragma gfn parallel_for reduction(+:sum) input(h,n)
+	#pragma gfn parallel_for reduction(+:sum)
 	for (i = 1; i <= n; i++) {
 		x = h*((double)i - 0.5);
 		sum += 4.0 / (1.0 + x*x);
