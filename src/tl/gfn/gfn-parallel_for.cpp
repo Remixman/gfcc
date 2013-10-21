@@ -264,6 +264,7 @@ TL::Source ParallelFor::do_parallel_for()
         << comment("Send call function message")
         << "_SendCallFuncMsg(" << _kernel_info->kernel_id << ");";
 
+    std::cout << "Generate code about variables\n";
     for (int i = 0; i < _kernel_info->_var_info.size(); ++i)
     {
         VariableInfo var_info = _kernel_info->_var_info[i];

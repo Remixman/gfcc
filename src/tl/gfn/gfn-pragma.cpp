@@ -743,6 +743,8 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
             unsigned dim_num = 0;
             while (true)
             {
+                int shared_dim = -1;
+                
                 size_t opensb_pos = subarray.find("[");
                 size_t closesb_pos = subarray.find("]");
                 size_t colon_pos = subarray.find(":");
@@ -750,7 +752,11 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                 size_t closeb_pos = subarray.find("}");
                 
                 std::string start = subarray.substr(opensb_pos+1, colon_pos-opensb_pos-1);
-                std::string end = subarray.substr(colon_pos+1, closesb_pos-colon_pos-1);
+                std::string end = (openb_pos != std::string::npos) ?
+                    subarray.substr(colon_pos+1, openb_pos-colon_pos-1) :
+                    subarray.substr(colon_pos+1, closesb_pos-colon_pos-1) ;
+                std::string disttype = (openb_pos != std::string::npos) ?
+                    subarray.substr(openb_pos+1, closeb_pos-openb_pos-1) : "";
                     
                 // TODO: trim end
                 if (end == "")
@@ -774,6 +780,11 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                 add_expr_to_input_var(transfer_info, end_expr);
                 endexpr_list.push_back(end_expr);
                 //std::cout << end_expr << "\n";
+                
+                if (disttype == "partition")
+                {
+                    shared_dim = dim_num;
+                }
                 
                 dim_num++;
                 
