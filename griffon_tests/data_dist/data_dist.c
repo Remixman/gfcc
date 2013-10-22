@@ -19,7 +19,8 @@ int main() {
 	C[4]=C[5]=C[6] = 8;
 	
 	// Compute by GPU Cluster
-	#pragma gfn parallel_for input(B,C) output(A) size(A,B:1000) size(C:7)
+	#pragma gfn parallel_for copyin(B[0:1000{partition}],C[0:7]) \
+		copyout(A[0:1000{partition}])
 	for (i = 0; i < 1000; ++i) {
 		A[i] = B[i];
 		for (j = 1; j < 4; ++j) {
