@@ -41,7 +41,7 @@ int main() {
 	uksize = (KMAX+1)/2*2+1;
 
 	// TODO: remove input(gp0,gp1,gp2)
-	#pragma gfn parallel_for output(us[isize][jsize][ksize]) input(gp0,gp1,gp2)
+	#pragma gfn parallel_for copyout(us[0:isize{partition}][0:jsize][0:ksize])
  	for (i = 0; i < gp0; i++) {
  		for (j = 0; j < gp1; j++) {
 			for (k = 0; k < gp2; k++) {
@@ -49,8 +49,8 @@ int main() {
 			}
 		}
 	}
-	
-	#pragma gfn parallel_for output(lhs[isize][jsize][ksize][3][5][5]) input(gp0,gp1,gp2)
+
+	#pragma gfn parallel_for copyout(lhs[0:isize{partition}][0:jsize][0:ksize][0:3][0:5][0:5])
   for (i = 0; i < gp0; i++) {
     for (j = 0; j < gp1; j++) {
       for (k = 0; k < gp2; k++) {
@@ -66,13 +66,13 @@ int main() {
   }
 
 	#pragma gfn parallel_for \
-		input(u[uisize][ujsize][uksize][5]) input(gp0,gp1,gp2) \
-		output(rho_i[isize][jsize][ksize]) \
-		output(us[isize][jsize][ksize]) \
-		output(vs[isize][jsize][ksize]) \
-		output(ws[isize][jsize][ksize]) \
-		output(qs[isize][jsize][ksize]) \
-		output(square[isize][jsize][ksize])
+		copyin(u[0:uisize{partition}][0:ujsize][0:uksize][0:5]) \
+		copyout(rho_i[0:isize{partition}][0:jsize][0:ksize]) \
+		copyout(us[0:isize{partition}][0:jsize][0:ksize]) \
+		copyout(vs[0:isize{partition}][0:jsize][0:ksize]) \
+		copyout(ws[0:isize{partition}][0:jsize][0:ksize]) \
+		copyout(qs[0:isize{partition}][0:jsize][0:ksize]) \
+		copyout(square[0:isize{partition}][0:jsize][0:ksize])
 	for (i = 0; i < gp0; i++) {
 		for (j = 0; j < gp1; j++) {
 			for (k = 0; k < gp2; k++) {
@@ -88,11 +88,11 @@ int main() {
 			}
 		}
 	}
-	
+#if 0	
 	  i = 1;
-#pragma gfn parallel_for input(i,dssp) input(gp1,gp2) \
-	inout(rhs[isize][jsize][ksize][5]) \
-	input(u[uisize][ujsize][uksize][5])
+#pragma gfn parallel_for \
+	copy(rhs[0:isize{partition}][0:jsize][0:ksize][0:5]) \
+	copyin(u[0:uisize{partition}][0:ujsize][0:uksize][0:5])
   for (j = 1; j < gp1-1; j++) {
     for (k = 1; k < gp2-1; k++) {
       for (m = 0; m < 5; m++) {
@@ -102,7 +102,7 @@ int main() {
       }
     }
   }
-
+#endif
 	
 	#pragma gfn finish
 

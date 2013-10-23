@@ -15,19 +15,20 @@ int func(int x)
 }
 int main()
 {
-    int i, j, k, m;
-    double rho_inv, uijk, up1, um1, vijk, vp1, vm1, wijk, wp1, wm1;
+    int i, j, k, m, n;
+    float rho_inv, uijk, up1, um1, vijk, vp1, vm1, wijk, wp1, wm1;
+    float dssp = 5.67;
     int gp0, gp1, gp2;
     int isize, jsize, ksize;
     int uisize, ujsize, uksize;
     /* Initialize IPC to worker */
     _OpenMasterMsgQueue();
-    gp0 = grid_points[0] = isize = 10 / 2 * 2 + 1;
-    gp1 = grid_points[1] = jsize = 10 / 2 * 2 + 1;
-    gp2 = grid_points[2] = ksize = 10 / 2 * 2 + 1;
-    uisize = (10 + 1) / 2 * 2 + 1;
-    ujsize = (10 + 1) / 2 * 2 + 1;
-    uksize = (10 + 1) / 2 * 2 + 1;
+    gp0 = grid_points[0] = isize = 3 / 2 * 2 + 1;
+    gp1 = grid_points[1] = jsize = 3 / 2 * 2 + 1;
+    gp2 = grid_points[2] = ksize = 3 / 2 * 2 + 1;
+    uisize = (3 + 1) / 2 * 2 + 1;
+    ujsize = (3 + 1) / 2 * 2 + 1;
+    uksize = (3 + 1) / 2 * 2 + 1;
     /* Send call function message */
     _SendCallFuncMsg(1);
     _SendInputMsg((void *) &gp0, sizeof(int));

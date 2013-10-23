@@ -27,9 +27,9 @@ void matmul_kernel(int n, float **A, float **B, float **C)
     /* Send call function message */
     _SendCallFuncMsg(1);
     _SendInputMsg((void *) &n, sizeof(int));
-    _SendConstInputMsg((long long) &C);
-    _SendConstInputMsg((long long) &A);
-    _SendConstInputMsg((long long) &B);
+    _SendConstInputMsg((long long) &(C[0][0]));
+    _SendConstInputMsg((long long) &(A[0][0]));
+    _SendConstInputMsg((long long) &(B[0][0]));
     _SendInputNDMsg(&(A[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 0, 0, 2, 0, n, n);
     _SendInputMsg((void *) B[0], (sizeof(float) * ((n) * (n))));
     _RecvOutputNDMsg(&(C[0][0]), _GFN_TYPE_FLOAT(), 0, (n) - 1, 1, 0, 0, 2, 0, n, n);

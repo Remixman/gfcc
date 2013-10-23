@@ -15,10 +15,10 @@ int main()
     C[0] = C[1] = C[2] = C[3] = 7;
     C[4] = C[5] = C[6] = 8;
     /* Send call function message */
-    _SendCallFuncMsg(793671);
-    _SendConstInputMsg((long long) &B);
-    _SendConstInputMsg((long long) &A);
-    _SendConstInputMsg((long long) &C);
+    _SendCallFuncMsg(84699);
+    _SendConstInputMsg((long long) &(B[0]));
+    _SendConstInputMsg((long long) &(A[0]));
+    _SendConstInputMsg((long long) &(C[0]));
     _SendInputNDMsg(&(B[0]), _GFN_TYPE_INT(), 0, (1000) - 1, 1, 0, 0, 1, 0, 1000);
     _SendInputMsg((void *) C, (sizeof(int) * ((7))));
     _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 0, (1000) - 1, 1, 0, 0, 1, 0, 1000);
