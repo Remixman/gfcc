@@ -346,6 +346,15 @@ void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation
     fprintf(kerdecl_fptr, "%s\n\n", src_tree.prettyprint_external().c_str());
 }
 
+TL::Source create_send_var_id_msg(std::string var_name,
+                                  int dim_num)
+{
+    TL::Source result, subscript_to_1d;
+    for (int i = 0; i < dim_num; ++i) subscript_to_1d << "[0]";
+    result
+        << "_SendConstInputMsg((long long)&(" << var_name << subscript_to_1d << "));";
+    return result;
+}
 
 TL::Source create_send_input_nd_msg(std::string var_name,
                                     std::string type_id,

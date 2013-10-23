@@ -141,6 +141,9 @@ void print_to_kernel_decl_file(TL::ScopeLink &scope_link, TL::AST_t &translation
                                FILE *kerdecl_fptr, TL::Source &src);
 
 
+TL::Source create_send_var_id_msg(std::string var_name,
+                                  int dim_num);
+
 TL::Source create_send_input_nd_msg(std::string var_name,
                                     std::string type_id,
                                     std::string loop_start,

@@ -21,12 +21,22 @@ int main(int argc, char *argv[])
     {
         B[i] = i;
     }
-    /* Send call function message */
-    _SendCallFuncMsg(1);
-    _SendConstInputMsg((long long) &A);
-    _SendConstInputMsg((long long) &B);
+    /* Send call send function message */
+    _SendCallFuncMsg(145409);
     _SendInputMsg((void *) B, (sizeof(int) * ((500))));
-    _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 0, (500) - 1, 1, 0, 0, 1, 0, 500);
+    _GfnLockTransfer((void *) B);
+    {
+        /* Send call function message */
+        _SendCallFuncMsg(133237);
+        _SendConstInputMsg((long long) &A);
+        _SendConstInputMsg((long long) &B);
+        _SendInputMsg((void *) B, (sizeof(int) * ((500))));
+        _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 0, (500) - 1, 1, 0, 0, 1, 0, 500);
+    }
+    /* Send call recieve function message */
+    _SendCallFuncMsg(530979);
+    _GfnUnlockTransfer((void *) A);
+    _RecvOutputMsg((void *) A, (sizeof(int) * ((500))));
     /* Close IPC to worker */
     _SendCallFuncMsg(0);
     _CloseMasterMsgQueue();
@@ -37,7 +47,7 @@ int main(int argc, char *argv[])
         if (A[i] != a(B[i], 8))
         {
             printf("Fail at i = %d , Expected = %d but A[i] = %d\n", i, a(B[i], 8), A[i]);
-            ((0) ? (void) (0) : __assert_fail("0", "call_func.c", 40, __PRETTY_FUNCTION__));
+            ((0) ? (void) (0) : __assert_fail("0", "call_func.c", 46, __PRETTY_FUNCTION__));
         }
     }
     printf("TEST PASS!\n");

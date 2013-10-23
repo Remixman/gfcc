@@ -166,6 +166,10 @@ void * _lock_var_tab_root;
 
 int _lock_transfer( long long id ) {
 
+#ifdef DEBUG_VAR_TABLE
+	printf("[DEBUG VTAB]: Lock transfer \"%ld\"\n", id);
+#endif
+
 	long long * id_ptr = (long long *) malloc(sizeof(long long));
 	*id_ptr = id;
 	tsearch(id_ptr, &_lock_var_tab_root, _lock_var_compare);
@@ -184,6 +188,12 @@ int _is_lock_transfer( long long id ) {
 
 	void *retieved_id = NULL;
 	retieved_id = tfind((void *)&id, &_lock_var_tab_root, _lock_var_compare);
+
+#ifdef DEBUG_VAR_TABLE
+	printf("[DEBUG VTAB]: Check lock \"%ld\" result is ", id);
+	if (retieved_id != NULL)  printf("FOUND\n");
+	else                      printf("NOT FOUND\n");
+#endif
 
 	return (retieved_id != NULL);
 }

@@ -9,7 +9,8 @@
 
 
 #define DEBUG_AUTO_ALLOCATE
-//#define DEBUG_INTER_PROC_COMM
+#define DEBUG_VAR_TABLE
+#define DEBUG_INTER_PROC_COMM
 
 
 extern int _gfn_rank;		/**/
@@ -80,6 +81,7 @@ int _CalcOffset(int size, int num_proc, int rank);
 void _CalcCnts(int size, int num_proc, int *cnts /* OUTS */, int block_size);
 void _CalcDisp(int size, int num_proc, int *disp /* OUTS */, int block_size);
 size_t _CalcTypeSize(int type_id);
+
 void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, int loop_step,
 						int *pattern_array, int pattern_array_size, int pattern_type,
                         int *cnts /* OUTS */, int *disp /* OUTS */, 

@@ -395,7 +395,7 @@ TL::Source ParallelFor::do_parallel_for()
         if ((var_info._is_input || var_info._is_output) && var_info._is_array_or_pointer)
         {
             master_send_scalar_input
-                << "_SendConstInputMsg((long long)&" << var_name << ");";
+                << create_send_var_id_msg(var_name, var_info._dimension_num);
 
             worker_boardcast_scalar_src
                 << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
@@ -433,6 +433,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
 
             /* Worker code */
+            std::cout << var_name << " IS " << ((is_partition)?"":"NOT ") << "PARTITION\n";
             if (var_info._is_array_or_pointer && is_partition)
             {
                 worker_distribute_array_memory_src

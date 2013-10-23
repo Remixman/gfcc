@@ -730,6 +730,7 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
         {
             TL::ObjectList<TL::Expression> startexpr_list;
             TL::ObjectList<TL::Expression> endexpr_list;
+            int shared_dim = -1;
             
             pos = arg.find(delimiter);
             subarray = arg.substr(0, pos);
@@ -743,8 +744,6 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
             unsigned dim_num = 0;
             while (true)
             {
-                int shared_dim = -1;
-                
                 size_t opensb_pos = subarray.find("[");
                 size_t closesb_pos = subarray.find("]");
                 size_t colon_pos = subarray.find(":");
@@ -829,7 +828,7 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                               
                 // Save dimension size data
                 transfer_info->_var_info[idx]._dimension_num = dim_num;
-                //transfer_info->_var_info[idx]._shared_dimension = shared_dim;
+                transfer_info->_var_info[idx]._shared_dimension = shared_dim;
                 transfer_info->_var_info[idx]._is_present = ispresent;
                 std::cout << "Size of " << varname << " = ";
                 for (int i = 0; i < dim_num; ++i)

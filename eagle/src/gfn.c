@@ -761,7 +761,11 @@ do { \
 
 int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
-	if (_is_lock_transfer((long long)ptr)) return 0;
+	// send only bound data when locked
+	int send_only_bound = 0;
+	if (_is_lock_transfer((long long)ptr)) 
+		send_only_bound = 1;
+
 	
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
@@ -838,6 +842,79 @@ for (i = 0; i < recv_loop_num; ++i) { \
 } \
 } while (0)
 
+	// Send only bound case
+	if (send_only_bound)
+	{
+		printf("SEND ONLY BOUND\n");
+
+		// TODO: fix this to support multi-dim pattern (support only syntax)
+		//       we scatter bound just 1 dimension
+		int lower_bound = pattern_array[0];
+    	int upper_bound = pattern_array[1];
+		int orig_cnts[_gfn_num_proc];
+    	int orig_disp[_gfn_num_proc];
+
+		_CalcCnts(elem_num, _gfn_num_proc, orig_cnts, 1);
+    	_CalcDisp(elem_num, _gfn_num_proc, orig_disp, 1);
+
+    	// update "cnts" and "disp" for scatter lower bound
+		for (i = 0; i < _gfn_num_proc; ++i) {
+			cnts[i] = lower_bound * (-1);
+			disp[i] = orig_disp + lower_bound;
+			if (disp[i] < 0) disp[i] = cnts[i] = 0;
+			// multiply all disp and cnts with block size
+			disp[i] *= block_size;
+			cnts[i] *= block_size;
+		}
+
+		// scatter lower bound
+		switch(type_id)
+		{
+			case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
+			case TYPE_UNSIGNED_CHAR:  SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+			case TYPE_SHORT:          SWITCH_SCATTER_ND(short,MPI_SHORT); break;
+			case TYPE_UNSIGNED_SHORT: SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+			case TYPE_INT:            SWITCH_SCATTER_ND(int,MPI_INT); break;
+			case TYPE_UNSIGNED:       SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
+			case TYPE_LONG:           SWITCH_SCATTER_ND(long,MPI_LONG); break;
+			case TYPE_UNSIGNED_LONG:  SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+			case TYPE_FLOAT:          SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
+			case TYPE_DOUBLE:         SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
+			case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
+			case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
+		}
+
+		// update "cnts" and "disp" for scatter upper bound
+		for (i = 0; i < _gfn_num_proc; ++i) {
+			cnts[i] = upper_bound;
+			disp[i] = orig_disp[i] + orig_cnts[i];
+			if (disp[i] > loop_end) disp[i] = cnts[i] = 0;
+			// multiply all disp and cnts with block size
+			disp[i] *= block_size;
+			cnts[i] *= block_size;
+		}
+
+		// scatter upper bound
+		switch(type_id)
+		{
+			case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
+			case TYPE_UNSIGNED_CHAR:  SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+			case TYPE_SHORT:          SWITCH_SCATTER_ND(short,MPI_SHORT); break;
+			case TYPE_UNSIGNED_SHORT: SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+			case TYPE_INT:            SWITCH_SCATTER_ND(int,MPI_INT); break;
+			case TYPE_UNSIGNED:       SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
+			case TYPE_LONG:           SWITCH_SCATTER_ND(long,MPI_LONG); break;
+			case TYPE_UNSIGNED_LONG:  SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+			case TYPE_FLOAT:          SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
+			case TYPE_DOUBLE:         SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
+			case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
+			case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
+		}
+
+		return 0;
+	}
+
+	// Send bound and all memory
 	switch(type_id)
 	{
 	case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
@@ -872,7 +949,9 @@ int _GfnFinishDistributeArray()
 
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
-	if (_is_lock_transfer((long long)ptr)) return 0;
+	int send_only_bound = 0;
+	if (_is_lock_transfer((long long)ptr))
+		send_only_bound = 1;
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long gather_start_t, gather_end_t;
