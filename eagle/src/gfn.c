@@ -16,7 +16,7 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
-char current_kernel_name[100];
+char current_kernel_name[50];
 
 static int _cluster_malloc_time;
 static int _cluster_scatter_time;
@@ -1481,6 +1481,8 @@ void _GfnClearKernel(cl_kernel kernel)
 {
 	_gfn_status = clReleaseKernel(kernel);
 	_GfnCheckCLStatus(_gfn_status, "RELEASE KERNEL");
+	
+	printf("kernel %s complete\n", current_kernel_name);
 }
 
 void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr)

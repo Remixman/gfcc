@@ -22,7 +22,7 @@ extern cl_command_queue _gfn_cmd_queue;
 extern cl_int _gfn_status;
 extern cl_program _gfn_cl_program;
 
-extern char current_kernel_name[100];
+extern char current_kernel_name[50];
 
 // API for user
 int gfn_get_num_process();
