@@ -70,10 +70,10 @@ namespace TL
                 /* Clauses */
                 void get_if_clause(PragmaCustomConstruct construct,
                                    KernelInfo *kernel_info);
-                void get_kernelname_clause(PragmaCustomConstruct construct,
+                /*void get_kernelname_clause(PragmaCustomConstruct construct,
                                            KernelInfo *kernel_info);
                 void get_waitfor_clause(PragmaCustomConstruct construct,
-                                        KernelInfo *kernel_info);
+                                        KernelInfo *kernel_info);*/
                 void get_private_clause(PragmaCustomConstruct construct,
                                         KernelInfo *kernel_info,
                                         ObjectList<IdExpression> &symbol_list);

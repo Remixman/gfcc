@@ -88,7 +88,7 @@ int main() {
 			}
 		}
 	}
-#if 0	
+
 	  i = 1;
 #pragma gfn parallel_for \
 	copy(rhs[0:isize{partition}][0:jsize][0:ksize][0:5]) \
@@ -102,7 +102,6 @@ int main() {
       }
     }
   }
-#endif
 	
 	#pragma gfn finish
 

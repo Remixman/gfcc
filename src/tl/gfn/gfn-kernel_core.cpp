@@ -311,19 +311,26 @@ std::string VariableInfo::get_allocate_size_in_byte(TL::Type vartype)
 
 void VariableInfo::print()
 {
-    std::string prop_str = "";
+    std::stringstream prop_str;;
     
-    prop_str += (_name + "\t\tprop[");
-    if (_is_use) prop_str += " USE |";
-    if (_is_def) prop_str += " DEF |";
-    if (_is_def_before_use) prop_str += " DEF_BEF_USE |";
-    if (_is_input) prop_str += " IN |";
-    if (_is_output) prop_str += " OUT |";
-    if (_is_temp) prop_str += " TMP |";
-    if (_is_index) prop_str += " IDX |";
-    if (_is_reduction) prop_str += " REDUC |";
-    prop_str = prop_str.substr(0,prop_str.size()-1);
-    prop_str += "]";
+    prop_str << (_name + "\t\tprop[");
+    if (_is_use) prop_str << " USE |";
+    if (_is_def) prop_str << " DEF |";
+    if (_is_def_before_use) prop_str << " DEF_BEF_USE |";
+    if (_is_input) prop_str << " IN |";
+    if (_is_output) prop_str << " OUT |";
+    if (_is_temp) prop_str << " TMP |";
+    if (_is_index) prop_str << " IDX |";
+    if (_is_reduction) prop_str << " REDUC |";
+    //prop_str = prop_str.str().substr(0,prop_str.str().size()-1);
+    prop_str << "]";
     
-    std::cout << prop_str << std::endl;
+    if (_is_array_or_pointer) {
+        prop_str << " " << _dimension_num 
+            << "D ARRAY (SHARED AT " << _shared_dimension << ")";
+    } else {
+        prop_str << " SCALAR";
+    }
+    
+    std::cout << prop_str.str() << std::endl;
 }

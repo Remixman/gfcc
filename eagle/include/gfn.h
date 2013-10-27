@@ -22,6 +22,8 @@ extern cl_command_queue _gfn_cmd_queue;
 extern cl_int _gfn_status;
 extern cl_program _gfn_cl_program;
 
+extern char current_kernel_name[100];
+
 // API for user
 int gfn_get_num_process();
 int gfn_get_process_num();
@@ -66,6 +68,7 @@ int _GfnUnlockTransfer(void * ptr);
 // High Level function for trnsformation
 void _GfnBarrier();
 void _GfnCheckCLStatus(cl_int status, const char *phase_name);
+void _GfnCheckCLStatus2(cl_int status, const char *phase_name, int arg);
 size_t _GfnCalcGlobalItemNum(size_t work_item_num, size_t work_group_item_num);
 int _GfnCalcLocalDataStart(int data_start, int data_end);    // Use for calculate start step
 int _GfnCalcLocalDataEnd(int data_start, int data_end);

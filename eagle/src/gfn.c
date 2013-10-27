@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>						/* getenv, */
 #include <time.h>
+#include <string.h>
 #include "variable_id_table.h"
 #include "gfn.h"
 
@@ -14,6 +15,8 @@ cl_context _gfn_context;
 cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
+
+char current_kernel_name[100];
 
 static int _cluster_malloc_time;
 static int _cluster_scatter_time;
@@ -1082,8 +1085,8 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 {
 	if (status != CL_SUCCESS)
 	{
-		fprintf(stderr, "**[OpenCL] Rank #%d Runtime error in %s phase**\n", 
-			_gfn_rank, phase_name);
+		fprintf(stderr, "**[OpenCL] Rank #%d Runtime error in %s phase, kernel : %s**\n", 
+			_gfn_rank, phase_name, current_kernel_name);
 
 		switch(status) {
 		// program is not a valid program object
@@ -1148,6 +1151,13 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 		    fprintf(stderr, "Error : CL unknown error value = %d\n", status); break;
 		}
 	}
+}
+
+void _GfnCheckCLStatus2(cl_int status, const char *phase_name, int arg)
+{
+	char tmp[strlen(phase_name) + 10];
+	sprintf(tmp, "%s %d", phase_name, arg);
+	_GfnCheckCLStatus(status, tmp);
 }
 
 size_t _GfnCalcGlobalItemNum(size_t work_item_num, size_t work_group_item_num)
@@ -1459,6 +1469,8 @@ cl_kernel _GfnCreateKernel(const char *name)
 	// TODO: save kernel, so don't need to recompile
 	cl_kernel kernel = NULL;
 	
+	strcpy(current_kernel_name, name);
+	
     kernel = clCreateKernel(_gfn_cl_program, name, &_gfn_status);
     _GfnCheckCLStatus(_gfn_status, "CREATE KERNEL");
     
@@ -1474,7 +1486,7 @@ void _GfnClearKernel(cl_kernel kernel)
 void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr)
 {
 	_gfn_status = clSetKernelArg(kernel, arg_num, size, ptr);
-	_GfnCheckCLStatus(_gfn_status, "SET KERNEL ARG");
+	_GfnCheckCLStatus2(_gfn_status, "SET KERNEL ARG", arg_num);
 }
 
 void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size)
