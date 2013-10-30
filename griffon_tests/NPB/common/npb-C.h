@@ -5,9 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#if defined(_OPENMP)
-#include <omp.h>
-#endif /* _OPENMP */
 
 typedef int boolean;
 typedef struct { double real; double imag; } dcomplex;
