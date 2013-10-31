@@ -1208,7 +1208,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
                 kernel_info->_var_info[idx]._is_def_before_use = true;
             kernel_info->_var_info[idx]._is_def = true;
             
-            int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration());
+            int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration(), var_name);
             if (dim_num > 0) 
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
@@ -1234,7 +1234,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         if (idx >= 0)
         {
             kernel_info->_var_info[idx]._is_use = true;   
-            int dim_num = get_dimension_form_decl(iit->get_declaration());
+            int dim_num = get_dimension_form_decl(iit->get_declaration(), var_name);
             if (dim_num > 0) 
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
@@ -1378,14 +1378,41 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     }
 }
 
-int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl)
+int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl, std::string var_name)
 {
     int dim = 0;
-    std::string decl_str = decl.prettyprint();
-    
-    for (int i = 0; i < decl_str.size(); i++)
-        if (decl_str[i] == '[') dim++;
+    //std::cout << "Decl is " << iit->get_declaration() << std::endl;
+    ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
+                
+    for (int i = 0; i < decl_ent_list.size(); ++i)
+    {
+        DeclaredEntity decl_ent = decl_ent_list[i];
         
+        std::string decl_str = decl_ent.prettyprint();
+        std::string orig_decl_str = decl_str;
+        
+        // remove *
+        std::string::iterator end_pos1 = std::remove(decl_str.begin(), decl_str.end(), '*');
+        decl_str.erase(end_pos1, decl_str.end());
+        // remove array size
+        decl_str = decl_str.substr(0, decl_str.find("["));
+        
+        if (var_name == "qq")
+        {
+            std::cout << "decl_str is " << decl_str << std::endl;
+            std::cout << "orig_decl_str is " << orig_decl_str << std::endl;
+        }
+        
+        if (decl_str == var_name)
+        {
+            for (int i = 0; i < orig_decl_str.size(); i++)
+            {
+                if (orig_decl_str[i] == '*') dim++;
+                if (orig_decl_str[i] == '[') dim++;
+            }
+        }
+    }
+    
     return dim;
 }
 
