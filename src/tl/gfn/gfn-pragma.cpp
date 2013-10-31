@@ -1207,6 +1207,13 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
             if (kernel_info->_var_info[idx]._is_use == false)
                 kernel_info->_var_info[idx]._is_def_before_use = true;
             kernel_info->_var_info[idx]._is_def = true;
+            
+            int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration());
+            if (dim_num > 0) 
+            {
+                kernel_info->_var_info[idx]._is_array_or_pointer = true;
+                kernel_info->_var_info[idx]._dimension_num = dim_num;
+            }
         }
         //else
             // TOOD: error
@@ -1225,7 +1232,15 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         int idx = kernel_info->get_var_info_index_from_var_name(var_name);
         
         if (idx >= 0)
-            kernel_info->_var_info[idx]._is_use = true;
+        {
+            kernel_info->_var_info[idx]._is_use = true;   
+            int dim_num = get_dimension_form_decl(iit->get_declaration());
+            if (dim_num > 0) 
+            {
+                kernel_info->_var_info[idx]._is_array_or_pointer = true;
+                kernel_info->_var_info[idx]._dimension_num = dim_num;
+            }
+        }
         //else
             // TOOD: error
     }
@@ -1361,6 +1376,17 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         std::cerr << "Error in collect_variable_info, What type of this expr : "
                   << expr << "\n";
     }
+}
+
+int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl)
+{
+    int dim = 0;
+    std::string decl_str = decl.prettyprint();
+    
+    for (int i = 0; i < decl_str.size(); i++)
+        if (decl_str[i] == '[') dim++;
+        
+    return dim;
 }
 
 void GFNPragmaPhase::post_collect_variable_info(KernelInfo *kernel_info)

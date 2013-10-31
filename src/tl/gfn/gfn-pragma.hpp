@@ -118,6 +118,8 @@ namespace TL
                 void collect_variable_info(Expression expr,
                                            KernelInfo *kernel_info,
                                            int found_idx_at = -1 /* For _shared_dimension */);
+                int get_dimension_form_decl(TL::Declaration decl);
+                
                 // Assert condition
                 void post_collect_variable_info(KernelInfo *kernel_info);
                 void collect_loop_info(ForStatement for_stmt,
