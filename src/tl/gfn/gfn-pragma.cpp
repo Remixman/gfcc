@@ -1113,6 +1113,31 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
             collect_variable_info(if_stmt.get_else_body(), kernel_info);
         }
     }
+    else if (TL::WhileStatement::predicate(stmt.get_ast()))
+    {
+        TL::WhileStatement while_stmt = TL::WhileStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        collect_variable_info(while_stmt.get_condition().get_expression(), kernel_info);
+        collect_variable_info(while_stmt.get_body(), kernel_info);
+    }
+    else if (TL::DoWhileStatement::predicate(stmt.get_ast()))
+    {
+        TL::DoWhileStatement do_while_stmt = TL::DoWhileStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        collect_variable_info(do_while_stmt.get_expression(), kernel_info);
+        collect_variable_info(do_while_stmt.get_body(), kernel_info);
+    }
+    else if (TL::SwitchStatement::predicate(stmt.get_ast()))
+    {
+        TL::SwitchStatement switch_stmt = TL::SwitchStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        collect_variable_info(switch_stmt.get_condition().get_expression(), kernel_info);
+        
+        // TODO: collect switch expression
+        std::cerr << "(gfn-phase): error: Not support switch yet" << std::endl;
+        set_phase_status(PHASE_STATUS_ERROR);
+        //switch_stmt.get_cases()
+    }
     /* Ignore case */
     else if (TL::BreakStatement::predicate(stmt.get_ast()) ||
              TL::ContinueStatement::predicate(stmt.get_ast()) ||
