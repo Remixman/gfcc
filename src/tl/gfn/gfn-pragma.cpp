@@ -32,6 +32,7 @@
 #include "gfn-atomic.hpp"
 #include "gfn-exception.hpp"
 #include "gfn-config.hpp"
+#include <src/tl/tl-statement.hpp>
 
 
 #include <algorithm>
@@ -1081,9 +1082,9 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
     {
 
     }
-    else if (ForStatement::predicate(stmt.get_ast()))
+    else if (TL::ForStatement::predicate(stmt.get_ast()))
     {
-        TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
+        TL::ForStatement for_stmt = TL::ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: analysis init, cond, incre ? (use/def)
         // if not use before induction variable is def before use
         std::string ind_var_name = for_stmt.get_induction_variable().get_symbol().get_name();
@@ -1100,6 +1101,26 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
         collect_variable_info(for_stmt.get_step(), kernel_info);
         
         collect_variable_info(for_stmt.get_loop_body(), kernel_info);
+    }
+    else if (TL::IfStatement::predicate(stmt.get_ast()))
+    {
+        TL::IfStatement if_stmt = TL::IfStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        collect_variable_info(if_stmt.get_condition().get_expression(), kernel_info);
+        collect_variable_info(if_stmt.get_then_body(), kernel_info);
+        if (if_stmt.has_else())
+        {
+            collect_variable_info(if_stmt.get_else_body(), kernel_info);
+        }
+    }
+    /* Ignore case */
+    else if (TL::BreakStatement::predicate(stmt.get_ast()) ||
+             TL::ContinueStatement::predicate(stmt.get_ast()) ||
+             TL::ReturnStatement::predicate(stmt.get_ast()) ||
+             TL::EmptyStatement::predicate(stmt.get_ast()) ||
+             TL::GotoStatement::predicate(stmt.get_ast()))
+    {
+        // do nothing
     }
     else if (stmt.is_compound_statement())
     {
