@@ -323,7 +323,10 @@ void VariableInfo::print()
     if (_is_index) prop_str << " IDX |";
     if (_is_reduction) prop_str << " REDUC |";
     //prop_str = prop_str.str().substr(0,prop_str.str().size()-1);
-    prop_str << "]";
+    prop_str << "\b]\n\t\t";
+    
+    if (_is_private) prop_str << "PRIVATE";
+    else prop_str << "SHARED";
     
     if (_is_array_or_pointer) {
         prop_str << " " << _dimension_num 

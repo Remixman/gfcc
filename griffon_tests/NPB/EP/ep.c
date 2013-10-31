@@ -123,12 +123,13 @@ c   have more numbers to generate than others
 #pragma gfn data copyin(x[0:2*NK{partition}])
 {
 
-    #pragma gfn parallel_for reduction(+:sx,sy)
+    double qq[NQ];		/* private copy of q[0:NQ-1] */
+
+    #pragma gfn parallel_for reduction(+:sx,sy) private(qq)
     for (k = 1; k <= np; k++) {
 
     double t1, t2, t3, t4, x1, x2;
     int kk, i, ik, l;
-    double qq[NQ];		/* private copy of q[0:NQ-1] */
 
     for (i = 0; i < NQ; i++) qq[i] = 0.0;
 
