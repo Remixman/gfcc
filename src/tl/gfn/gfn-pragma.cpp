@@ -816,25 +816,26 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                     {
                         transfer_info->_var_info[idx]._is_input = true;
                         transfer_info->_var_info[idx]._is_output = false;
-                        transfer_info->_var_info[idx]._is_temp = false;
+                        transfer_info->_var_info[idx]._is_private = false;
                     }
                     else if (copy_type_str == "copyout")
                     {
                         transfer_info->_var_info[idx]._is_input = false;
                         transfer_info->_var_info[idx]._is_output = true;
-                        transfer_info->_var_info[idx]._is_temp = false;
+                        transfer_info->_var_info[idx]._is_private = false;
                     }
                     else if (copy_type_str == "copy")
                     {
                         transfer_info->_var_info[idx]._is_input = true;
                         transfer_info->_var_info[idx]._is_output = true;
-                        transfer_info->_var_info[idx]._is_temp = false;
+                        transfer_info->_var_info[idx]._is_private = false;
                     }
                     else if (copy_type_str == "present")
                     {
                         transfer_info->_var_info[idx]._is_input = false;
                         transfer_info->_var_info[idx]._is_output = false;
-                        transfer_info->_var_info[idx]._is_temp = true;
+                        // TODO: private should be false?
+                        transfer_info->_var_info[idx]._is_private = true;
                     }
                     else
                     {

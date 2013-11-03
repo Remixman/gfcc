@@ -304,7 +304,7 @@ TL::Source ParallelFor::do_parallel_for()
         //std::cout << i << ". Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         /* 1. Declaration necessary variable */
-        if (var_info._is_temp || var_info._is_private)
+        if (var_info._is_private)
         {
             std::cout << "temp or private\n";
             // define as size in temp() clause
@@ -870,7 +870,7 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
             if(debug)std::cout<<"REP INDEX : "<<idx<<"\n";
             VariableInfo var_info = _kernel_info->_var_info[idx];
             
-            if (var_info._is_temp) return; // Don't need to replace temp variable
+            if (var_info._is_private) return; // Don't need to replace temp variable
             
             std::string dim1_size = (_kernel_info->_var_info[idx]._dimension_num >= 1)?
                 (std::string)_kernel_info->_var_info[idx]._dim_size[0] : "1";
@@ -1023,10 +1023,10 @@ void ParallelFor::replace_loop_index_name(Expression expr,
     {
         std::string var_name = expr.get_id_expression().get_symbol().get_name();
         int idx = _kernel_info->get_var_info_index_from_var_name(var_name);
-        std::cout << var_name << " index is " << idx << ((_kernel_info->_var_info[idx]._is_temp)? " and temp" : " and not temp")
+        std::cout << var_name << " index is " << idx << ((_kernel_info->_var_info[idx]._is_private)? " and private" : " and shared")
             << "\n";
         if (var_name == old_name &&
-            !_kernel_info->_var_info[idx]._is_temp) /// Don't need to replace temp variable
+            !_kernel_info->_var_info[idx]._is_private) /// Don't need to replace temp variable
         {
             TL::Source new_name_expr;
             new_name_expr << new_name;

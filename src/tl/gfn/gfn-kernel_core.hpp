@@ -71,7 +71,6 @@ namespace TL
             // TODO: change to bit
             bool            _is_input;
             bool            _is_output;
-            bool            _is_temp;
             bool            _is_index;
             bool            _is_present;
             bool            _is_private;
@@ -88,7 +87,7 @@ namespace TL
             VariableInfo(std::string n) :
                 _name(n), _access_type(VAR_ACCESS_SHARED),
                 _reduction_type(REDUCTION_UNKNOWN), _shared_dimension(-1), _dimension_num(0),
-                _is_input(0), _is_output(0), _is_temp(0), _is_index(0), _is_present(0), _is_private(0),
+                _is_input(0), _is_output(0), _is_index(0), _is_present(0), _is_private(0),
                 _is_reduction(0), _is_array_or_pointer(0), _is_loop_variable(0), _is_use(0), 
                 _is_prop_use(0), _is_def(0), _is_def_before_use(0),
                 _in_pattern_type(GFN_PATTERN_NONE), _out_pattern_type(GFN_PATTERN_NONE) {
