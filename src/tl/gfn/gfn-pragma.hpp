@@ -118,7 +118,9 @@ namespace TL
                 void collect_variable_info(Expression expr,
                                            KernelInfo *kernel_info,
                                            int found_idx_at = -1 /* For _shared_dimension */);
-                int get_dimension_form_decl(TL::Declaration decl, std::string);
+                int get_dimension_form_decl(TL::Declaration decl, 
+                                            std::string var_name,
+                                            ObjectList<std::string> &dim_size_params);
                 
                 // Assert condition
                 void post_collect_variable_info(KernelInfo *kernel_info);

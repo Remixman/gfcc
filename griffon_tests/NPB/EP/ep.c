@@ -120,7 +120,7 @@ c   have more numbers to generate than others
 */
     k_offset = -1;
 
-#pragma gfn data copyin(x[0:2*NK{partition}])
+//#pragma gfn data copyin(x[0:2*NK{partition}])
 {
 
     double qq[NQ];		/* private copy of q[0:NQ-1] */

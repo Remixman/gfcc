@@ -29,6 +29,7 @@
 #include "gfn-parallel_for.hpp"
 #include "gfn-config.hpp"
 #include "gfn-common.hpp"
+#include <src/tl/tl-source.hpp>
 #include <sstream>
 
 using namespace TL::GFN;
@@ -278,6 +279,8 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
         std::string ptr_stars = var_info.get_pointer_starts();
         bool is_partition = (var_info._shared_dimension >= 0);
+        
+        std::cout << "\tHandle " << var_name << std::endl;
 
         // TODO: _GFN_MEM_ALLOC_HOST_PTR()
         std::string var_cl_mem_type;
@@ -303,18 +306,22 @@ TL::Source ParallelFor::do_parallel_for()
         /* 1. Declaration necessary variable */
         if (var_info._is_temp || var_info._is_private)
         {
+            std::cout << "temp or private\n";
             // define as size in temp() clause
             TL::Source tmp_decl_src;
             tmp_decl_src << c_type_str << " " << var_name;
             for (int i = 0; i < var_info._dimension_num; ++i)
                 tmp_decl_src << "[" << var_info._dim_size[i] << "]";
             tmp_decl_src << ";";
+            
+            std::cout << "dim num = " << var_info._dimension_num << "\n";
                 
             worker_declare_variables_src << tmp_decl_src;
             cl_kernel_var_decl << tmp_decl_src;
         }
         else if (var_info._is_array_or_pointer)
         {
+            std::cout << "array or pointer\n";
             worker_declare_variables_src
                 << c_type_str << ptr_stars << var_name << ";";
         }
@@ -326,6 +333,7 @@ TL::Source ParallelFor::do_parallel_for()
         }*/
         else
         {
+            std::cout << "other else\n";
             worker_declare_variables_src
                 << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
 
@@ -337,7 +345,6 @@ TL::Source ParallelFor::do_parallel_for()
                     std::cout << "Add code declaration on kernel " << var_name << "\n";
             }
         }
-
 
         /* 2. Declaration generated variable for each variable */
         if (var_info._is_input || var_info._is_output)
@@ -541,6 +548,8 @@ TL::Source ParallelFor::do_parallel_for()
                 << "__local " << c_type_str << " * " << var_cl_local_mem_name;
             cl_actual_params.append_with_separator(cl_actual_param, ",");
         }
+        
+        std::cout << "\tFinish Handle " << var_name << std::endl;
     }
     
     /*== ----- Create MPI block distribution for statement ---------==*/

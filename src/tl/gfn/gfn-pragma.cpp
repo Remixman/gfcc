@@ -1208,11 +1208,19 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
                 kernel_info->_var_info[idx]._is_def_before_use = true;
             kernel_info->_var_info[idx]._is_def = true;
             
-            int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration(), var_name);
+            ObjectList<std::string> dim_size;
+            int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration(), 
+                                                  var_name, dim_size);
             if (dim_num > 0) 
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
+                for (int i = 0; i < dim_size.size(); ++i) {
+                    TL::Source size_src(dim_size[i]);
+                    TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
+                    TL::Expression size_expr(expr.get_ast(), expr.get_scope_link());
+                    kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
+                }
             }
         }
         //else
@@ -1233,12 +1241,19 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         
         if (idx >= 0)
         {
-            kernel_info->_var_info[idx]._is_use = true;   
-            int dim_num = get_dimension_form_decl(iit->get_declaration(), var_name);
+            kernel_info->_var_info[idx]._is_use = true;
+            ObjectList<std::string> dim_size;
+            int dim_num = get_dimension_form_decl(iit->get_declaration(), var_name, dim_size);
             if (dim_num > 0) 
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
+                for (int i = 0; i < dim_size.size(); ++i) {
+                    TL::Source size_src(dim_size[i]);
+                    TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
+                    TL::Expression size_expr(expr.get_ast(), expr.get_scope_link());
+                    kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
+                }
             }
         }
         //else
@@ -1378,11 +1393,14 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     }
 }
 
-int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl, std::string var_name)
+int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl, 
+                                            std::string var_name,
+                                            ObjectList<std::string> &dim_size_params)
 {
     int dim = 0;
-    //std::cout << "Decl is " << iit->get_declaration() << std::endl;
+    int star_dim = 0, brac_dim = 0;
     ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
+    std::string debug_orig_decl_str;
                 
     for (int i = 0; i < decl_ent_list.size(); ++i)
     {
@@ -1396,23 +1414,41 @@ int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl, std::string va
         decl_str.erase(end_pos1, decl_str.end());
         // remove array size
         decl_str = decl_str.substr(0, decl_str.find("["));
-        
-        if (var_name == "qq")
-        {
-            std::cout << "decl_str is " << decl_str << std::endl;
-            std::cout << "orig_decl_str is " << orig_decl_str << std::endl;
-        }
-        
+
         if (decl_str == var_name)
         {
+            int start_pos = 0;
+            while (orig_decl_str.find("[", start_pos) != std::string::npos)
+            {
+                int open_pos = orig_decl_str.find("[", start_pos);
+                int close_pos = orig_decl_str.find("]", start_pos);
+                std::string size = orig_decl_str.substr( open_pos+1, close_pos-open_pos-1 );
+                dim_size_params.push_back( size );
+                start_pos = close_pos;
+            }
+            
             for (int i = 0; i < orig_decl_str.size(); i++)
             {
-                if (orig_decl_str[i] == '*') dim++;
-                if (orig_decl_str[i] == '[') dim++;
+                if (orig_decl_str[i] == '*') star_dim++;
+                if (orig_decl_str[i] == '[') brac_dim++;
             }
+            
+            debug_orig_decl_str = orig_decl_str;
+            
+            break;
         }
     }
     
+    if (dim_size_params.size() != brac_dim)
+    {
+        std::cerr << "Error : Dimension size of " << var_name 
+            << " is not match" << std::endl;
+        std::cerr << "orig_decl_str is " << debug_orig_decl_str << std::endl;
+        std::cerr << "dim_size_params.size() = " << dim_size_params.size() 
+            << " , brac_dim = " << brac_dim << std::endl; 
+    }
+    
+    dim = star_dim + brac_dim;
     return dim;
 }
 

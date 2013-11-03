@@ -699,6 +699,12 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_co
 {
 	if (_is_lock_transfer((long long)ptr)) return 0;
 
+	// Not have information case
+	// get variable info from var table
+	if (dim_n == 0) {
+
+	}
+
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long bcast_start_t, bcast_end_t;
 
