@@ -574,7 +574,7 @@ void GFNPragmaPhase::get_private_clause(PragmaCustomConstruct construct,
             {
                 kernel_info->_var_info[idx]._is_private = true;
                 kernel_info->_var_info[idx]._is_input = false;
-                kernel_info->_var_info[idx]._is_input = false;
+                kernel_info->_var_info[idx]._is_output = false;
             }
             else
             {
