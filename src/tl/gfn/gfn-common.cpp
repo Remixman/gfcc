@@ -608,6 +608,12 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
 {
     TL::Source result, func_name, size_params, stars;
     
+    // For unknown information variable
+    if (dim_size.size() == 0)
+    {
+        dim_num = 0;
+    }
+    
     stars << "*";
     func_name << "_GfnMalloc" << dim_num << "D";
     for (int i = 0; i < dim_num; ++i)
@@ -647,6 +653,12 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
 {
     TL::Source result, size_params, subscript_to_1d;
    
+    // For unknown information variable
+    if (dim_size.size() == 0)
+    {
+        dim_num = 0;
+    }
+    
     for (int i = 0; i < dim_num; ++i)
     {
         if (i != 0) {
@@ -682,6 +694,12 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
 {
     TL::Source result, size_params, pattern_params, subscript_to_1d;
      
+    // For unknown information variable
+    if (dim_size.size() == 0)
+    {
+        dim_num = 0;
+    }
+    
     for (int i = 0; i < dim_num; ++i)
     {
         if (i != 0) {
@@ -738,6 +756,12 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
 {   
     TL::Source result, size_params, pattern_params, subscript_to_1d;
      
+    // For unknown information variable
+    if (dim_size.size() == 0)
+    {
+        dim_num = 0;
+    }
+    
     for (int i = 0; i < dim_num; ++i)
     {
         if (i != 0) {

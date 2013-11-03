@@ -298,6 +298,8 @@ TL::Source ParallelFor::do_parallel_for()
         TL::ObjectList<std::string> &out_pattern_array = var_info._out_pattern_array;
 
         TL::Type type = var_ref.get_type();
+        while (type.is_pointer()) type = type.points_to();
+        while (type.is_array()) type = type.array_element();
         std::string mpi_type_str = type_to_mpi_type(type);
         std::string c_type_str = type_to_ctype(type);
         std::string size_str = var_info.get_allocate_size_in_byte(type);
@@ -306,7 +308,7 @@ TL::Source ParallelFor::do_parallel_for()
         /* 1. Declaration necessary variable */
         if (var_info._is_private)
         {
-            std::cout << "temp or private\n";
+            //std::cout << "temp or private\n";
             // define as size in temp() clause
             TL::Source tmp_decl_src;
             tmp_decl_src << c_type_str << " " << var_name;
@@ -314,14 +316,14 @@ TL::Source ParallelFor::do_parallel_for()
                 tmp_decl_src << "[" << var_info._dim_size[i] << "]";
             tmp_decl_src << ";";
             
-            std::cout << "dim num = " << var_info._dimension_num << "\n";
+            //std::cout << "dim num = " << var_info._dimension_num << "\n";
                 
             worker_declare_variables_src << tmp_decl_src;
             cl_kernel_var_decl << tmp_decl_src;
         }
         else if (var_info._is_array_or_pointer)
         {
-            std::cout << "array or pointer\n";
+            //std::cout << "array or pointer\n";
             worker_declare_variables_src
                 << c_type_str << ptr_stars << var_name << ";";
         }
@@ -333,7 +335,7 @@ TL::Source ParallelFor::do_parallel_for()
         }*/
         else
         {
-            std::cout << "other else\n";
+            //std::cout << "other else\n";
             worker_declare_variables_src
                 << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";";
 
@@ -406,12 +408,12 @@ TL::Source ParallelFor::do_parallel_for()
 
             worker_boardcast_scalar_src
                 << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
-            
+
             worker_allocate_array_memory_src
                 << create_gfn_malloc_nd(var_name, var_cl_name, var_unique_id_name,
                                         mpi_type_str, var_info._dimension_num, var_info._dim_size,
                                         var_cl_mem_type, level1_cond, level2_cond);
-                
+
             worker_free_array_memory_src
                 << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
         }
@@ -788,18 +790,66 @@ void ParallelFor::replace_parallel_loop_body(Statement stmt,
     {
         if(debug)std::cout<<"REPLACE STMT DECL\n";
     }
-    else if (ForStatement::predicate(stmt.get_ast()))
+    else if (TL::ForStatement::predicate(stmt.get_ast()))
     {
         if(debug)std::cout<<"REPLACE STMT FOR\n";
         
         TL::ForStatement for_stmt = ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: init, cond, incre ?
         replace_parallel_loop_body(for_stmt.get_loop_body(), replace_types, old_idx_name, new_idx_name);
-    }/*
-    else if (IfStatement::predicate(stmt.get_ast()))
+    }
+    else if (TL::IfStatement::predicate(stmt.get_ast()))
     {
-
-    }*/
+        if(debug)std::cout<<"REPLACE STMT IF\n";
+        
+        TL::IfStatement if_stmt = TL::IfStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        replace_parallel_loop_body(if_stmt.get_condition().get_expression(), 
+                                   replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(if_stmt.get_then_body(),
+                                   replace_types, old_idx_name, new_idx_name);
+        if (if_stmt.has_else())
+        {
+            replace_parallel_loop_body(if_stmt.get_else_body(),
+                                       replace_types, old_idx_name, new_idx_name);
+        }
+    }
+    else if (TL::WhileStatement::predicate(stmt.get_ast()))
+    {
+        TL::WhileStatement while_stmt = TL::WhileStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        replace_parallel_loop_body(while_stmt.get_condition().get_expression(),
+                                   replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(while_stmt.get_body(), 
+                                   replace_types, old_idx_name, new_idx_name);
+    }
+    else if (TL::DoWhileStatement::predicate(stmt.get_ast()))
+    {
+        TL::DoWhileStatement do_while_stmt = TL::DoWhileStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        replace_parallel_loop_body(do_while_stmt.get_expression(),
+                                   replace_types, old_idx_name, new_idx_name);
+        replace_parallel_loop_body(do_while_stmt.get_body(),
+                                   replace_types, old_idx_name, new_idx_name);
+    }
+    else if (TL::SwitchStatement::predicate(stmt.get_ast()))
+    {
+        TL::SwitchStatement switch_stmt = TL::SwitchStatement(stmt.get_ast(), stmt.get_scope_link());
+        
+        replace_parallel_loop_body(switch_stmt.get_condition().get_expression(),
+                                   replace_types, old_idx_name, new_idx_name);
+        
+        // TODO: replace switch expression
+    }
+    /* Ignore case */
+    else if (TL::BreakStatement::predicate(stmt.get_ast()) ||
+             TL::ContinueStatement::predicate(stmt.get_ast()) ||
+             TL::ReturnStatement::predicate(stmt.get_ast()) ||
+             TL::EmptyStatement::predicate(stmt.get_ast()) ||
+             TL::GotoStatement::predicate(stmt.get_ast()))
+    {
+        // do nothing
+    }
     else if (stmt.is_compound_statement())
     {
         if(debug)std::cout<<"REPLACE STMT COMPOUND\n";
