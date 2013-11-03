@@ -676,12 +676,12 @@ void GFNPragmaPhase::get_pcopy_clause(PragmaCustomConstruct construct,
     TL::PragmaCustomClause pcopy_clause = construct.get_clause("pcopy");
     get_data_clause(pcopy_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copy");
+                    construct.get_scope_link(), true, "pcopy");
     
     TL::PragmaCustomClause fpcopy_clause = construct.get_clause("present_or_copy");
     get_data_clause(fpcopy_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copy");
+                    construct.get_scope_link(), true, "pcopy");
 }
 
 void GFNPragmaPhase::get_pcopyin_clause(PragmaCustomConstruct construct, 
@@ -690,12 +690,12 @@ void GFNPragmaPhase::get_pcopyin_clause(PragmaCustomConstruct construct,
     TL::PragmaCustomClause pcopyin_clause = construct.get_clause("pcopyin");
     get_data_clause(pcopyin_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copyin");
+                    construct.get_scope_link(), true, "pcopyin");
     
     TL::PragmaCustomClause fpcopyin_clause = construct.get_clause("present_or_copyin");
     get_data_clause(fpcopyin_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copyin");
+                    construct.get_scope_link(), true, "pcopyin");
 }
 
 void GFNPragmaPhase::get_pcopyout_clause(PragmaCustomConstruct construct, 
@@ -704,12 +704,12 @@ void GFNPragmaPhase::get_pcopyout_clause(PragmaCustomConstruct construct,
     TL::PragmaCustomClause pcopyout_clause = construct.get_clause("pcopyout");
     get_data_clause(pcopyout_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copyout");
+                    construct.get_scope_link(), true, "pcopyout");
     
     TL::PragmaCustomClause fpcopyout_clause = construct.get_clause("present_or_copyout");
     get_data_clause(fpcopyout_clause, transfer_info, 
                     construct.get_statement().get_ast(), 
-                    construct.get_scope_link(), true, "copyout");
+                    construct.get_scope_link(), true, "pcopyout");
 }
 
 void GFNPragmaPhase::get_pcreate_clause(PragmaCustomConstruct construct, 
@@ -835,7 +835,29 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
                         transfer_info->_var_info[idx]._is_input = false;
                         transfer_info->_var_info[idx]._is_output = false;
                         // TODO: private should be false?
-                        transfer_info->_var_info[idx]._is_private = true;
+                        transfer_info->_var_info[idx]._is_private = false;
+                        transfer_info->_var_info[idx]._is_present = true;
+                    }
+                    else if (copy_type_str == "pcopyin")
+                    {
+                        transfer_info->_var_info[idx]._is_input = true;
+                        transfer_info->_var_info[idx]._is_output = false;
+                        transfer_info->_var_info[idx]._is_private = false;
+                        transfer_info->_var_info[idx]._is_present = true;
+                    }
+                    else if (copy_type_str == "pcopyout")
+                    {
+                        transfer_info->_var_info[idx]._is_input = false;
+                        transfer_info->_var_info[idx]._is_output = true;
+                        transfer_info->_var_info[idx]._is_private = false;
+                        transfer_info->_var_info[idx]._is_present = true;
+                    }
+                    else if (copy_type_str == "pcopy")
+                    {
+                        transfer_info->_var_info[idx]._is_input = true;
+                        transfer_info->_var_info[idx]._is_output = true;
+                        transfer_info->_var_info[idx]._is_private = false;
+                        transfer_info->_var_info[idx]._is_present = true;
                     }
                     else
                     {

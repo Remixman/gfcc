@@ -1,6 +1,9 @@
 
 #include "npb-C.h"
 #include "npbparams.h"
+#ifdef _GRIFFON
+#include <gfn.h>
+#endif
 
 /* parameters */
 #define	MK		16
@@ -45,12 +48,13 @@ int main(int argc, char **argv) {
     int np, ierr, node, no_nodes, i, ik, kk, l, k, nit, ierrcode,
 	no_large_nodes, np_add, k_offset, j;
     int nthreads = 1;
+    int xsize = 2*NK;
     boolean verified;
     char size[13+1];	/* character*13 */
     
 /*     Allocate working memory       */
 
-    x = (double*) malloc(sizeof(double) * 2*NK);
+    x = (double*) malloc(sizeof(double) * xsize);
     q = (double*) malloc(sizeof(double) * NQ);
 
 /*
@@ -85,7 +89,7 @@ c   sure these initializations cannot be eliminated as dead code.
 */
     vranlc(0, &(dum[0]), dum[1], &(dum[2]));
     dum[0] = randlc(&(dum[1]), dum[2]);
-    for (i = 0; i < 2*NK; i++) x[i] = -1.0e99;
+    for (i = 0; i < xsize; i++) x[i] = -1.0e99;
     Mops = log(sqrt(fabs(max(1.0, 1.0))));
 
     timer_clear(1);
@@ -120,12 +124,12 @@ c   have more numbers to generate than others
 */
     k_offset = -1;
 
-//#pragma gfn data copyin(x[0:2*NK{partition}])
+//#pragma gfn data copyin(x[0:xsize{partition}])
 {
 
     double qq[NQ];		/* private copy of q[0:NQ-1] */
 
-    #pragma gfn parallel_for reduction(+:sx,sy) private(qq)
+    #pragma gfn parallel_for reduction(+:sx,sy) private(qq) present(x[0:xsize{partition}])
     for (k = 1; k <= np; k++) {
 
     double t1, t2, t3, t4, x1, x2;

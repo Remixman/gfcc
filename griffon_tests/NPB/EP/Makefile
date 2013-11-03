@@ -27,7 +27,7 @@ CFLAGS = -I$(NPB_INCLUDE_APTH) -L$(NPB_LIB_PATH) -I$(CL_INC_PATH) -L$(CL_LIB_PAT
 all: libs worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ep.c -lrt -D_GRIFFON
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ep.c -lrt
 	rm ep.o
 	
 master: trans
