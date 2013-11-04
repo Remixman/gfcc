@@ -1238,10 +1238,11 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
-                for (int i = 0; i < dim_size.size(); ++i) {
+                for (int i = 0; i < dim_size.size(); ++i) 
+                {
                     TL::Source size_src(dim_size[i]);
                     TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
-                    TL::Expression size_expr(expr.get_ast(), expr.get_scope_link());
+                    TL::Expression size_expr(size_tree, expr.get_scope_link());
                     kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
                 }
             }
@@ -1271,10 +1272,11 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
             {
                 kernel_info->_var_info[idx]._is_array_or_pointer = true;
                 kernel_info->_var_info[idx]._dimension_num = dim_num;
-                for (int i = 0; i < dim_size.size(); ++i) {
+                for (int i = 0; i < dim_size.size(); ++i) 
+                {
                     TL::Source size_src(dim_size[i]);
                     TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
-                    TL::Expression size_expr(expr.get_ast(), expr.get_scope_link());
+                    TL::Expression size_expr(size_tree, expr.get_scope_link());
                     kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
                 }
             }
