@@ -1,6 +1,7 @@
 
 #include "npb-C.h"
 #include "npbparams.h"
+#include <math.h>
 #ifdef _GRIFFON
 #include <gfn.h>
 #endif
@@ -124,7 +125,7 @@ c   have more numbers to generate than others
 */
     k_offset = -1;
 
-//#pragma gfn data copyin(x[0:xsize{partition}])
+#pragma gfn data copyin(x[0:xsize{partition}])
 {
 
     double qq[NQ];		/* private copy of q[0:NQ-1] */

@@ -163,21 +163,26 @@ GFNPragmaPhase::GFNPragmaPhase()
     register_construct("finish");
     on_directive_pre["finish"].connect(functor(&GFNPragmaPhase::finish, *this));
 
-    register_construct("parallel_for");
-    on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
-    // XXX: on_directive_pre ???
-    
-    register_construct("data");
-    on_directive_post["data"].connect(functor(&GFNPragmaPhase::data, *this));
     
     register_construct("use_in_parallel");
     on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));
     
-    register_construct("overlapcompute");
+    
+    register_construct("data");
+    on_directive_pre["data"].connect(functor(&GFNPragmaPhase::data, *this));
+    
+    register_construct("parallel_for");
+    on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
+    // XXX: on_directive_pre ???
+    
+    
+    
+    
+    /*register_construct("overlapcompute");
     on_directive_post["overlapcompute"].connect(functor(&GFNPragmaPhase::overlapcompute, *this));
 
     register_construct("atomic");
-    on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));
+    on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));*/
 }
 
 void GFNPragmaPhase::run(TL::DTO& dto)
@@ -387,13 +392,41 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
     transfer_info->recv_func_id = (rand() % GFN_MAX_RAND) + 1;
     
     ObjectList<IdExpression> symbol_list = statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    std::cout << "data construct statement is \n" << statement.prettyprint() << "\n\n";
+    std::cout << "symbol_list size = " << symbol_list.size() << "\n";
     for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
          sit != symbol_list.end();
          sit++)
     {
         // TODO: don't add local declare variable
         DataReference data_ref(sit->get_expression());
+        Declaration data_decl = sit->get_declaration();
+        
+        // if data_ref is declare in this statement - ignore it
+        bool is_decl_in_constuct_scope = false;
+        TL::ObjectList<Statement> inner_stmts = statement.get_inner_statements();
+        for (int i = 0; i < inner_stmts.size(); ++i)
+        {
+            Statement stmt = inner_stmts[i];
+            if (stmt.is_declaration())
+            {
+                TL::Declaration decl = stmt.get_simple_declaration();
+                if (decl.prettyprint() == data_decl.prettyprint())
+                {
+                    //std::cout << "Compare [" << decl.prettyprint() << "] wtih [" << data_decl.prettyprint() << "]\n";
+                    is_decl_in_constuct_scope = true;
+                    break;
+                }
+            }
+        }
+        if (is_decl_in_constuct_scope == true)
+        {
+            continue;
+        }
+
+            
         std::string name = sit->get_symbol().get_name();
+        std::cout << "Data construct collect variable : " << name << "\n";
         
         if (transfer_info->get_var_info_index_from_var_name(name) < 0)
         {

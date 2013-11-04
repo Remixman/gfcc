@@ -279,8 +279,6 @@ TL::Source ParallelFor::do_parallel_for()
         std::string var_cl_local_mem_name = "_cl_local_mem_" + var_name;
         std::string ptr_stars = var_info.get_pointer_starts();
         bool is_partition = (var_info._shared_dimension >= 0);
-        
-        std::cout << "\tHandle " << var_name << std::endl;
 
         // TODO: _GFN_MEM_ALLOC_HOST_PTR()
         std::string var_cl_mem_type;
@@ -550,8 +548,6 @@ TL::Source ParallelFor::do_parallel_for()
                 << "__local " << c_type_str << " * " << var_cl_local_mem_name;
             cl_actual_params.append_with_separator(cl_actual_param, ",");
         }
-        
-        std::cout << "\tFinish Handle " << var_name << std::endl;
     }
     
     /*== ----- Create MPI block distribution for statement ---------==*/
