@@ -169,7 +169,7 @@ GFNPragmaPhase::GFNPragmaPhase()
     
     
     register_construct("data");
-    on_directive_pre["data"].connect(functor(&GFNPragmaPhase::data, *this));
+    on_directive_post["data"].connect(functor(&GFNPragmaPhase::data, *this));
     
     register_construct("parallel_for");
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
