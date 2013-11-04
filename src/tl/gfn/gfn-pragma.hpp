@@ -114,23 +114,23 @@ namespace TL
 
                 // TODO: Change name to gather_data_for_analysis (and write data that it graps)
                 void collect_variable_info(Statement stmt,
-                                           KernelInfo *kernel_info);
+                                           TransferInfo *transfer_info);
                 void collect_variable_info(Expression expr,
-                                           KernelInfo *kernel_info,
+                                           TransferInfo *transfer_info,
                                            int found_idx_at = -1 /* For _shared_dimension */);
                 int get_dimension_form_decl(TL::Declaration decl, 
                                             std::string var_name,
                                             ObjectList<std::string> &dim_size_params);
                 
                 // Assert condition
-                void post_collect_variable_info(KernelInfo *kernel_info);
+                void post_collect_variable_info(TransferInfo *transfer_info);
                 void collect_loop_info(ForStatement for_stmt,
                                        KernelInfo *kernel_info);
                 
                 void add_expr_to_input_var(TransferInfo *transfer_info, 
                                            TL::Expression &expr);
                 
-                void show_variable_prop(KernelInfo *kernel_info);
+                void show_variable_prop(TransferInfo *transfer_info);
 
                 ScopeLink _scope_link;
                 AST_t _translation_unit;

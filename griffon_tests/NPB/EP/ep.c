@@ -53,6 +53,8 @@ int main(int argc, char **argv) {
     boolean verified;
     char size[13+1];	/* character*13 */
     
+    #pragma gfn start
+    
 /*     Allocate working memory       */
 
     x = (double*) malloc(sizeof(double) * xsize);
@@ -182,7 +184,7 @@ c       vectorizable.
       for (i = 0; i <= NQ - 1; i++) q[i] += qq[i];
     }*/
    
-} /* end of parallel region */    
+} /* end of gfn data region */    
 
     for (i = 0; i <= NQ-1; i++) {
         gc = gc + q[i];
@@ -220,6 +222,8 @@ c       vectorizable.
     }
 
     Mops = pow(2.0, M+1)/tm/1000000.0;
+    
+    #pragma gfn finish
 
     printf("EP Benchmark Results: \n"
 	   "CPU Time = %10.4f\n"

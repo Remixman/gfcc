@@ -118,6 +118,9 @@ namespace TL
         struct LIBGFN_CLASS TransferInfo
         {
             public:
+                TransferInfo() {}
+                virtual ~TransferInfo() {}
+                
                 int send_func_id;
                 int recv_func_id;
                 

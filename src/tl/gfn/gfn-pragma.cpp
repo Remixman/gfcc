@@ -235,6 +235,7 @@ void GFNPragmaPhase::run(TL::DTO& dto)
  */
 void GFNPragmaPhase::start(PragmaCustomConstruct construct)
 {
+    std::cerr << "=== CALL START\n";
     Source result;
     result
         << comment("Initialize IPC to worker")
@@ -249,6 +250,7 @@ void GFNPragmaPhase::start(PragmaCustomConstruct construct)
 
 void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
 {
+    std::cerr << "=== CALL FINISH\n";
     Source result;
 
     result
@@ -281,6 +283,7 @@ static void parallel_for_fun(TL::PragmaCustomConstruct construct,
 
 void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
 {
+    std::cerr << "=== CALL PARALLEL_FOR\n";
     Statement statement = construct.get_statement();
     KernelInfo *kernel_info = new KernelInfo();
     
@@ -356,7 +359,11 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_in_pattern_clause(construct, kernel_info);
     get_out_pattern_clause(construct, kernel_info);
     
+    std::cout << "====================================================\n";
+    std::cout << "Variables properties for parallel_for \n";
+    std::cout << "====================================================\n";
     show_variable_prop(kernel_info);
+    std::cout << "====================================================\n";
     
     parallel_for_fun(construct, for_statement, kernel_info, 
                      _scope_link, _translation_unit, _kernel_decl_file);
@@ -379,12 +386,13 @@ static void data_fun(TL::PragmaCustomConstruct construct,
     
     TL::AST_t transfer_n_compute_tree = transfer_n_compute_src.
         parse_statement(stmt.get_ast(), stmt.get_scope_link());
-
+        
     stmt.get_ast().replace(transfer_n_compute_tree);
 }
 
 void GFNPragmaPhase::data(PragmaCustomConstruct construct)
 {
+    std::cerr << "=== CALL DATA\n";
     Statement statement = construct.get_statement();
     TransferInfo *transfer_info = new TransferInfo();
     
@@ -392,8 +400,6 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
     transfer_info->recv_func_id = (rand() % GFN_MAX_RAND) + 1;
     
     ObjectList<IdExpression> symbol_list = statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
-    std::cout << "data construct statement is \n" << statement.prettyprint() << "\n\n";
-    std::cout << "symbol_list size = " << symbol_list.size() << "\n";
     for (ObjectList<IdExpression>::iterator sit = symbol_list.begin();
          sit != symbol_list.end();
          sit++)
@@ -426,7 +432,7 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
 
             
         std::string name = sit->get_symbol().get_name();
-        std::cout << "Data construct collect variable : " << name << "\n";
+        //std::cout << "Data construct collect variable : " << name << "\n";
         
         if (transfer_info->get_var_info_index_from_var_name(name) < 0)
         {
@@ -439,6 +445,9 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
         }
     }
     
+    collect_variable_info(statement, transfer_info);
+    post_collect_variable_info(transfer_info); // XXX: must call before process in/out clauses
+    
     // data clauses - order by override order
     get_present_clause(construct, transfer_info);
     get_pcopyin_clause(construct, transfer_info);
@@ -447,6 +456,12 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
     get_copyin_clause(construct, transfer_info);
     get_copyout_clause(construct, transfer_info);
     get_copy_clause(construct, transfer_info);
+    
+    std::cout << "====================================================\n";
+    std::cout << "Variables properties for data \n";
+    std::cout << "====================================================\n";
+    show_variable_prop(transfer_info);
+    std::cout << "====================================================\n";
     
     data_fun(construct, construct.get_statement(), transfer_info,
              _scope_link, _translation_unit, _kernel_decl_file);
@@ -1132,62 +1147,75 @@ void GFNPragmaPhase::get_pattern_clause(PragmaCustomClause &pattern_clause,
 }
 
 void GFNPragmaPhase::collect_variable_info(Statement stmt,
-                                           KernelInfo *kernel_info)
+                                           TransferInfo *transfer_info)
 {
+    bool debug = false;
+    
     if (stmt.is_declaration())
     {
 
     }
+    else if (stmt.is_pragma_construct())
+    {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'PRAGMA\n";
+        collect_variable_info(stmt.get_pragma_construct_statement(), transfer_info);
+        std::cout << "END COLLECT PRAGMA\n";
+    }
     else if (TL::ForStatement::predicate(stmt.get_ast()))
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'FOR\n";
         TL::ForStatement for_stmt = TL::ForStatement(stmt.get_ast(), stmt.get_scope_link());
         // TODO: analysis init, cond, incre ? (use/def)
         // if not use before induction variable is def before use
         std::string ind_var_name = for_stmt.get_induction_variable().get_symbol().get_name();
-        int idx = kernel_info->get_var_info_index_from_var_name(ind_var_name);
+        int idx = transfer_info->get_var_info_index_from_var_name(ind_var_name);
         if (idx >= 0)
         {
-            if (kernel_info->_var_info[idx]._is_use == false)
-                kernel_info->_var_info[idx]._is_def_before_use = true;
-            kernel_info->_var_info[idx]._is_def = true;
+            if (transfer_info->_var_info[idx]._is_use == false)
+                transfer_info->_var_info[idx]._is_def_before_use = true;
+            transfer_info->_var_info[idx]._is_def = true;
         }
         
-        collect_variable_info(for_stmt.get_lower_bound(), kernel_info);
-        collect_variable_info(for_stmt.get_upper_bound(), kernel_info);
-        collect_variable_info(for_stmt.get_step(), kernel_info);
+        collect_variable_info(for_stmt.get_lower_bound(), transfer_info);
+        collect_variable_info(for_stmt.get_upper_bound(), transfer_info);
+        collect_variable_info(for_stmt.get_step(), transfer_info);
         
-        collect_variable_info(for_stmt.get_loop_body(), kernel_info);
+        collect_variable_info(for_stmt.get_loop_body(), transfer_info);
     }
     else if (TL::IfStatement::predicate(stmt.get_ast()))
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'IF\n";
         TL::IfStatement if_stmt = TL::IfStatement(stmt.get_ast(), stmt.get_scope_link());
         
-        collect_variable_info(if_stmt.get_condition().get_expression(), kernel_info);
-        collect_variable_info(if_stmt.get_then_body(), kernel_info);
+        collect_variable_info(if_stmt.get_condition().get_expression(), transfer_info);
+        collect_variable_info(if_stmt.get_then_body(), transfer_info);
         if (if_stmt.has_else())
         {
-            collect_variable_info(if_stmt.get_else_body(), kernel_info);
+            collect_variable_info(if_stmt.get_else_body(), transfer_info);
         }
     }
     else if (TL::WhileStatement::predicate(stmt.get_ast()))
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'WHILE\n";
         TL::WhileStatement while_stmt = TL::WhileStatement(stmt.get_ast(), stmt.get_scope_link());
         
-        collect_variable_info(while_stmt.get_condition().get_expression(), kernel_info);
-        collect_variable_info(while_stmt.get_body(), kernel_info);
+        collect_variable_info(while_stmt.get_condition().get_expression(), transfer_info);
+        collect_variable_info(while_stmt.get_body(), transfer_info);
     }
     else if (TL::DoWhileStatement::predicate(stmt.get_ast()))
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'DOWHILE\n";
         TL::DoWhileStatement do_while_stmt = TL::DoWhileStatement(stmt.get_ast(), stmt.get_scope_link());
         
-        collect_variable_info(do_while_stmt.get_expression(), kernel_info);
-        collect_variable_info(do_while_stmt.get_body(), kernel_info);
+        collect_variable_info(do_while_stmt.get_expression(), transfer_info);
+        collect_variable_info(do_while_stmt.get_body(), transfer_info);
     }
     else if (TL::SwitchStatement::predicate(stmt.get_ast()))
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'SWITCH\n";
         TL::SwitchStatement switch_stmt = TL::SwitchStatement(stmt.get_ast(), stmt.get_scope_link());
         
-        collect_variable_info(switch_stmt.get_condition().get_expression(), kernel_info);
+        collect_variable_info(switch_stmt.get_condition().get_expression(), transfer_info);
         
         // TODO: collect switch expression
         std::cerr << "(gfn-phase): error: Not support switch yet" << std::endl;
@@ -1205,17 +1233,19 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
     }
     else if (stmt.is_compound_statement())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'COMPOUND\n";
         ObjectList<Statement> statements = stmt.get_inner_statements();
         for (ObjectList<Statement>::iterator it = statements.begin();
              it != statements.end();
              ++it)
         {
-            collect_variable_info(*it, kernel_info);
+            collect_variable_info(*it, transfer_info);
         }
     }
     else if (stmt.is_expression())
     {
-        collect_variable_info(stmt.get_expression(), kernel_info);
+        if (debug) std::cout << "COLLECT VARIABLE INFO 'EXPR\n";
+        collect_variable_info(stmt.get_expression(), transfer_info);
     }
     else
     {
@@ -1225,9 +1255,11 @@ void GFNPragmaPhase::collect_variable_info(Statement stmt,
 }
 
 void GFNPragmaPhase::collect_variable_info(Expression expr,
-                                           KernelInfo *kernel_info,
+                                           TransferInfo *transfer_info,
                                            int found_idx_at)
 {
+    bool debug = false;
+    
     /* FIXME: if def before use eg.
      * A[i] = 6;
      * B[i] = A[i];
@@ -1247,6 +1279,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
      */
     if (expr.is_assignment() || expr.is_operation_assignment())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'ASSIGNMENT\n";
         //std::cout << "ASSIGN STMT : " << expr.prettyprint() << "\n";
         stmt_var_list = expr.get_second_operand().all_symbol_occurrences(Statement::ONLY_VARIABLES);
         
@@ -1257,26 +1290,26 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         }
         
         std::string var_name = tmp_expr.get_id_expression().get_symbol().get_name();
-        int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+        int idx = transfer_info->get_var_info_index_from_var_name(var_name);
         if (idx >= 0)
         {
-            if (kernel_info->_var_info[idx]._is_use == false)
-                kernel_info->_var_info[idx]._is_def_before_use = true;
-            kernel_info->_var_info[idx]._is_def = true;
+            if (transfer_info->_var_info[idx]._is_use == false)
+                transfer_info->_var_info[idx]._is_def_before_use = true;
+            transfer_info->_var_info[idx]._is_def = true;
             
             ObjectList<std::string> dim_size;
             int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration(), 
                                                   var_name, dim_size);
             if (dim_num > 0) 
             {
-                kernel_info->_var_info[idx]._is_array_or_pointer = true;
-                kernel_info->_var_info[idx]._dimension_num = dim_num;
+                transfer_info->_var_info[idx]._is_array_or_pointer = true;
+                transfer_info->_var_info[idx]._dimension_num = dim_num;
                 for (int i = 0; i < dim_size.size(); ++i) 
                 {
                     TL::Source size_src(dim_size[i]);
                     TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
                     TL::Expression size_expr(size_tree, expr.get_scope_link());
-                    kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
+                    transfer_info->_var_info[idx]._dim_size.push_back( size_expr );
                 }
             }
         }
@@ -1294,23 +1327,23 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
          iit++)
     {
         std::string var_name = iit->get_symbol().get_name();
-        int idx = kernel_info->get_var_info_index_from_var_name(var_name);
+        int idx = transfer_info->get_var_info_index_from_var_name(var_name);
         
         if (idx >= 0)
         {
-            kernel_info->_var_info[idx]._is_use = true;
+            transfer_info->_var_info[idx]._is_use = true;
             ObjectList<std::string> dim_size;
             int dim_num = get_dimension_form_decl(iit->get_declaration(), var_name, dim_size);
             if (dim_num > 0) 
             {
-                kernel_info->_var_info[idx]._is_array_or_pointer = true;
-                kernel_info->_var_info[idx]._dimension_num = dim_num;
+                transfer_info->_var_info[idx]._is_array_or_pointer = true;
+                transfer_info->_var_info[idx]._dimension_num = dim_num;
                 for (int i = 0; i < dim_size.size(); ++i) 
                 {
                     TL::Source size_src(dim_size[i]);
                     TL::AST_t size_tree = size_src.parse_expression(expr.get_ast(), expr.get_scope_link());
                     TL::Expression size_expr(size_tree, expr.get_scope_link());
-                    kernel_info->_var_info[idx]._dim_size.push_back( size_expr );
+                    transfer_info->_var_info[idx]._dim_size.push_back( size_expr );
                 }
             }
         }
@@ -1321,6 +1354,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     
     if (expr.is_id_expression())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'IDEXPRESSION\n";
         IdExpression id_expr = expr.get_id_expression();
         Symbol sym = id_expr.get_symbol();
 
@@ -1328,15 +1362,15 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         {
             /*std::cout << "Found at index : " << found_idx_at
                       << " for " << sym.get_name() << "\n";*/
-            int idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
+            int idx = transfer_info->get_var_info_index_from_var_name(sym.get_name());
 
-            if (kernel_info->_var_info[idx]._shared_dimension >= 0 &&
-                kernel_info->_var_info[idx]._shared_dimension != found_idx_at)
+            if (transfer_info->_var_info[idx]._shared_dimension >= 0 &&
+                transfer_info->_var_info[idx]._shared_dimension != found_idx_at)
             {
                 std::cerr << "Conflict at " << __FILE__ << ":" << __LINE__ << "\n";
             }
 
-            kernel_info->_var_info[idx]._shared_dimension = found_idx_at;
+            transfer_info->_var_info[idx]._shared_dimension = found_idx_at;
         }
 
         // Traverse child nodes
@@ -1344,61 +1378,72 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     }
     else if (expr.is_array_subscript())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'ARRAYSUBSCRIPT\n";
         //std::cout << "Subscript : " << expr.get_subscript_expression() << "\n";
         //std::cout << "Subscripted : " << expr.get_subscripted_expression() << "\n";
 
-        if (found_idx_at < 0)
+        // For parallel_for only
+        KernelInfo *kernel_info = dynamic_cast<KernelInfo*>(transfer_info);
+        if (kernel_info)
         {
-            bool found_idx = false;
-            TL::Expression subscript = expr.get_subscript_expression();
-            ObjectList<IdExpression> vars_in_subscript = subscript.all_symbol_occurrences(Expression::ONLY_VARIABLES);
-            for (ObjectList<IdExpression>::iterator it = vars_in_subscript.begin();
-                 it != vars_in_subscript.end();
-                 ++it)
+            if (found_idx_at < 0)
             {
-                Symbol sym = it->get_symbol();
-                if (sym.get_name() == kernel_info->loop_index_var_name)
+                bool found_idx = false;
+                TL::Expression subscript = expr.get_subscript_expression();
+                ObjectList<IdExpression> vars_in_subscript = subscript.all_symbol_occurrences(Expression::ONLY_VARIABLES);
+                for (ObjectList<IdExpression>::iterator it = vars_in_subscript.begin();
+                    it != vars_in_subscript.end();
+                    ++it)
                 {
-                    found_idx = true;
-                    found_idx_at = 0;
-                    break;
+                    Symbol sym = it->get_symbol();
+                    if (sym.get_name() == kernel_info->loop_index_var_name)
+                    {
+                        found_idx = true;
+                        found_idx_at = 0;
+                        break;
+                    }
                 }
             }
-        }
-        else
-        {
-            found_idx_at++;
+            else
+            {
+                found_idx_at++;
+            }
         }
 
         // Traverse child nodes
-        collect_variable_info(expr.get_subscript_expression(), kernel_info);
-        collect_variable_info(expr.get_subscripted_expression(), kernel_info, found_idx_at);
+        collect_variable_info(expr.get_subscript_expression(), transfer_info);
+        collect_variable_info(expr.get_subscripted_expression(), transfer_info, found_idx_at);
     }
     else if (expr.is_member_access() || expr.is_pointer_member_access())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'MEMBERACCESS\n";
         // Traverse child nodes
-        collect_variable_info(expr.get_accessed_entity(), kernel_info);
+        collect_variable_info(expr.get_accessed_entity(), transfer_info);
     }
     else if (expr.is_assignment())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'ASSIGNMENT\n";
         // Traverse child nodes
-        collect_variable_info(expr.get_first_operand(), kernel_info);
-        collect_variable_info(expr.get_second_operand(), kernel_info);
+        collect_variable_info(expr.get_first_operand(), transfer_info);
+        collect_variable_info(expr.get_second_operand(), transfer_info);
     }
     else if (expr.is_operation_assignment())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'OPERATIONASSIGNMENT\n";
         // Traverse child nodes
-        collect_variable_info(expr.get_first_operand(), kernel_info);
-        collect_variable_info(expr.get_second_operand(), kernel_info);
+        collect_variable_info(expr.get_first_operand(), transfer_info);
+        collect_variable_info(expr.get_second_operand(), transfer_info);
     }
     else if (expr.is_binary_operation())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'BINARY\n";
         // Traverse child nodes
-        collect_variable_info(expr.get_first_operand(), kernel_info);
-        collect_variable_info(expr.get_second_operand(), kernel_info);
+        collect_variable_info(expr.get_first_operand(), transfer_info);
+        collect_variable_info(expr.get_second_operand(), transfer_info);
     }
     else if (expr.is_unary_operation())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'UNARY\n";
         Expression::OperationKind kind = expr.get_operation_kind();
 
         switch ((int)kind)
@@ -1416,24 +1461,31 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         }
 
         // Traverse child nodes
-        collect_variable_info(expr.get_unary_operand(), kernel_info);
+        collect_variable_info(expr.get_unary_operand(), transfer_info);
     }
     else if (expr.is_conditional())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'CONDITION\n";
         // Traverse child nodes
-        collect_variable_info(expr.get_condition_expression(), kernel_info);
-        collect_variable_info(expr.get_true_expression(), kernel_info);
-        collect_variable_info(expr.get_false_expression(), kernel_info);
+        collect_variable_info(expr.get_condition_expression(), transfer_info);
+        collect_variable_info(expr.get_true_expression(), transfer_info);
+        collect_variable_info(expr.get_false_expression(), transfer_info);
     }
     else if (expr.is_function_call())
     {
+        if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'FUNCTIONCALL\n";
         // Traverse child nodes
-        // TODO:
+        ObjectList<Expression> arguments = expr.get_argument_list();
+        for (ObjectList<Expression>::iterator it = arguments.begin();
+             it != arguments.end(); it++)
+        {
+            collect_variable_info(*it, transfer_info);
+        }
     }
     else if (expr.is_casting())
     {
         // Traverse child nodes
-        collect_variable_info(expr.get_casted_expression(), kernel_info);
+        collect_variable_info(expr.get_casted_expression(), transfer_info);
     }
     else if (expr.is_constant())
     {
@@ -1510,9 +1562,9 @@ int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl,
     return dim;
 }
 
-void GFNPragmaPhase::post_collect_variable_info(KernelInfo *kernel_info)
+void GFNPragmaPhase::post_collect_variable_info(TransferInfo *transfer_info)
 {
-    TL::ObjectList< VariableInfo > &var_info_list = kernel_info->_var_info;
+    TL::ObjectList< VariableInfo > &var_info_list = transfer_info->_var_info;
     
     for (TL::ObjectList< VariableInfo >::iterator it = var_info_list.begin();
         it != var_info_list.end(); ++it)
@@ -1580,9 +1632,9 @@ void GFNPragmaPhase::add_expr_to_input_var(TransferInfo *transfer_info, TL::Expr
     }
 }
 
-void GFNPragmaPhase::show_variable_prop(KernelInfo *kernel_info)
+void GFNPragmaPhase::show_variable_prop(TransferInfo *transfer_info)
 {
-    TL::ObjectList< VariableInfo > &var_info_list = kernel_info->_var_info;
+    TL::ObjectList< VariableInfo > &var_info_list = transfer_info->_var_info;
     
     for (TL::ObjectList< VariableInfo >::iterator it = var_info_list.begin();
         it != var_info_list.end(); ++it)
