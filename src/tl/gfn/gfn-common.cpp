@@ -612,6 +612,7 @@ TL::Source create_gfn_malloc_nd(std::string var_name,
     if (dim_size.size() == 0)
     {
         dim_num = 0;
+        return result; // TODO: ok to return empty
     }
     
     stars << "*";
@@ -672,7 +673,7 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
         << "_GfnEnqueueBoardcastND((void*)" << var_name << subscript_to_1d << "," 
         << var_cl_name << "," << mpi_type << "," 
         << level1_cond << "," << level2_cond << ","
-        << dim_num << "," << size_params << ");";
+        << dim_num << ((dim_num==0)?"":",") << size_params << ");";
         
     return result;
 }
@@ -720,8 +721,8 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << "," 
         << partitioned_dim << "," << pattern_type << "," 
         << level1_cond << "," << level2_cond << ","
-        << dim_num << "," << pattern_array_size << "," 
-        << size_params;
+        << dim_num << "," << pattern_array_size 
+        << ((dim_num+pattern_array_size==0)?"":",") << size_params;
         
     if (pattern_array_size > 0)
         result << pattern_params;
@@ -782,8 +783,8 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
         << loop_start << "," << loop_end << "," << loop_step << "," 
         << partitioned_dim << "," << pattern_type << ","
         << level1_cond << "," << level2_cond << ","
-        << dim_num << "," << pattern_array_size << "," 
-        << size_params;
+        << dim_num << "," << pattern_array_size 
+        << ((dim_num+pattern_array_size==0)?"":",") << size_params;
         
     if (pattern_array_size > 0)
         result << pattern_params;
