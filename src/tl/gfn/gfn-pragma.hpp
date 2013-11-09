@@ -62,6 +62,7 @@ namespace TL
                 void finish(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);
                 void data(PragmaCustomConstruct construct);
+                void data_post(PragmaCustomConstruct construct);
                 void use_in_parallel(PragmaCustomConstruct construct);
                 void overlapcompute(PragmaCustomConstruct construct);
                 void barrier(PragmaCustomConstruct construct);
@@ -136,6 +137,8 @@ namespace TL
                 AST_t _translation_unit;
                 
                 FILE* _kernel_decl_file;
+                
+                std::stack< TransferInfo* > transfer_info_stack;
         };
 
         //! @}

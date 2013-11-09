@@ -168,11 +168,12 @@ GFNPragmaPhase::GFNPragmaPhase()
     on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));
     
     
-    register_construct("data");
-    on_directive_post["data"].connect(functor(&GFNPragmaPhase::data, *this));
-    
     register_construct("parallel_for");
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
+    
+    register_construct("data");
+    on_directive_pre["data"].connect(functor(&GFNPragmaPhase::data, *this));
+    on_directive_post["data"].connect(functor(&GFNPragmaPhase::data_post, *this));
     // XXX: on_directive_pre ???
     
     
@@ -407,6 +408,11 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
         // TODO: don't add local declare variable
         DataReference data_ref(sit->get_expression());
         Declaration data_decl = sit->get_declaration();
+        std::string name = sit->get_symbol().get_name();
+        
+        if (data_ref.get_data_type().is_scalar_type() &&
+            !data_ref.get_data_type().is_pointer()) 
+            continue;
         
         // if data_ref is declare in this statement - ignore it
         bool is_decl_in_constuct_scope = false;
@@ -430,10 +436,6 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
             continue;
         }
 
-            
-        std::string name = sit->get_symbol().get_name();
-        //std::cout << "Data construct collect variable : " << name << "\n";
-        
         if (transfer_info->get_var_info_index_from_var_name(name) < 0)
         {
             TL::Type var_type = data_ref.get_type();
@@ -443,6 +445,9 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
             transfer_info->_var_info.append(var_info);
             transfer_info->_var_ref.append(data_ref);
         }
+        
+        Declaration decl = sit->get_declaration();
+        std::cout << "DECL OF SEND RECV DATA " << decl.prettyprint() << " \n";
     }
     
     collect_variable_info(statement, transfer_info);
@@ -463,10 +468,18 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
     show_variable_prop(transfer_info);
     std::cout << "====================================================\n";
     
+    transfer_info_stack.push(transfer_info);
+}
+
+void GFNPragmaPhase::data_post(PragmaCustomConstruct construct)
+{
+    TransferInfo *transfer_info = transfer_info_stack.top();
+    transfer_info_stack.pop();
+    
     data_fun(construct, construct.get_statement(), transfer_info,
              _scope_link, _translation_unit, _kernel_decl_file);
     
-    construct.get_ast().replace(statement.get_ast());
+    construct.get_ast().replace(construct.get_statement().get_ast());
     
     delete transfer_info;
 }
@@ -1507,6 +1520,15 @@ int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl,
                                             std::string var_name,
                                             ObjectList<std::string> &dim_size_params)
 {
+    // TODO: fix this
+    if (decl.prettyprint() == "")
+    {
+        std::cerr << "Warning : cannot get declaration of " << var_name 
+            << " in get_dimension_form_decl (it is parameter declation?)"
+            << std::endl;
+        return 0;
+    }
+    
     int dim = 0;
     int star_dim = 0, brac_dim = 0;
     ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();

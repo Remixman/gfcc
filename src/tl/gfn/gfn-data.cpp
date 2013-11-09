@@ -74,7 +74,7 @@ TL::Source Data::do_data()
     
     TL::Source master_send_call_function_send, master_send_call_function_recv;
     //TL::Source master_send_scalar_src;
-    TL::Source master_send_src, master_recv_src;
+    TL::Source master_send_scalar_src, master_send_array_src, master_recv_src;
     TL::Source master_lock_transfer_src, master_unlock_transfer_src;
     
     //TL::Source worker_recv_scalar_src;
@@ -123,6 +123,8 @@ TL::Source Data::do_data()
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
         /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
         
+        std::cout << "Data clause handle variable : " << var_name << std::endl;
+        
         /* (1). Declare array variables */
         if (var_info._is_array_or_pointer &&
             (var_info._is_input || var_info._is_output))
@@ -167,7 +169,7 @@ TL::Source Data::do_data()
         {
             if (var_info._is_array_or_pointer)
             {
-                master_send_src
+                master_send_array_src
                     << "_SendInputMsg((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
                     
@@ -186,7 +188,7 @@ TL::Source Data::do_data()
             }
             else
             {
-                master_send_src
+                master_send_scalar_src
                     << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
                     
                 worker_recv_src
@@ -237,7 +239,8 @@ TL::Source Data::do_data()
     ret_src
         << comment("Send call send function message")
         << master_send_call_function_send
-        << master_send_src
+        << master_send_scalar_src
+        << master_send_array_src
         << master_lock_transfer_src
         << _stmt
         << comment("Send call recieve function message")

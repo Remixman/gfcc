@@ -35,6 +35,7 @@
 #include "tl-source.hpp"
 #include "gfn-common.hpp"
 #include <string>
+#include <stack>
 #include <map>
 #include <iostream>
 #include <sstream>

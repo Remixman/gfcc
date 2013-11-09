@@ -297,7 +297,7 @@ std::string VariableInfo::get_allocate_size_in_byte(TL::Type vartype)
     std::stringstream result;
     std::string type_name = type_to_ctype(vartype);
     
-    if (vartype.is_array() || vartype.is_pointer())
+    if (_is_array_or_pointer)
     {
         result << "(sizeof(" << type_name << ") * " << get_mem_size() << ")";
     }
