@@ -453,6 +453,7 @@ do { \
 }
 
 void _SendCallFuncMsg(int func_code) {
+	_GfnMasterInit();
 	_SendMasterMsg(&func_code, sizeof(int));
 }
 

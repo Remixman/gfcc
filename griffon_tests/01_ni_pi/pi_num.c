@@ -36,9 +36,7 @@ int main(int argc, char *argv[]) {
 
 	if (argc > 1) n = atoi(argv[1]);
 	if (argc > 2) ite = atoi(argv[2]);
-	
-	#pragma gfn start
-  
+
 	// warm up
 	pi = integrate(n);
 
@@ -47,8 +45,6 @@ int main(int argc, char *argv[]) {
 	time1 = get_time();
 		
 	printf("last pi=%.16f, error=%.16f\n", pi, fabs(pi - PI25DT));
-	
-	#pragma gfn finish
 
 	printf("TEST 01 - Numerical Integration PI\n");
 	printf("\tProblem size N = %d\n", n);

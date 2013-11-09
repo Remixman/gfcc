@@ -46,8 +46,6 @@ int main(int argc, char *argv[])
         n = atoi(argv[1]);
     if (argc > 2)
         ite = atoi(argv[2]);
-    /* Initialize IPC to worker */
-    _OpenMasterMsgQueue();
     A = (float **) malloc(n * sizeof(float *));
     A[0] = (float *) malloc(n * n * sizeof(float));
     B = (float **) malloc(n * sizeof(float *));
@@ -96,9 +94,6 @@ int main(int argc, char *argv[])
         if (!pass)
             break;
     }
-    /* Close IPC to worker */
-    _SendCallFuncMsg(0);
-    _CloseMasterMsgQueue();
     printf("TEST 02 - Matrix Matrix Multiplication\n");
     printf("\tTest result = ");
     if (pass)

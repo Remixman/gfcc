@@ -1359,6 +1359,32 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
 }
 
 
+void _GfnMasterInit()
+{
+	static int already_init = 0;
+
+	if (already_init)
+		return;
+
+	printf("Initialize master process\n");
+
+	already_init = 1;
+
+	_OpenMasterMsgQueue();
+
+	if (atexit(_GfnMasterFinish)) {
+		fprintf(stderr, "Cannot register _GfnMasterFinish as exit function\n");
+		exit(1);
+	}
+}
+void _GfnMasterFinish()
+{
+	printf("Finish master process\n");
+
+	_CloseMasterMsgQueue();
+}
+
+
 int _GFN_TYPE_CHAR()           { return TYPE_CHAR; }
 int _GFN_TYPE_UNSIGNED_CHAR()  { return TYPE_UNSIGNED_CHAR; }
 int _GFN_TYPE_SHORT()          { return TYPE_SHORT; }

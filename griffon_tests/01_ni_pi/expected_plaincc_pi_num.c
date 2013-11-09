@@ -28,8 +28,6 @@ int main(int argc, char *argv[])
         n = atoi(argv[1]);
     if (argc > 2)
         ite = atoi(argv[2]);
-    /* Initialize IPC to worker */
-    _OpenMasterMsgQueue();
     pi = integrate(n);
     time0 = get_time();
     for (i = 0;
@@ -38,9 +36,6 @@ int main(int argc, char *argv[])
         pi = integrate(n);
     time1 = get_time();
     printf("last pi=%.16f, error=%.16f\n", pi, fabs(pi - PI25DT));
-    /* Close IPC to worker */
-    _SendCallFuncMsg(0);
-    _CloseMasterMsgQueue();
     printf("TEST 01 - Numerical Integration PI\n");
     printf("\tProblem size N = %d\n", n);
     printf("\tRunning iteration = %d\n", ite);

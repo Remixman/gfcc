@@ -5,8 +5,6 @@
 int main(int argc, char *argv[]) {
   int i, A[300], B[300] = {}, u = 99, it=-2;
   
-  #pragma gfn start
-  
   for (i=0;i<300;i++) {
   	B[i] = i;
   }
@@ -21,8 +19,6 @@ int main(int argc, char *argv[]) {
   for (i=1;i<299;i++) {
     A[i] = (B[i-1] + B[i] + B[i+1]) / 3;
   }
-  
-  #pragma gfn finish
   
   // Test result
   for (i=0;i<300;i++) {

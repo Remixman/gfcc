@@ -13,8 +13,6 @@ int a(int x, int y)
 int main(int argc, char *argv[])
 {
     int i, A[500], B[500];
-    /* Initialize IPC to worker */
-    _OpenMasterMsgQueue();
     for (i = 0;
         i < 500;
         i++)
@@ -37,9 +35,6 @@ int main(int argc, char *argv[])
     _SendCallFuncMsg(530979);
     _GfnUnlockTransfer((void *) A);
     _RecvOutputMsg((void *) A, (sizeof(int) * ((500))));
-    /* Close IPC to worker */
-    _SendCallFuncMsg(0);
-    _CloseMasterMsgQueue();
     for (i = 0;
         i < 500;
         i++)

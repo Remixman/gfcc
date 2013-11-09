@@ -52,8 +52,6 @@ int main(int argc, char *argv[]) {
 	if (argc > 1) n = atoi(argv[1]);
 	if (argc > 2) ite = atoi(argv[2]);
 	
-	#pragma gfn start
-	
 	// allocate memory for A, B and C
 	A = (float **) malloc(n * sizeof(float*));
 	A[0] = (float *) malloc(n * n * sizeof(float));
@@ -92,8 +90,6 @@ int main(int argc, char *argv[]) {
 		}
 		if (!pass) break;
 	}
-	
-	#pragma gfn finish
 
 	printf("TEST 02 - Matrix Matrix Multiplication\n");
 	printf("\tTest result = ");

@@ -20,8 +20,6 @@ int a(int x, int y) {
 int main(int argc, char *argv[]) {
   int i, A[500], B[500];
   
-  #pragma gfn start
-  
   for (i=0;i<500;i++) {
   	B[i] = i;
   }
@@ -35,9 +33,6 @@ int main(int argc, char *argv[]) {
   }
   
   } /* end acc data */
-  
-  
-  #pragma gfn finish
   
   // Test result
   for (i=0;i<500;i++) {

@@ -60,7 +60,6 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishGatherArray();
 
-
 int _GfnLockTransfer(void * ptr);
 int _GfnUnlockTransfer(void * ptr);
 
@@ -75,6 +74,8 @@ int _GfnCalcLocalDataEnd(int data_start, int data_end);
 int _GfnCalcLocalLoopStart(int local_data_start, int loop_start, int loop_step); // New loop start with this
 int _GfnCalcLocalLoopEnd(int local_data_end, int loop_end);                      // New loop end with this
 
+void _GfnMasterInit();
+void _GfnMasterFinish();
 
 int _CalcLoopSize(int start, int end, int incre);
 int _CalcSubSize(int size, int num_proc, int rank, int block_size);
