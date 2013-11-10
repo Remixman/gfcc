@@ -283,7 +283,7 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 1D Again\n");
 		return 0;
@@ -346,7 +346,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 2D Again\n");
 		return 0;
@@ -410,7 +410,7 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 3D Again\n");
 		return 0;
@@ -476,7 +476,7 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 4D Again\n");
 		return 0;
@@ -544,7 +544,7 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 5D Again\n");
 		return 0;
@@ -614,7 +614,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, *cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		printf("Don't Allocate 6D Again\n");
 		return 0;

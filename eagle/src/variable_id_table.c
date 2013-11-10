@@ -83,7 +83,7 @@ int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num,
 	return 0;
 }
 
-int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
+int _retieve_var_table( long long id, cl_mem *device_ptr, int *dimension_num,
 						void ** host_ptr, int *found ) {
 
 	// FIND
@@ -120,7 +120,7 @@ int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
 			break;
 		}
 		
-		device_ptr = (*(var_record**)retieved_rec)->device_ptr;
+		*device_ptr = (*(var_record**)retieved_rec)->device_ptr;
 		*found = 1 /* TRUE */;
 	} else {
 		*found = 0 /* FALSE */;
