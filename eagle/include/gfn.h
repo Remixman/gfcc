@@ -8,10 +8,13 @@
 #include <CL/cl.h>
 
 
-#define DEBUG_AUTO_ALLOCATE
-#define DEBUG_VAR_TABLE
+/* Debugging */
+//#define DEBUG_AUTO_ALLOCATE
+//#define DEBUG_VAR_TABLE
 #define DEBUG_INTER_PROC_COMM
 
+/* Optimization */
+#define OPTIMIZE_NO_USE_CL_SUBBUFFER
 
 extern int _gfn_rank;		/**/
 extern int _gfn_num_proc;	/**/

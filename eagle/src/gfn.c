@@ -30,8 +30,6 @@ static int _mm_overhead_time;           /* Overhead time for memory management *
 
 static FILE * _trace_f;
 
-/* Optimization */
-#define OPTIMIZE_NO_USE_CL_SUBBUFFER
 
 #define IF_TIMING if
 #define TRACE_LOG(...) if(_trace_f)fprintf(_trace_f, __VA_ARGS__);

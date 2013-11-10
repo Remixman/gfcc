@@ -96,7 +96,30 @@ int _retieve_var_table( long long id, cl_mem device_ptr, int *dimension_num,
 
 	if (retieved_rec) {
 		*dimension_num = (*(var_record**)retieved_rec)->dimension_num;
-		*host_ptr = (*(var_record**)retieved_rec)->host_ptr1;
+		switch(*dimension_num) {
+		case 1: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr1; 
+			break;
+		case 2: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr2; 
+			break;
+		case 3: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr3; 
+			break;
+		case 4: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr4; 
+			break;
+		case 5: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr5; 
+			break;
+		case 6: 
+			*host_ptr = (*(var_record**)retieved_rec)->host_ptr6; 
+			break;
+		default: 
+			fprintf("Pass %d dimension to _retieve_var_table\n", *dimension_num);
+			break;
+		}
+		
 		device_ptr = (*(var_record**)retieved_rec)->device_ptr;
 		*found = 1 /* TRUE */;
 	} else {

@@ -339,6 +339,8 @@ int _RecvInputNDMsgCore(void *ptr, int type_id,
 	printf("PATTERN TYPE = %d\n", pattern_type);
 	printf("SIZE N = %d\n", size_n);
 	printf("PATTERN N = %d\n", pattern_n);
+
+	printf("RECV PTR = %x\n", ptr);
 #endif
 
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
