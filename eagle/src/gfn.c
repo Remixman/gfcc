@@ -285,7 +285,7 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 1D Again\n");
+		//printf("Don't Allocate 1D Again\n");
 		return 0;
 	}
 
@@ -348,7 +348,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 2D Again\n");
+		//("Don't Allocate 2D Again\n");
 		return 0;
 	}
 
@@ -412,7 +412,7 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 3D Again\n");
+		//printf("Don't Allocate 3D Again\n");
 		return 0;
 	}
 
@@ -478,7 +478,7 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 4D Again\n");
+		//printf("Don't Allocate 4D Again\n");
 		return 0;
 	}
 
@@ -546,7 +546,7 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 5D Again\n");
+		//printf("Don't Allocate 5D Again\n");
 		return 0;
 	}
 
@@ -616,7 +616,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		printf("Don't Allocate 6D Again\n");
+		//printf("Don't Allocate 6D Again\n");
 		return 0;
 	}
 
@@ -1513,7 +1513,7 @@ void _GfnClearKernel(cl_kernel kernel)
 	_gfn_status = clReleaseKernel(kernel);
 	_GfnCheckCLStatus(_gfn_status, "RELEASE KERNEL");
 	
-	printf("kernel %s complete\n", current_kernel_name);
+	//printf("kernel %s complete\n", current_kernel_name);
 }
 
 void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr)

@@ -124,7 +124,7 @@ for (std::vector<std::string>::iterator it = worker_func_list.begin();
 << "void RecvCommand(int *func_code) {" << NEW_LINE
 << "\tif (_gfn_rank == 0) {" << NEW_LINE
 << "\t\t_RecvCallFuncMsg(func_code);" << NEW_LINE
-<< "\t\tprintf(\"Rank 0 receive command code : %d\\n\", *func_code);" << NEW_LINE
+//<< "\t\tprintf(\"Rank 0 receive command code : %d\\n\", *func_code);" << NEW_LINE
 << "\t}" << NEW_LINE
 << "\tMPI_Bcast( func_code, 1, MPI_INT, 0, MPI_COMM_WORLD );" << NEW_LINE
 << "}" << NEW_LINE
@@ -159,7 +159,7 @@ for (std::vector<std::string>::iterator it = worker_func_list.begin();
 	// Exit case
 << "\t\tcase 0:" << NEW_LINE
 << "\t\t\tif (_gfn_rank == 0) {" << NEW_LINE
-<< "\t\t\t\tprintf(\"Get exit code!\\n\");" << NEW_LINE
+//<< "\t\t\t\tprintf(\"Get exit code!\\n\");" << NEW_LINE
 << "\t\t\t}" << NEW_LINE
 << "\t\t\texit_f = 1;" << NEW_LINE
 << "\t\t\tbreak;" << NEW_LINE
