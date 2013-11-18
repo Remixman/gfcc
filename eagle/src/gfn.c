@@ -1379,6 +1379,7 @@ void _GfnMasterFinish()
 {
 	printf("Finish master process\n");
 
+	_SendCallFuncMsg(0);
 	_CloseMasterMsgQueue();
 }
 
