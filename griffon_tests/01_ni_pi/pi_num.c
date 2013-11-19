@@ -14,7 +14,7 @@ long long get_time() {
 }
 
 double integrate(int n) {
-	double sum, h, x;
+	double sum = 0, h, x;
 	int i;
 	h = 1.0 / (double) n;
 	#pragma gfn parallel_for reduction(+:sum)

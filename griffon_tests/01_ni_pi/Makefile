@@ -24,5 +24,9 @@ modify:
 	mpicc -o pi_num $(CFLAGS) plaincc_pi_num.c -lrt -lOpenCL
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
+	
+hand:
+	mpicc -o mpicl_pi_num mpicl_pi_num.c -lrt -lOpenCL
+	
 clean:
-	@rm -rf plaincc_pi_num.c pi_num.c.kerdecl.c pi_num worker*
+	@rm -rf plaincc_pi_num.c pi_num.c.kerdecl.c pi_num worker* mpicl_pi_num
