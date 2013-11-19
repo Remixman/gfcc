@@ -240,7 +240,7 @@ int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id,
 
 #define SWITCH_REDUCE(type,mpi_type) \
 do { \
-	type tmp_reduce_var[group_num]; \
+	type *tmp_reduce_var = (type*) malloc(group_num * sizeof(type)); \
 	if (level2_cond) { \
 		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * group_num, tmp_reduce_var, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
@@ -248,6 +248,7 @@ do { \
 	for (i = 1; i < group_num; ++i) \
 		tmp_reduce_var[0] += tmp_reduce_var[i]; \
 	MPI_Reduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
+	free(tmp_reduce_var); \
 } while(0)
 
 	switch(type_id)

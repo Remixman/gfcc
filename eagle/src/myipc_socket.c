@@ -34,7 +34,7 @@
 
 #define USED_PORT 5829
 #define MAX_SOCKET_BUFFER_SIZE (4096<<1)
-#define MAX_MSG_LEN 1000000000
+#define MAX_MSG_LEN 2000000000
 
 // For worker server
 int listenfd = 0;
