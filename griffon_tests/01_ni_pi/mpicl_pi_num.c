@@ -96,7 +96,7 @@ const char *prog_src =
 "		sum += 4.0 / (1.0 + x * x);										\n"
 "	}																	\n"
 "																		\n"
-"	shared_sum[gtid] = sum;												\n"
+"	shared_sum[ltid] = sum;												\n"
 "	for (int stride = get_local_size(0)/2; stride > 0; stride/=2) {		\n"
 "		barrier(CLK_LOCAL_MEM_FENCE);									\n"
 "		if (ltid < stride)												\n"
@@ -117,6 +117,11 @@ long long get_time() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
+}
+
+int round64(int x) {
+	int q = ceil(x/64.0);
+	return q * 64;
 }
 
 double integrate(int n, int rank, int node_size) {
@@ -140,13 +145,13 @@ double integrate(int n, int rank, int node_size) {
 	local_end = (rank+1) * (n/(double)node_size);
 	if (local_end > n) local_end = n;
 	
-	const size_t global_work_size = local_end - local_start + 1;
+	const size_t global_work_size = round64(local_end - local_start + 1);
 	const size_t work_group_size = 64;
-	const size_t group_num = ceil(global_work_size/(double)work_group_size);
+	const size_t group_num = global_work_size/work_group_size;
 	
-	printf("%d Debug\n", rank);
+	/*printf("%d Debug\n", rank);
 	printf("%d Global work size = %d\n", rank, (int)global_work_size);
-	printf("%d Group num = %d\n", rank, (int)group_num);
+	printf("%d Group num = %d\n", rank, (int)group_num);*/
 	
 	// initial GPU
 	status = clGetPlatformIDs(1, &platform, NULL);
@@ -171,7 +176,7 @@ double integrate(int n, int rank, int node_size) {
 	_GfnCheckCLStatus(status, "CREATE KERNEL");
 	
 	// create buffer
-	cl_sum_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, group_num, NULL, &status);
+	cl_sum_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, group_num * sizeof(double), NULL, &status);
 	host_sum_buffer = (double*) malloc(group_num * sizeof(double));
 	
 	// set kernel argument
@@ -198,7 +203,7 @@ double integrate(int n, int rank, int node_size) {
 	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
 		
 	// copy back sum buffer
-	clEnqueueReadBuffer(queue, cl_sum_buffer, CL_TRUE, 0, group_num, 
+	clEnqueueReadBuffer(queue, cl_sum_buffer, CL_TRUE, 0, sizeof(double) * group_num, 
 		host_sum_buffer, 0, NULL, NULL);
 		
 	// summation host_sum_buffer
