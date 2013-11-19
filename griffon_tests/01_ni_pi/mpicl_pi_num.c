@@ -5,6 +5,15 @@
 #include <mpi.h>
 #include <CL/cl.h>
 
+cl_int status = CL_SUCCESS;
+cl_platform_id platform;
+cl_context context;
+cl_command_queue queue;
+cl_device_id device;
+cl_program program;
+cl_kernel kernel;
+cl_mem cl_sum_buffer;
+
 void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 {
 	if (status != CL_SUCCESS)
@@ -131,15 +140,6 @@ double integrate(int n, int rank, int node_size) {
 	double *host_sum_buffer = NULL;
 	int i;
 	
-	cl_int status = CL_SUCCESS;
-	cl_platform_id platform;
-	cl_context context;
-	cl_command_queue queue;
-	cl_device_id device;
-	cl_program program;
-	cl_kernel kernel;
-	cl_mem cl_sum_buffer;
-	
 	h = 1.0 / (double) n;
 	local_start = rank * (n/(double)node_size) + 1;
 	local_end = (rank+1) * (n/(double)node_size);
@@ -152,28 +152,6 @@ double integrate(int n, int rank, int node_size) {
 	/*printf("%d Debug\n", rank);
 	printf("%d Global work size = %d\n", rank, (int)global_work_size);
 	printf("%d Group num = %d\n", rank, (int)group_num);*/
-	
-	// initial GPU
-	status = clGetPlatformIDs(1, &platform, NULL);
-	_GfnCheckCLStatus(status, "clGetPlatformIDs");
-	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, NULL);
-	_GfnCheckCLStatus(status, "clGetDeviceIDs");
-	context = clCreateContext(0, 1, &device, NULL, NULL, &status);
-	_GfnCheckCLStatus(status, "clCreateContext");
-	queue = clCreateCommandQueue(context, device, 0, &status);
-	_GfnCheckCLStatus(status, "clCreateCommandQueue");
-	
-	// create kernel
-	program = clCreateProgramWithSource(context, 1, &prog_src, NULL, &status);
-	_GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
-	status = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-	_GfnCheckCLStatus(status, "BUILD PROGRAM");
-	status = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-        LOG_SIZE, param_value, &param_value_size_ret);
-    if (param_value_size_ret != 2)
-        printf("Message from kernel compiler : \n%s\n", param_value);
-	kernel = clCreateKernel(program, "gpu_integrate", &status);
-	_GfnCheckCLStatus(status, "CREATE KERNEL");
 	
 	// create buffer
 	cl_sum_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, group_num * sizeof(double), NULL, &status);
@@ -217,8 +195,6 @@ double integrate(int n, int rank, int node_size) {
 	
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
-	clReleaseCommandQueue(queue);
-	clReleaseContext(context);
 	
 	return global_sum * h;
 }
@@ -247,6 +223,28 @@ int main(int argc, char *argv[]) {
 	// boardcast important data
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&ite, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	
+	// initial GPU
+	status = clGetPlatformIDs(1, &platform, NULL);
+	_GfnCheckCLStatus(status, "clGetPlatformIDs");
+	status = clGetDeviceIDs(platform, CL_DEVICE_TYPE_DEFAULT, 1, &device, NULL);
+	_GfnCheckCLStatus(status, "clGetDeviceIDs");
+	context = clCreateContext(0, 1, &device, NULL, NULL, &status);
+	_GfnCheckCLStatus(status, "clCreateContext");
+	queue = clCreateCommandQueue(context, device, 0, &status);
+	_GfnCheckCLStatus(status, "clCreateCommandQueue");
+	
+	// create kernel
+	program = clCreateProgramWithSource(context, 1, &prog_src, NULL, &status);
+	_GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
+	status = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
+	_GfnCheckCLStatus(status, "BUILD PROGRAM");
+	status = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
+        LOG_SIZE, param_value, &param_value_size_ret);
+    if (param_value_size_ret != 2)
+        printf("Message from kernel compiler : \n%s\n", param_value);
+	kernel = clCreateKernel(program, "gpu_integrate", &status);
+	_GfnCheckCLStatus(status, "CREATE KERNEL");
 
 	// warm up
 	pi = integrate(n, rank, node_size);
@@ -263,6 +261,9 @@ int main(int argc, char *argv[]) {
 		printf("\tRunning iteration = %d\n", ite);
 		printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
 	}
+	
+	clReleaseCommandQueue(queue);
+	clReleaseContext(context);
 
 	MPI_Finalize();
 	
