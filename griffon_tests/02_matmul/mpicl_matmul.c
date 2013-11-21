@@ -112,6 +112,11 @@ long long get_time() {
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
+int round_to(int x, int r) {
+	int q = ceil(x/(float)r);
+	return q * r;
+}
+
 void init(int n, float **A, float **B) {
 	int i, j;
 	
@@ -139,10 +144,6 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_mem cl_A_buf;
 	cl_mem cl_B_buf;
 	cl_mem cl_C_buf;
-	
-	local_start = rank * (n/(double)node_size) + 1;
-	local_end = (rank+1) * (n/(double)node_size);
-	if (local_end > n) local_end = n;
 
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
@@ -155,11 +156,19 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	local_start = disp[rank] / n;
 	local_end = local_start + (cnts[rank] / n);
 
+	const size_t work_group_size = 64;
+	const size_t global_work_size = round_to(local_end - local_start + 1, 
+	                                         work_group_size);	
+	const size_t group_num = global_work_size/work_group_size;
+
 	/*if (rank == 0) {
 		for (i = 0; i < node_size; ++i) {
 			printf("disp[%d] = %d\n", i, disp[i]);
 			printf("cnts[%d] = %d\n", i, cnts[i]);
 		}
+		
+		printf("%d Global work size = %d\n", rank, (int)global_work_size);
+		printf("%d Group num = %d\n", rank, (int)group_num);
 	}*/
 
 	// scatter A
@@ -275,11 +284,13 @@ int main(int argc, char *argv[]) {
 	}
 	
 	// warm up
-	matmul_kernel(n, A[0], B[0], C[0], rank, node_size);
+	matmul_kernel(n, A[0], B[0], C[0], rank, node_size,
+				  queue, kernel, context);
 
 	time0 = get_time();
 	for (i = 0; i < ite; i++) {
-		matmul_kernel(n, A[0], B[0], C[0], rank, node_size);
+		matmul_kernel(n, A[0], B[0], C[0], rank, node_size,
+					  queue, kernel, context);
 	}
 	time1 = get_time();
 	
