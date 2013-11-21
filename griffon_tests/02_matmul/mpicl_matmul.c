@@ -332,10 +332,10 @@ int main(int argc, char *argv[]) {
 		printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
 	}
 	
-	/*clReleaseKernel(kernel);
+	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	clReleaseCommandQueue(queue);
-	clReleaseContext(context);*/
+	clReleaseContext(context);
 
 	MPI_Finalize();
 	
