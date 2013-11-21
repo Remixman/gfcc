@@ -162,7 +162,7 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	                                         work_group_size);	
 	const size_t group_num = global_work_size/work_group_size;
 
-	if (rank == 0) {
+	/*if (rank == 0) {
 		for (i = 0; i < node_size; ++i) {
 			printf("disp[%d] = %d\n", i, disp[i]);
 			printf("cnts[%d] = %d\n", i, cnts[i]);
@@ -170,7 +170,7 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 		
 		printf("%d Global work size = %d\n", rank, (int)global_work_size);
 		printf("%d Group num = %d\n", rank, (int)group_num);
-	}
+	}*/
 
 	// scatter A
 	MPI_Scatterv((void*)A, cnts, disp, MPI_FLOAT, 
