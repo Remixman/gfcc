@@ -187,8 +187,8 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_buffer_region info;
 	info.origin = (size_t)(disp[rank] * sizeof(float));
 	info.size = (size_t)(cnts[rank] * sizeof(float));
-	printf("disp = %d\n", disp[rank]);
-	printf("cnts = %d\n", cnts[rank]);
+	//printf("disp = %d\n", disp[rank]);
+	//printf("cnts = %d\n", cnts[rank]);
 	
 	cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
 	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
