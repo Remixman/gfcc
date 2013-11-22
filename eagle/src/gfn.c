@@ -1152,6 +1152,8 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 			fprintf(stderr, "Error : CL_OUT_OF_HOST_MEMORY\n"); break;
 		case CL_COMPILER_NOT_AVAILABLE:
 		    fprintf(stderr, "Error : CL_COMPILER_NOT_AVAILABLE\n"); break;
+		case CL_MISALIGNED_SUB_BUFFER_OFFSET:
+			fprintf(stderr, "Error : CL_MISALIGNED_SUB_BUFFER_OFFSET\n"); break;
 		default:
 		    fprintf(stderr, "Error : CL unknown error value = %d\n", status); break;
 		}

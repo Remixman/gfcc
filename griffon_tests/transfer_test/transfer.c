@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <CL/cl.h>
 
 void _GfnCheckCLStatus(cl_int status, const char *phase_name)
@@ -66,6 +67,8 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 			fprintf(stderr, "Error : CL_OUT_OF_HOST_MEMORY\n"); break;
 		case CL_COMPILER_NOT_AVAILABLE:
 		    fprintf(stderr, "Error : CL_COMPILER_NOT_AVAILABLE\n"); break;
+		case CL_MISALIGNED_SUB_BUFFER_OFFSET:
+			fprintf(stderr, "Error : CL_MISALIGNED_SUB_BUFFER_OFFSET\n"); break;
 		default:
 		    fprintf(stderr, "Error : CL unknown error value = %d\n", status); break;
 		}
@@ -81,16 +84,25 @@ long long get_time() {
 int main() {
 	
 	float *host_buffer = NULL;
+	float *return_buffer = NULL;
 	long long t0, t1, t2, t3;
+	long long t4, t5, t6, t7;
+	int i, j, correct = 1;
 	
 	cl_int status = CL_SUCCESS;
 	cl_platform_id platform;
 	cl_context context;
 	cl_command_queue queue;
 	cl_device_id device;
-	cl_mem cl_buffer;
+	cl_mem cl_buffer, cl_subbuf;
 	
 	host_buffer = (float*) malloc(sizeof(float) * 1000000);
+	for (i = 0; i < 1000000; i++)
+		host_buffer[i] = (float)(i%1000);
+	
+	return_buffer = (float*) malloc(sizeof(float) * 250000);
+	for (i = 0; i < 250000; i++)
+		return_buffer[i] = 0.0;
 	
 	// initial GPU
 	status = clGetPlatformIDs(1, &platform, NULL);
@@ -111,12 +123,42 @@ int main() {
 	t2 = get_time();
 	status = clEnqueueWriteBuffer(queue, cl_buffer, CL_TRUE, 0, sizeof(float) * 1000000, host_buffer, 0, NULL, NULL);
 	t3 = get_time();
+	
+	// create subbuffer
+	t4 = get_time();
+	cl_buffer_region info;
+	info.origin = (size_t)(500000 * sizeof(float));
+	info.size = (size_t)(250000 * sizeof(float));
+	cl_subbuf = clCreateSubBuffer(cl_buffer, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
+	t5 = get_time();
+	_GfnCheckCLStatus(status, "CREATE SUB BUFFER");
+	
+	t6 = get_time();
+	status = clEnqueueWriteBuffer(queue, cl_subbuf, CL_TRUE, 0, sizeof(float) * 250000, host_buffer + 500000, 0, NULL, NULL);
+	t7 = get_time();
+	_GfnCheckCLStatus(status, "WRITE BUFFER");
+	
+	
+	status = clEnqueueReadBuffer(queue, cl_subbuf, CL_TRUE, 0, sizeof(float) * 250000, return_buffer, 0, NULL, NULL);
+	_GfnCheckCLStatus(status, "READ BUFFER");
+	
+	for (i = 0, j = 500000; i < 250000; i++, j++) {
+		if (fabs((float)(j%1000) - return_buffer[i]) > 0.001) {
+			correct = 0;
+			break;
+		}
+	}
 
+	if (correct) printf("PASS\n");
+	else printf("FAIL\n");
 
-	printf("Allocate time = %f sec.\n", (float)(t1-t0)/1000000);
-	printf("Transfer time = %f sec.\n", (float)(t3-t2)/1000000);
+	printf("Allocate time = %f msec.\n", (float)(t1-t0)/1000);
+	printf("Transfer time = %f msec.\n", (float)(t3-t2)/1000);
+	printf("Create subarray time = %f msec.\n", (float)(t5-t4)/1000);
+	printf("Transfer subarray time = %f msec.\n", (float)(t7-t6)/1000);
 
 	free(host_buffer);
+	free(return_buffer);
 
 	clReleaseMemObject(cl_buffer);
 	clReleaseCommandQueue(queue);
