@@ -344,9 +344,9 @@ int main(int argc, char *argv[]) {
 			if (!pass) break;
 		}
 
-		printf("Tranfer H2D time = %f sec.", (float)(t1-t0)/1000000);
-		printf("Compute time = %f sec.", (float)(t3-t2)/1000000);
-		printf("Tranfer D2H time = %f sec.", (float)(t5-t4)/1000000);
+		printf("Tranfer H2D time = %f sec.\n", (float)(t1-t0)/1000000);
+		printf("Compute time = %f sec.\n", (float)(t3-t2)/1000000);
+		printf("Tranfer D2H time = %f sec.\n", (float)(t5-t4)/1000000);
 
 		printf("TEST 02 - Matrix Matrix Multiplication\n");
 		printf("\tTest result = ");
