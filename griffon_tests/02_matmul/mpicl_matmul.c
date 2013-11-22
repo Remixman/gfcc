@@ -106,6 +106,8 @@ const char *prog_src =
 size_t param_value_size_ret;
 char param_value[LOG_SIZE];
 
+long long t0, t1, t2, t3, t4, t5;
+
 long long get_time() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
@@ -187,8 +189,6 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_buffer_region info;
 	info.origin = (size_t)(disp[rank] * sizeof(float));
 	info.size = (size_t)(cnts[rank] * sizeof(float));
-	//printf("disp = %d\n", disp[rank]);
-	//printf("cnts = %d\n", cnts[rank]);
 	
 	cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
 	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
@@ -196,10 +196,12 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	// send data to GPU
 	/*status = clEnqueueWriteBuffer(queue, cl_A_buf, CL_TRUE, 0, 
 	                              sizeof(float) * n * n, A, 0, NULL, NULL);*/
+	t0 = get_time();
 	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, cnts[rank] * sizeof(float), 
 								  A + disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_B_buf, CL_TRUE, 0, 
 	                              sizeof(float) * n * n, B, 0, NULL, NULL);
+	t1 = get_time();
 	
 	// set kernel arguments
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_A_buf);
@@ -216,13 +218,17 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 5");	
 
 	// launch kernel
+	t2 = get_time();
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
+	t3 = get_time();
 
 	// copy back sum buffer
+	t4 = get_time();
 	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, cnts[rank] * sizeof(float), 
 							     C + disp[rank], 0, NULL, NULL);
+	t5 = get_time();
 	/*status = clEnqueueReadBuffer(queue, cl_C_buf, CL_TRUE, 0, 
 	                             sizeof(float) * n * n, C, 0, NULL, NULL);*/
 	
@@ -337,6 +343,10 @@ int main(int argc, char *argv[]) {
 			}
 			if (!pass) break;
 		}
+
+		printf("Tranfer H2D time = %f sec.", (float)(t1-t0)/1000000);
+		printf("Compute time = %f sec.", (float)(t3-t2)/1000000);
+		printf("Tranfer D2H time = %f sec.", (float)(t5-t4)/1000000);
 
 		printf("TEST 02 - Matrix Matrix Multiplication\n");
 		printf("\tTest result = ");
