@@ -144,6 +144,7 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_mem cl_A_buf;
 	cl_mem cl_B_buf;
 	cl_mem cl_C_buf;
+	cl_mem cl_subA, cl_subC;
 
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
@@ -183,9 +184,20 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_B_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, n * n * sizeof(float), NULL, &status);
 	cl_C_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, n * n * sizeof(float), NULL, &status);
 	
+	cl_buffer_region info;
+	info.origin = (size_t)(disp[rank] * sizeof(float));
+	info.size = (size_t)(cnts[rank] * sizeof(float));
+	printf("disp = %d\n", disp[rank]);
+	printf("cnts = %d\n", cnts[rank]);
+	
+	cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
+	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
+	
 	// send data to GPU
-	status = clEnqueueWriteBuffer(queue, cl_A_buf, CL_TRUE, 0, 
-	                              sizeof(float) * n * n, A, 0, NULL, NULL);
+	/*status = clEnqueueWriteBuffer(queue, cl_A_buf, CL_TRUE, 0, 
+	                              sizeof(float) * n * n, A, 0, NULL, NULL);*/
+	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, cnts[rank] * sizeof(float), 
+								  A + disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_B_buf, CL_TRUE, 0, 
 	                              sizeof(float) * n * n, B, 0, NULL, NULL);
 	
@@ -209,8 +221,10 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
 
 	// copy back sum buffer
-	status = clEnqueueReadBuffer(queue, cl_C_buf, CL_TRUE, 0, 
-	                             sizeof(float) * n * n, C, 0, NULL, NULL);
+	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, cnts[rank] * sizeof(float), 
+							     C + disp[rank], 0, NULL, NULL);
+	/*status = clEnqueueReadBuffer(queue, cl_C_buf, CL_TRUE, 0, 
+	                             sizeof(float) * n * n, C, 0, NULL, NULL);*/
 	
 	// gather C
 	MPI_Gatherv((void*)(C+disp[rank]), cnts[rank], MPI_FLOAT,
