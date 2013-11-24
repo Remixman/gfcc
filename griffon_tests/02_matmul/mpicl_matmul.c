@@ -5,6 +5,8 @@
 #include <mpi.h>
 #include <CL/cl.h>
 
+// http://parallelis.com/how-to-measure-opencl-kernel-execution-time/
+
 void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 {
 	if (status != CL_SUCCESS)
@@ -201,6 +203,7 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 								  A + disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_B_buf, CL_TRUE, 0, 
 	                              sizeof(float) * n * n, B, 0, NULL, NULL);
+	clFinish(queue);
 	t1 = get_time();
 	
 	// set kernel arguments
@@ -222,12 +225,14 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
+	clFinish(queue);
 	t3 = get_time();
 
 	// copy back sum buffer
 	t4 = get_time();
 	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, cnts[rank] * sizeof(float), 
 							     C + disp[rank], 0, NULL, NULL);
+	clFinish(queue);
 	t5 = get_time();
 	/*status = clEnqueueReadBuffer(queue, cl_C_buf, CL_TRUE, 0, 
 	                             sizeof(float) * n * n, C, 0, NULL, NULL);*/
@@ -282,7 +287,7 @@ int main(int argc, char *argv[]) {
 	_GfnCheckCLStatus(status, "clGetDeviceIDs");	
 	context = clCreateContext(0, 1, &device, NULL, NULL, &status);
 	_GfnCheckCLStatus(status, "clCreateContext");
-	queue = clCreateCommandQueue(context, device, 0, &status);
+	queue = clCreateCommandQueue(context, device, /*0*/CL_QUEUE_PROFILING_ENABLE, &status);
 	_GfnCheckCLStatus(status, "clCreateCommandQueue");
 	
 	// create kernel
