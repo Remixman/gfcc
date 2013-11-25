@@ -192,7 +192,7 @@ for (it = 0; it < iterator; it++) {
 	MPI_Request recv_upper_req;
 
 	// exchange matrix bound
-#if 0
+
 	/*int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
               MPI_Comm comm, MPI_Request *request)*/
 	if (rank != (node_size-1))
@@ -212,21 +212,18 @@ for (it = 0; it < iterator; it++) {
 			0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 	/*int MPI_Wait(MPI_Request *request, MPI_Status *status)*/
-	if (rank != 0) {
+	if (rank != 0)
 		MPI_Wait(&send_upper_req, &mstatus);
-		if (1/*send_upper_req*/)
-			copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]);
-	}
-	if (rank != (node_size-1)) {
+	if (rank != (node_size-1))
+		copy_bound(2*N, lower_bound_tmp, matrix+disp[rank+1]-(2*N));
+	if (rank != (node_size-1))
 		MPI_Wait(&send_lower_req, &mstatus);
-		if (1/*send_lower_req*/)
-			copy_bound(2*N, lower_bound_tmp, matrix+disp[rank+1]-(2*N));
-	}
+	if (rank != 0)
+		copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]);
 	if (rank != (node_size-1))
 		MPI_Wait(&recv_lower_req, &mstatus);
 	if (rank != 0)
 		MPI_Wait(&recv_upper_req, &mstatus);
-#endif
 }
 
 	MPI_Gatherv((void*)(matrix+disp[rank]), cnts[rank], MPI_FLOAT,
