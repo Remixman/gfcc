@@ -89,17 +89,18 @@ const char *prog_src =
 "                         int start,									\n"
 "                         int end)										\n"
 "{																		\n"
-"	int i = get_global_id(0) + start;									\n"
-"	int j, k;															\n"
+"	int tid = get_global_id(0) + start;									\n"
+"	int i, j, k;														\n"
 "																		\n"
-"	if (i < end) {														\n"
-"		for (j = 0; j < n; ++j) {										\n"
-"			float tmp = 0.0;											\n"
-"			for (k = 0; k < n; ++k) {									\n"
-"				tmp += A[i*n+k] * B[k*n+j];								\n"
-"			}															\n"
-"			C[i*n+j] = tmp; 											\n"
+"	if (tid < end) {													\n"
+"		i = tid / n;													\n"
+"		j = tid % n;													\n"
+"		float tmp = 0.0;												\n"
+"		for (k = 0; k < n; ++k) {										\n"
+"			tmp += A[i*n+k] * B[k*n+j];									\n"
 "		}																\n"
+//"		printf(\"Set C[%d][%d] = %.5f\\n\", i, j, tmp);					\n"
+"		C[i*n+j] = tmp;													\n"
 "	}																	\n"
 "}																		\n"
 ;
@@ -141,8 +142,11 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 {
 	int i, j, k;
 	int local_start, local_end;
-	int disp[node_size];
-	int cnts[node_size];
+	int A_disp[node_size];
+	int A_cnts[node_size];
+	int C_disp[node_size];
+	int C_cnts[node_size];
+	int nsquare = n*n;
 	
 	cl_int status = CL_SUCCESS;
 	cl_mem cl_A_buf;
@@ -150,17 +154,26 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	cl_mem cl_C_buf;
 	cl_mem cl_subA, cl_subC;
 
-	// calculate counts and displacements
+	// calculate counts and displacements for C
 	for (i = 0; i < node_size; ++i)
-		disp[i] = i * ceil(n/(float)node_size) * n/*blocksize*/;
+		C_disp[i] = i * ceil(nsquare/(float)node_size);
 	for (i = 0; i < node_size-1; ++i)
-		cnts[i] = disp[i+1] - disp[i];
-	cnts[node_size-1] = (n*n) - disp[node_size-1];
+		C_cnts[i] = C_disp[i+1] - C_disp[i];
+	C_cnts[node_size-1] = nsquare - C_disp[node_size-1];
+
+	// round count for send complete of A fragment
+	for (i = 0; i < node_size; ++i)
+		A_disp[i] = i * ceil(n/(float)node_size) * n;
+	for (i = 0; i < node_size-1; ++i)
+		A_cnts[i] = A_disp[i+1] - A_disp[i];
+	A_cnts[node_size-1] = nsquare - A_disp[node_size-1];
 	
 	// calculate local start and end
-	local_start = rank * ceil(n/(float)node_size);
-	local_end = (rank+1) * ceil(n/(float)node_size);
-	if (local_end > n) local_end = n;
+	local_start = rank * ceil(nsquare/(float)node_size);
+	local_end = (rank+1) * ceil(nsquare/(float)node_size);
+	if (local_end > nsquare) local_end = nsquare;
+
+	//printf("Rank %d : start %d , end %d\n", rank, local_start, local_end);
 
 	const size_t work_group_size = 64;
 	const size_t global_work_size = round_to(local_end - local_start + 1, 
@@ -178,31 +191,34 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	}*/
 
 	// scatter A
-	MPI_Scatterv((void*)A, cnts, disp, MPI_FLOAT, 
-		(void*)(A+disp[rank]), cnts[rank], MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Scatterv((void*)A, A_cnts, A_disp, MPI_FLOAT, 
+		(void*)(A+A_disp[rank]), A_cnts[rank], MPI_FLOAT, 0, MPI_COMM_WORLD);
 
 	// boardcast B
-	MPI_Bcast(B, n*n, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(B, nsquare, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	
-	cl_A_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, n * n * sizeof(float), NULL, &status);
-	cl_B_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, n * n * sizeof(float), NULL, &status);
-	cl_C_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, n * n * sizeof(float), NULL, &status);
+	cl_A_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, nsquare * sizeof(float), NULL, &status);
+	cl_B_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, nsquare * sizeof(float), NULL, &status);
+	cl_C_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, nsquare * sizeof(float), NULL, &status);
 	
-	cl_buffer_region info;
-	info.origin = (size_t)(disp[rank] * sizeof(float));
-	info.size = (size_t)(cnts[rank] * sizeof(float));
+	cl_buffer_region A_info;
+	A_info.origin = (size_t)(A_disp[rank] * sizeof(float));
+	A_info.size = (size_t)(A_cnts[rank] * sizeof(float));
+	cl_buffer_region C_info;
+	C_info.origin = (size_t)(C_disp[rank] * sizeof(float));
+	C_info.size = (size_t)(C_cnts[rank] * sizeof(float));
 	
-	cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
-	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &info, &status);
+	cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &A_info, &status);
+	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &C_info, &status);
 	
 	// send data to GPU
 	/*status = clEnqueueWriteBuffer(queue, cl_A_buf, CL_TRUE, 0, 
 	                              sizeof(float) * n * n, A, 0, NULL, NULL);*/
 	t0 = get_time();
-	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, cnts[rank] * sizeof(float), 
-								  A + disp[rank], 0, NULL, NULL);
+	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, A_cnts[rank] * sizeof(float), 
+								  A + A_disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_B_buf, CL_TRUE, 0, 
-	                              sizeof(float) * n * n, B, 0, NULL, NULL);
+	                              nsquare * sizeof(float), B, 0, NULL, NULL);
 	clFinish(queue);
 	t1 = get_time();
 	
@@ -230,16 +246,16 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 
 	// copy back sum buffer
 	t4 = get_time();
-	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, cnts[rank] * sizeof(float), 
-							     C + disp[rank], 0, NULL, NULL);
+	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, C_cnts[rank] * sizeof(float), 
+							     C + C_disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	t5 = get_time();
 	/*status = clEnqueueReadBuffer(queue, cl_C_buf, CL_TRUE, 0, 
 	                             sizeof(float) * n * n, C, 0, NULL, NULL);*/
 	
 	// gather C
-	MPI_Gatherv((void*)(C+disp[rank]), cnts[rank], MPI_FLOAT,
-		(void*)C, cnts, disp, MPI_FLOAT, 0, MPI_COMM_WORLD);
+	MPI_Gatherv((void*)(C+C_disp[rank]), C_cnts[rank], MPI_FLOAT,
+		(void*)C, C_cnts, C_disp, MPI_FLOAT, 0, MPI_COMM_WORLD);
 		
 	clReleaseMemObject(cl_A_buf);
 	clReleaseMemObject(cl_B_buf);
@@ -360,6 +376,10 @@ int main(int argc, char *argv[]) {
 		printf("\tRunning iteration = %d\n", ite);
 		printf("\tAverage time = %f sec.\n", ((float)(time1-time0)/1000000)/ite);
 	}
+
+	free(A[0]); free(A);
+	free(B[0]); free(B);
+	free(C[0]); free(C);
 	
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
