@@ -124,10 +124,17 @@ void copy_matrix(int N, float **src, float **dsc) {
 			dsc[i][j] = src[i][j];
 }
 
-void convolution_kernel(int N, int iterator, 
-						float *matrix,
-						int filterN,
-						float *filter)
+void copy_bound(int size, float *src, float *dsc) {
+	int i;
+
+	for (i = 0; i < size; ++i)
+		dsc[i] = src[i];
+}
+
+void convolution_kernel(int N, int iterator, float *matrix,
+						int filterN, float *filter,
+						int rank, int node_size, cl_command_queue queue, 
+				   		cl_kernel kernel, cl_context context)
 {
 	int i, j, m, n;
 	int local_start, local_end;
@@ -180,25 +187,46 @@ for (it = 0; it < iterator; it++) {
 
 	MPI_Status mstatus;
 	MPI_Request send_lower_req;
-	MPI_Request send_higher_req;
+	MPI_Request send_upper_req;
 	MPI_Request recv_lower_req;
-	MPI_Request recv_higher_req;
+	MPI_Request recv_upper_req;
 
 	// exchange matrix bound
+#if 0
 	/*int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
               MPI_Comm comm, MPI_Request *request)*/
 	if (rank != (node_size-1))
-		MPI_Isend((void*)matrix+disp[rank]-(2*N), 2*N, MPI_FLOAT, rank+1, 
+		MPI_Isend((void*)matrix+disp[rank+1]-(2*N), 2*N, MPI_FLOAT, rank+1, 
 			0/*tag*/, MPI_COMM_WORLD, &send_lower_req);
 	if (rank != 0)
 		MPI_Isend((void*)matrix+disp[rank], 2*N, MPI_FLOAT, rank-1, 
-			0/*tag*/, MPI_COMM_WORLD, &send_lower_req);
+			1/*tag*/, MPI_COMM_WORLD, &send_upper_req);
+
 	/*int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
               int tag, MPI_Comm comm, MPI_Request *request)*/
 	if (rank != (node_size-1))
-		MPI_Irecv
+		MPI_Irecv((void*)lower_bound_tmp, 2*N, MPI_FLOAT, rank+1,
+			1/*tag*/, MPI_COMM_WORLD, &recv_lower_req);
+	if (rank != 0)
+		MPI_Irecv((void*)upper_bound_tmp, 2*N, MPI_FLOAT, rank-1,
+			0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 	/*int MPI_Wait(MPI_Request *request, MPI_Status *status)*/
+	if (rank != 0) {
+		MPI_Wait(&send_upper_req, &mstatus);
+		if (1/*send_upper_req*/)
+			copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]);
+	}
+	if (rank != (node_size-1)) {
+		MPI_Wait(&send_lower_req, &mstatus);
+		if (1/*send_lower_req*/)
+			copy_bound(2*N, lower_bound_tmp, matrix+disp[rank+1]-(2*N));
+	}
+	if (rank != (node_size-1))
+		MPI_Wait(&recv_lower_req, &mstatus);
+	if (rank != 0)
+		MPI_Wait(&recv_upper_req, &mstatus);
+#endif
 }
 
 	MPI_Gatherv((void*)(matrix+disp[rank]), cnts[rank], MPI_FLOAT,
@@ -288,12 +316,14 @@ int main(int argc, char *argv[]) {
 
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
-	convolution_kernel(N, iterator, matrix[0], 5, (void*)filter);
+	convolution_kernel(N, iterator, matrix[0], 5, (void*)filter,
+		rank, node_size, queue, kernel, context);
 
 	time0 = get_time();
 	for (i = 0; i < ite; i++) {
 		copy_matrix(N, orig_mat, matrix);
-		convolution_kernel(N, iterator, matrix[0], 5, (void*)filter);
+		convolution_kernel(N, iterator, matrix[0], 5, (void*)filter,
+			rank, node_size, queue, kernel, context);
 	}
 	time1 = get_time();
 
