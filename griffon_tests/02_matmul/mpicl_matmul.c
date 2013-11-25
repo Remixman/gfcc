@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
 				for (k = 0; k < n; k++) {
 					sum += A[i][k] * B[k][j];
 				}
-				if (fabs(sum-C[i][j]) > 0.0001) {
+				if (fabs(sum-C[i][j]) > 0.1) {
 					printf("Error at [%d][%d]\n", i, j);
 					printf("C[%d][%d] is %.5f but expected value is %.5f\n",
 						i, j, C[i][j], sum);
