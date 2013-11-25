@@ -29,4 +29,4 @@ hand:
 	mpicc -o mpicl_matmul mpicl_matmul.c -lrt -lOpenCL
 	
 clean:
-	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker*
+	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker* mpicl_matmul
