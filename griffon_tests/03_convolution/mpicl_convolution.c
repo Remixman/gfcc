@@ -144,21 +144,27 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	float *upper_bound_tmp;
 	int it;
 
+	MPI_Status mstatus;
+	MPI_Request send_lower_req;
+	MPI_Request send_upper_req;
+	MPI_Request recv_lower_req;
+	MPI_Request recv_upper_req;
+
 	// allocate boundary temp
 	lower_bound_tmp = (float*) malloc(N*2*sizeof(float));
 	upper_bound_tmp = (float*) malloc(N*2*sizeof(float));
 
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
-		disp[i] = i * ceil(n/(float)node_size) * n/*blocksize*/;
+		disp[i] = i * ceil(N/(float)node_size) * N/*blocksize*/;
 	for (i = 0; i < node_size-1; ++i)
 		cnts[i] = disp[i+1] - disp[i];
-	cnts[node_size-1] = (n*n) - disp[node_size-1];
+	cnts[node_size-1] = (N*N) - disp[node_size-1];
 
 	// calculate local start and end
-	local_start = rank * ceil(n/(float)node_size);
-	local_end = (rank+1) * ceil(n/(float)node_size);
-	if (local_end > n) local_end = n;
+	local_start = rank * ceil(N/(float)node_size);
+	local_end = (rank+1) * ceil(N/(float)node_size);
+	if (local_end > N) local_end = N;
 
 	// scatter matrix
 	MPI_Scatterv((void*)matrix, cnts, disp, MPI_FLOAT,
@@ -173,33 +179,14 @@ for (it = 0; it < iterator; it++) {
 	int istart = (rank == 0) ? 2 : local_start;
 	int iend = (rank == node_size-1) ? N-2 : local_end;
 
-	for (i = istart; i < iend; ++i) {	
-		for (j = 0+2; j < N-2; ++j) {
-			float new_val = 0.0;
-			for (m = 0; m < filterN; ++m) {
-				for (n = 0; n < filterN; ++n) {
-					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);
-				}
-			}
-			matrix[i*N+j] = new_val;
-		}
-	}
-
-	MPI_Status mstatus;
-	MPI_Request send_lower_req;
-	MPI_Request send_upper_req;
-	MPI_Request recv_lower_req;
-	MPI_Request recv_upper_req;
-
 	// exchange matrix bound
-
 	/*int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
               MPI_Comm comm, MPI_Request *request)*/
 	if (rank != (node_size-1))
-		MPI_Isend((void*)matrix+disp[rank+1]-(2*N), 2*N, MPI_FLOAT, rank+1, 
+		MPI_Isend((void*)(matrix+disp[rank+1]-(2*N)), 2*N, MPI_FLOAT, rank+1, 
 			0/*tag*/, MPI_COMM_WORLD, &send_lower_req);
 	if (rank != 0)
-		MPI_Isend((void*)matrix+disp[rank], 2*N, MPI_FLOAT, rank-1, 
+		MPI_Isend((void*)(matrix+disp[rank]), 2*N, MPI_FLOAT, rank-1, 
 			1/*tag*/, MPI_COMM_WORLD, &send_upper_req);
 
 	/*int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source,
@@ -212,18 +199,33 @@ for (it = 0; it < iterator; it++) {
 			0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 	/*int MPI_Wait(MPI_Request *request, MPI_Status *status)*/
-	if (rank != 0)
+	if (rank != 0) {
 		MPI_Wait(&send_upper_req, &mstatus);
-	if (rank != (node_size-1))
-		copy_bound(2*N, lower_bound_tmp, matrix+disp[rank+1]-(2*N));
-	if (rank != (node_size-1))
+	}
+	if (rank != (node_size-1)) {
 		MPI_Wait(&send_lower_req, &mstatus);
-	if (rank != 0)
-		copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]);
-	if (rank != (node_size-1))
+	}
+		
+	if (rank != (node_size-1)) {
 		MPI_Wait(&recv_lower_req, &mstatus);
-	if (rank != 0)
+		copy_bound(2*N, lower_bound_tmp, matrix+disp[rank+1]);
+	}
+	if (rank != 0) {
 		MPI_Wait(&recv_upper_req, &mstatus);
+		copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]-(2*N));
+	}
+
+	for (i = istart; i < iend; ++i) {	
+		for (j = 0+2; j < N-2; ++j) {
+			float new_val = 0.0;
+			for (m = 0; m < filterN; ++m) {
+				for (n = 0; n < filterN; ++n) {
+					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);
+				}
+			}
+			matrix[i*N+j] = new_val;
+		}
+	}
 }
 
 	MPI_Gatherv((void*)(matrix+disp[rank]), cnts[rank], MPI_FLOAT,
@@ -286,6 +288,7 @@ int main(int argc, char *argv[]) {
 	_GfnCheckCLStatus(status, "clCreateCommandQueue");
 
 	// create kernel
+#if 0
 	program = clCreateProgramWithSource(context, 1, &prog_src, NULL, &status);
 	_GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
 	status = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
@@ -296,6 +299,7 @@ int main(int argc, char *argv[]) {
         printf("Message from kernel compiler : \n%s\n", param_value);
 	kernel = clCreateKernel(program, "gpu_convolution", &status);
 	_GfnCheckCLStatus(status, "CREATE KERNEL");
+#endif
 
 	// allocate matrix memory 
 	matrix = (float **) malloc(N * sizeof(float*));
@@ -364,9 +368,12 @@ int main(int argc, char *argv[]) {
 
 	free(matrix[0]);
 	free(matrix);
-
+	free(orig_mat[0]);
+	free(orig_mat);
+#if 0
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
+#endif
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 
@@ -374,4 +381,3 @@ int main(int argc, char *argv[]) {
 
 	return 0;
 }
- 
