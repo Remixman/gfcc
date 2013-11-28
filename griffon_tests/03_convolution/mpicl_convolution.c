@@ -6,7 +6,7 @@
 #include <mpi.h>
 #include <CL/cl.h>
 
-//#define _DEBUG
+#define _DEBUG
 
 void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 {
@@ -217,6 +217,10 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	cl_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(float), NULL, &status);
 	cl_filter = clCreateBuffer(context, CL_MEM_READ_ONLY, 5 * 5 * sizeof(float), NULL, &status);
 
+	/*if (rank == 0)
+		for (i = 0; i < node_size; ++i)
+			printf("%d : cnts[%d] = %d | disp[%d] = %d\n", i, i, cnts[i], i, disp[i]);*/
+
 	// scatter matrix
 	MPI_Scatterv((void*)matrix, cnts, disp, MPI_FLOAT,
 		(void*)(matrix+disp[rank]), cnts[rank], MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -353,13 +357,6 @@ for (it = 0; it < iterator; it++) {
 			matrix+disp[rank+1], 0, NULL, NULL);
 	}
 
-#ifdef _DEBUG
-	if (it == 0) {
-		printf("Iteration 0 Matrix at rank %d\n", rank);
-		print_matrix(N, matrix);
-	}
-#endif
-
 	// version 1
 	/*for (i = local_start; i < local_end; ++i) {	
 		for (j = 0+2; j < N-2; ++j) {
@@ -489,13 +486,8 @@ int main(int argc, char *argv[]) {
 		orig_mat[i] = orig_mat[i-1] + N;
 
 	// initialize matrix
-	if (rank == 0) {
+	if (rank == 0)
 		init(N, orig_mat);
-#ifdef _DEBUG
-		printf("Initialized Matrix\n");
-		print_matrix(N, orig_mat[0]);
-#endif
-	}
 
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
