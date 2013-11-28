@@ -6,6 +6,8 @@
 #include <mpi.h>
 #include <CL/cl.h>
 
+//#define _DEBUG
+
 void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 {
 	if (status != CL_SUCCESS)
@@ -81,7 +83,29 @@ const char *prog_src =
 "#pragma OPENCL EXTENSION cl_khr_fp64 : enable							\n"
 "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable			\n"
 "																		\n"
-"__kernel void gpu_convolution() {										\n"
+"__kernel void gpu_convolution(__global float *matrix,					\n"
+"							   int N,									\n"
+"							   __global float *filter,					\n"
+"							   int filterN,								\n"
+"							   int start,								\n"
+"							   int end) 								\n"
+"{																		\n"
+"	int tid = get_global_id(0) + start;									\n"
+"	int i, j, m, n;														\n"
+"	float new_val;														\n"
+"	if (tid < end) {													\n"
+"		i = tid / N;													\n"
+"		j = tid % N;													\n"
+"		if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {					\n"
+"			new_val = 0.0;												\n"
+"			for (m = 0; m < filterN; ++m) {								\n"
+"				for (n = 0; n < filterN; ++n) {							\n"
+"					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);\n"
+"				}														\n"
+"			}															\n"
+"			matrix[i*N+j] = new_val;									\n"
+"		}																\n"
+"	}																	\n"
 "}																		\n"
 ;
 
@@ -116,6 +140,16 @@ void init(int N, float **mat) {
 			mat[i][j] = (rand() % 100) / 100.f;
 }
 
+void print_matrix(int N, float *mat) {
+	int i, j;
+
+	for (i = 0; i < N; ++i) {
+		for (j = 0; j < N; ++j)
+			printf("%3.3f ", mat[i*N+j]);
+		printf("\n");
+	}
+}
+
 void copy_matrix(int N, float **src, float **dsc) {
 	int i, j;
 
@@ -136,13 +170,22 @@ void convolution_kernel(int N, int iterator, float *matrix,
 						int rank, int node_size, cl_command_queue queue, 
 				   		cl_kernel kernel, cl_context context)
 {
-	int i, j, m, n;
+	int i, j, m, n, tid;
 	int local_start, local_end;
 	int disp[node_size];
 	int cnts[node_size];
 	float *lower_bound_tmp;
 	float *upper_bound_tmp;
 	int it;
+
+	cl_int status = CL_SUCCESS;
+	cl_mem cl_matrix;
+	cl_mem cl_filter;
+	cl_mem cl_submat;
+	cl_mem cl_h2d_lower;
+	cl_mem cl_h2d_upper;
+	cl_mem cl_d2h_lower;
+	cl_mem cl_d2h_upper;
 
 	MPI_Status mstatus;
 	MPI_Request send_lower_req;
@@ -151,8 +194,8 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	MPI_Request recv_upper_req;
 
 	// allocate boundary temp
-	lower_bound_tmp = (float*) malloc(N*2*sizeof(float));
-	upper_bound_tmp = (float*) malloc(N*2*sizeof(float));
+	lower_bound_tmp = (float*) malloc(2*N*sizeof(float));
+	upper_bound_tmp = (float*) malloc(2*N*sizeof(float));
 
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
@@ -162,9 +205,17 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	cnts[node_size-1] = (N*N) - disp[node_size-1];
 
 	// calculate local start and end
-	local_start = rank * ceil(N/(float)node_size);
-	local_end = (rank+1) * ceil(N/(float)node_size);
-	if (local_end > N) local_end = N;
+	local_start = rank * ceil(N*N/(float)node_size);
+	local_end = (rank+1) * ceil(N*N/(float)node_size);
+	if (local_end > N*N) local_end = N*N;
+
+	const size_t work_group_size = 64;
+	const size_t global_work_size = round_to(local_end - local_start + 1, 
+	                                         work_group_size);	
+	const size_t group_num = global_work_size/work_group_size;
+
+	cl_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(float), NULL, &status);
+	cl_filter = clCreateBuffer(context, CL_MEM_READ_ONLY, 5 * 5 * sizeof(float), NULL, &status);
 
 	// scatter matrix
 	MPI_Scatterv((void*)matrix, cnts, disp, MPI_FLOAT,
@@ -173,11 +224,86 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	// boardcast filter
 	MPI_Bcast(filter, filterN*filterN, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+	// create subbuffer
+	cl_buffer_region sub_matrix_info;
+	sub_matrix_info.origin = (size_t)(disp[rank] * sizeof(float));
+	sub_matrix_info.size = (size_t)(cnts[rank] * sizeof(float));
+	cl_submat = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE, 
+		CL_BUFFER_CREATE_TYPE_REGION, &sub_matrix_info, &status);
+
+	// create download upper bound subbuffer
+	cl_buffer_region d2h_upper_info;
+	if (rank != 0) {
+		d2h_upper_info.origin = (size_t)(disp[rank] * sizeof(float));
+		d2h_upper_info.size = (size_t)(2*N * sizeof(float));
+		cl_d2h_upper = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE,
+			CL_BUFFER_CREATE_TYPE_REGION, &d2h_upper_info, &status);
+	}
+
+	// create download lower bound subbuffer
+	cl_buffer_region d2h_lower_info;
+	if (rank != (node_size-1)) {
+		d2h_lower_info.origin = (size_t)((disp[rank+1]-(2*N)) * sizeof(float));
+		d2h_lower_info.size = (size_t)(2*N * sizeof(float));
+		cl_d2h_lower = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE,
+			CL_BUFFER_CREATE_TYPE_REGION, &d2h_lower_info, &status);
+	}
+
+	// create upload upper bound subbuffer
+	cl_buffer_region h2d_upper_info;
+	if (rank != 0) {
+		h2d_upper_info.origin = (size_t)((disp[rank]-(2*N)) * sizeof(float));
+		h2d_upper_info.size = (size_t)(2*N * sizeof(float));
+		cl_h2d_upper = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE,
+			CL_BUFFER_CREATE_TYPE_REGION, &h2d_upper_info, &status);
+	}
+
+	// create upload lower bound subbuffer
+	cl_buffer_region h2d_lower_info;
+	if (rank != (node_size-1)) {
+		h2d_lower_info.origin = (size_t)(disp[rank+1] * sizeof(float));
+		h2d_lower_info.size = (size_t)(2*N * sizeof(float));
+		cl_h2d_lower = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE,
+			CL_BUFFER_CREATE_TYPE_REGION, &h2d_lower_info, &status);
+	}
+
+	// send data to GPU
+	t0 = get_time();
+	status = clEnqueueWriteBuffer(queue, cl_submat, CL_TRUE, 0, cnts[rank] * sizeof(float),
+		matrix+disp[rank], 0, NULL, NULL);
+	status = clEnqueueWriteBuffer(queue, cl_filter, CL_TRUE, 0, 5 * 5 * sizeof(float),
+		filter, 0, NULL, NULL);
+	clFinish(queue);
+	t1 = get_time();
+
+	// set kernel arguments
+	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_matrix);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
+	status = clSetKernelArg(kernel, 1, sizeof(int), (void*)&N);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 1");
+	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &cl_filter);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 2");
+	status = clSetKernelArg(kernel, 3, sizeof(int), (void*)&filterN);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
+	status = clSetKernelArg(kernel, 4, sizeof(int), (void*)&local_start);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 4");
+	status = clSetKernelArg(kernel, 5, sizeof(int), (void*)&local_end);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 5");
+
 // run kernel
 for (it = 0; it < iterator; it++) {
 
-	int istart = (rank == 0) ? 2 : local_start;
-	int iend = (rank == node_size-1) ? N-2 : local_end;
+	// download lower bound from GPU
+	if (rank != (node_size-1)) {
+		status = clEnqueueReadBuffer(queue, cl_d2h_lower, CL_TRUE, 0, 2*N * sizeof(float), 
+			matrix+(disp[rank+1]-(2*N)), 0, NULL, NULL);
+	}
+
+	// download upper bound from GPU
+	if (rank != 0) {
+		status = clEnqueueReadBuffer(queue, cl_d2h_upper, CL_TRUE, 0, 2*N * sizeof(float), 
+			matrix+disp[rank], 0, NULL, NULL);
+	}
 
 	// exchange matrix bound
 	/*int MPI_Isend(void *buf, int count, MPI_Datatype datatype, int dest, int tag,
@@ -215,7 +341,27 @@ for (it = 0; it < iterator; it++) {
 		copy_bound(2*N, upper_bound_tmp, matrix+disp[rank]-(2*N));
 	}
 
-	for (i = istart; i < iend; ++i) {	
+	// upload upper bound to GPU
+	if (rank != 0) {
+		status = clEnqueueWriteBuffer(queue, cl_h2d_upper, CL_TRUE, 0, 2*N * sizeof(float),
+			matrix+disp[rank]-(2*N), 0, NULL, NULL);
+	}
+
+	// upload lower bound to GPU
+	if (rank != (node_size-1)) {
+		status = clEnqueueWriteBuffer(queue, cl_h2d_lower, CL_TRUE, 0, 2*N * sizeof(float),
+			matrix+disp[rank+1], 0, NULL, NULL);
+	}
+
+#ifdef _DEBUG
+	if (it == 0) {
+		printf("Iteration 0 Matrix at rank %d\n", rank);
+		print_matrix(N, matrix);
+	}
+#endif
+
+	// version 1
+	/*for (i = local_start; i < local_end; ++i) {	
 		for (j = 0+2; j < N-2; ++j) {
 			float new_val = 0.0;
 			for (m = 0; m < filterN; ++m) {
@@ -225,11 +371,44 @@ for (it = 0; it < iterator; it++) {
 			}
 			matrix[i*N+j] = new_val;
 		}
-	}
+	}*/
+
+	// version 2
+	/*for (tid = local_start; tid < local_end; ++tid) {
+		i = tid / N;
+		j = tid % N;
+		if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {
+			float new_val = 0.0;
+			for (m = 0; m < filterN; ++m) {
+				for (n = 0; n < filterN; ++n) {
+					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);
+				}
+			}
+			matrix[i*N+j] = new_val;
+		}
+	}*/
+
+	// launch kernel
+	t2 = get_time();
+	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
+		&work_group_size, 0, NULL, NULL);
+	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
+	clFinish(queue);
+	t3 = get_time();
 }
+
+	// copy back sum buffer
+	t4 = get_time();
+	status = clEnqueueReadBuffer(queue, cl_submat, CL_TRUE, 0, cnts[rank] * sizeof(float), 
+		matrix+disp[rank], 0, NULL, NULL);
+	clFinish(queue);
+	t5 = get_time();
 
 	MPI_Gatherv((void*)(matrix+disp[rank]), cnts[rank], MPI_FLOAT,
 		(void*)matrix, cnts, disp, MPI_FLOAT, 0, MPI_COMM_WORLD);
+
+	clReleaseMemObject(cl_matrix);
+	clReleaseMemObject(cl_filter);
 
 	free(lower_bound_tmp);
 	free(upper_bound_tmp);
@@ -288,7 +467,6 @@ int main(int argc, char *argv[]) {
 	_GfnCheckCLStatus(status, "clCreateCommandQueue");
 
 	// create kernel
-#if 0
 	program = clCreateProgramWithSource(context, 1, &prog_src, NULL, &status);
 	_GfnCheckCLStatus(status, "CREATE PROGRAM WITH SOURCE");
 	status = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
@@ -299,7 +477,6 @@ int main(int argc, char *argv[]) {
         printf("Message from kernel compiler : \n%s\n", param_value);
 	kernel = clCreateKernel(program, "gpu_convolution", &status);
 	_GfnCheckCLStatus(status, "CREATE KERNEL");
-#endif
 
 	// allocate matrix memory 
 	matrix = (float **) malloc(N * sizeof(float*));
@@ -312,8 +489,13 @@ int main(int argc, char *argv[]) {
 		orig_mat[i] = orig_mat[i-1] + N;
 
 	// initialize matrix
-	if (rank == 0)
+	if (rank == 0) {
 		init(N, orig_mat);
+#ifdef _DEBUG
+		printf("Initialized Matrix\n");
+		print_matrix(N, orig_mat[0]);
+#endif
+	}
 
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
@@ -370,10 +552,9 @@ int main(int argc, char *argv[]) {
 	free(matrix);
 	free(orig_mat[0]);
 	free(orig_mat);
-#if 0
+
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
-#endif
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 
