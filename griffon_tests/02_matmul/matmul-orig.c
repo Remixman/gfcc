@@ -27,10 +27,9 @@ void init(int n, float **A, float **B) {
 }
 
 void matmul_kernel(int n, float **A, float **B, float **C) {
-	int tid;
 	int i, j, k;
 
-	/*#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
+	#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
 	for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			C[i][j] = 0.f;
@@ -38,17 +37,6 @@ void matmul_kernel(int n, float **A, float **B, float **C) {
 				C[i][j] += A[i][k] * B[k][j];
 			}
 		}
-	}*/
-
-	#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
-	for (tid = 0; tid < n; ++tid) {
-		int i = tid / n;
-		int j = tid % n;
-		int k = 0;
-		float tmp = 0.0;
-		for (k = 0; k < n; ++k)
-			tmp += A[i][k] * B[k][j];
-		C[i][j] = tmp;
 	}
 }
 

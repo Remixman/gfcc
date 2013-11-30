@@ -1367,7 +1367,7 @@ void _GfnMasterInit()
 	if (already_init)
 		return;
 
-	printf("Initialize master process\n");
+	//printf("Initialize master process\n");
 
 	already_init = 1;
 
@@ -1380,7 +1380,7 @@ void _GfnMasterInit()
 }
 void _GfnMasterFinish()
 {
-	printf("Finish master process\n");
+	//printf("Finish master process\n");
 
 	_SendCallFuncMsg(0);
 	_CloseMasterMsgQueue();
