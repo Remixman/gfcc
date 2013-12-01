@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 	
 	free(A[0]); free(A);
 	free(B[0]); free(B);
-	//free(C[0]); free(C);
+	free(C[0]); free(C);
 
 	printf("TEST 02 - Matrix Matrix Multiplication\n");
 	printf("\tTest result = ");
