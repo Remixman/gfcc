@@ -153,6 +153,8 @@ int _free_mem_and_delete_from_var_table(long long id) {
 		if (dim_num >= 2) free((*(var_record**)retieved_rec)->host_ptr2);
 		free((*(var_record**)retieved_rec)->host_ptr1);
 
+		(*(var_record**)retieved_rec)->host_ptr1 = NULL;
+
 		// device mem maybe nil, so check before release
 		if ((*(var_record**)retieved_rec)->device_ptr) {
 			_gfn_status = clReleaseMemObject((*(var_record**)retieved_rec)->device_ptr);

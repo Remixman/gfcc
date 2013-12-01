@@ -28,6 +28,7 @@ void init(int n, float **A, float **B) {
 
 void matmul_kernel(int n, float **A, float **B, float **C) {
 	int tid;
+	int nsquare = n*n;
 	int i, j, k;
 
 	/*#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
@@ -41,7 +42,7 @@ void matmul_kernel(int n, float **A, float **B, float **C) {
 	}*/
 
 	#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
-	for (tid = 0; tid < n; ++tid) {
+	for (tid = 0; tid < nsquare; ++tid) {
 		int i = tid / n;
 		int j = tid % n;
 		int k = 0;
@@ -53,7 +54,7 @@ void matmul_kernel(int n, float **A, float **B, float **C) {
 }
 
 int main(int argc, char *argv[]) {
-	int ite, i, j, k;
+	int ite, i, j, k, tid;
 	int n, pass = 1;
 	float **A, **B, **C, sum;
 	long long time0, time1;
@@ -87,25 +88,43 @@ int main(int argc, char *argv[]) {
 	time1 = get_time();
 	
 	// assert with sequential solution
-	for (i = 0; i < n; i++) {
+	for (tid = 0; tid < (n*n); ++tid) {
+		int i = tid / n;
+		int j = tid % n;
+		int k = 0;
+		float sum = 0.0;
+		for (k = 0; k < n; ++k)
+			sum += A[i][k] * B[k][j];
+		
+		if (fabs(sum-C[i][j]) > 0.1) {
+			printf("Error at [%d][%d]\n", i, j);
+			printf("C[%d][%d] is %.5f but expected value is %.5f\n", i, j,
+				C[i][j], sum);
+			pass = 0;
+			break;
+		}
+		if (!pass) break;
+	}
+	/*for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			sum = 0.f;
 			for (k = 0; k < n; k++) {
 				sum += A[i][k] * B[k][j];
 			}
-			if (fabs(sum-C[i][j]) > 0.0001) {
+			if (fabs(sum-C[i][j]) > 0.1) {
 				printf("Error at [%d][%d]\n", i, j);
-				printf("C[%d][%d] is %.5f but expected value is %.5f\n");
+				printf("C[%d][%d] is %.5f but expected value is %.5f\n", i, j,
+					C[i][j], sum);
 				pass = 0;
 				break;
 			}
 		}
 		if (!pass) break;
-	}
+	}*/
 	
 	free(A[0]); free(A);
 	free(B[0]); free(B);
-	free(C[0]); free(C);
+	//free(C[0]); free(C);
 
 	printf("TEST 02 - Matrix Matrix Multiplication\n");
 	printf("\tTest result = ");

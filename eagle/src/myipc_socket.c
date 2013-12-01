@@ -135,6 +135,13 @@ static void _CalcStartOffsetAndSize(int *start_offset, int *size,
 
 	// TODO: loop_step != 1 case , partitioned_dim != 1,0 case
 
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim];
+		loop_step = 1;
+	}
+
 	// find element size and block size
 	for (i = 0; i < size_n; ++i) {
 		if (i == partitioned_dim) 	nelem_size *= size_array[i];

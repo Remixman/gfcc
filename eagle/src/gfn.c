@@ -774,7 +774,6 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 	if (_is_lock_transfer((long long)ptr)) 
 		send_only_bound = 1;
 
-	
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
 
@@ -803,6 +802,13 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags me
 		if (i < partitioned_dim)         recv_loop_num *= size_array[i];
 		else if (i == partitioned_dim)   elem_num      *= size_array[i];
 		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim];
+		loop_step = 1;
 	}
 
 	_CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
@@ -989,6 +995,13 @@ int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem
 		if (i < partitioned_dim)         send_loop_num *= size_array[i];
 		else if (i == partitioned_dim)   elem_num      *= size_array[i];
 		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim];
+		loop_step = 1;
 	}
 
     _CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 

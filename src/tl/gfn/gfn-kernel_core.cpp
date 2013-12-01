@@ -311,7 +311,7 @@ std::string VariableInfo::get_allocate_size_in_byte(TL::Type vartype)
 
 void VariableInfo::print()
 {
-    std::stringstream prop_str;;
+    std::stringstream prop_str;
     
     prop_str << (_name + "\t\tprop[");
     if (_is_use) prop_str << " USE |";

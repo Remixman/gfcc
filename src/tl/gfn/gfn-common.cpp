@@ -714,7 +714,7 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     {
         pattern_params << "," << pattern_array[i];
     }
-
+    
     result
         << "_GfnEnqueueScatterND((void*)" << var_name << subscript_to_1d << "," 
         << var_cl_name << "," << mpi_type << "," << cl_mem_flags << ","
