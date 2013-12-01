@@ -138,7 +138,7 @@ static void _CalcStartOffsetAndSize(int *start_offset, int *size,
 	// FIXME: this quick fix for partition of loop and data isnot match
 	if (partitioned_dim >= 0) {
 		loop_start = 0;
-		loop_end = size_array[partitioned_dim];
+		loop_end = size_array[partitioned_dim] - 1;
 		loop_step = 1;
 	}
 
