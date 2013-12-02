@@ -42,11 +42,15 @@ void convolution_kernel(int N, int iterator, float **matrix,
 	int Nsquare = N*N;
 	int it;
 
-// run kernel
-for (it = 0; it < iterator; it++) {
+	// run kernel
+	#pragma gfn data copyin(filter[0:5][0:5]) \
+		copy(matrix[0:N{partition}][0:N])
+	{
+	for (it = 0; it < iterator; it++) {
 
-	#pragma gfn parallel_for copyin(filter[0:5][0:5]) \
-		copy(matrix[0:N{partition}][0:N]) \
+	#pragma gfn parallel_for pcopyin(filter[0:5][0:5]) \
+		pcopy(matrix[0:N{partition}][0:N]) \
+		in_pattern(matrix:[-2,2][-2,2]) \
 		private(i, j, m, n)
 	for (tid = 0; tid < Nsquare; ++tid) {
 		i = tid / N;
@@ -62,8 +66,8 @@ for (it = 0; it < iterator; it++) {
 		}
 	}
 
-}
-
+	}
+	} /* end pragma acc data */
 }
 
 

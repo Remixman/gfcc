@@ -1167,6 +1167,10 @@ void _GfnCheckCLStatus(cl_int status, const char *phase_name)
 		    fprintf(stderr, "Error : CL_COMPILER_NOT_AVAILABLE\n"); break;
 		case CL_MISALIGNED_SUB_BUFFER_OFFSET:
 			fprintf(stderr, "Error : CL_MISALIGNED_SUB_BUFFER_OFFSET\n"); break;
+		case CL_INVALID_BUFFER_SIZE:
+			fprintf(stderr, "Error : CL_INVALID_BUFFER_SIZE\n"); break;
+		case CL_INVALID_GLOBAL_WORK_SIZE:
+			fprintf(stderr, "Error : CL_INVALID_GLOBAL_WORK_SIZE\n"); break;
 		default:
 		    fprintf(stderr, "Error : CL unknown error value = %d\n", status); break;
 		}

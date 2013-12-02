@@ -74,11 +74,13 @@ TL::Source Data::do_data()
     
     TL::Source master_send_call_function_send, master_send_call_function_recv;
     //TL::Source master_send_scalar_src;
-    TL::Source master_send_scalar_src, master_send_array_src, master_recv_src;
+    TL::Source master_send_scalar_src, master_send_array_src;
+    TL::Source master_recv_src;
     TL::Source master_lock_transfer_src, master_unlock_transfer_src;
     
     //TL::Source worker_recv_scalar_src;
-    TL::Source worker_recv_src, worker_send_src;
+    TL::Source worker_recv_scalar_src, worker_recv_array_src; 
+    TL::Source worker_send_scalar_src, worker_send_array_src;
     TL::Source worker_lock_transfer_src, worker_unlock_transfer_src;
     
     /* Send and recieve function source */
@@ -122,6 +124,8 @@ TL::Source Data::do_data()
         else if (var_info._is_input)
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
         /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
+        
+        bool is_partition = (var_info._shared_dimension >= 0);
         
         std::cout << "Data clause handle variable : " << var_name << std::endl;
         
@@ -167,17 +171,45 @@ TL::Source Data::do_data()
         
         if (var_info._is_input)
         {
-            if (var_info._is_array_or_pointer)
+            // create scatter input
+            if (var_info._is_array_or_pointer && is_partition)
+            {
+                master_send_array_src
+                    << create_send_input_nd_msg(var_name, mpi_type_str, "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/,
+                                                var_info._shared_dimension, var_info._in_pattern_type, 
+                                                var_info._dimension_num, var_info._in_pattern_array.size(),
+                                                var_info._dim_size, var_info._in_pattern_array);
+
+                worker_recv_array_src
+                    << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, 
+                                               "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/, var_info._dimension_num,
+                                               var_info._dim_size, var_info._shared_dimension, 
+                                               var_cl_mem_type, var_info._in_pattern_array, var_info._in_pattern_array.size(),
+                                               var_info._in_pattern_type, level1_cond, level2_cond);
+            }
+            else if (var_info._is_array_or_pointer)
             {
                 master_send_array_src
                     << "_SendInputMsg((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
                     
-                worker_recv_src
+                worker_recv_array_src
                     << create_gfn_q_bcast_nd(var_name, var_cl_name, mpi_type_str, 
                                             var_info._dimension_num, var_info._dim_size,
                                             level1_cond, level2_cond);
+            }
+            else
+            {
+                master_send_scalar_src
+                    << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
                     
+                worker_recv_scalar_src
+                    << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
+            }
+            
+            // create lock transfer for array
+            if (var_info._is_array_or_pointer)
+            {
                 master_lock_transfer_src
                     << "_GfnLockTransfer((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << ");";
@@ -186,29 +218,14 @@ TL::Source Data::do_data()
                     << "_GfnLockTransfer((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << ");";
             }
-            else
-            {
-                master_send_scalar_src
-                    << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
-                    
-                worker_recv_src
-                    << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
-            }
         }
         
         
         if (var_info._is_output)
         {
+            // create unlock transfer for array
             if (var_info._is_array_or_pointer)
             {
-                master_recv_src
-                    << "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                    << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
-                    
-                worker_send_src
-                    << "_SendOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
-                    << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
-                
                 master_unlock_transfer_src
                     << "_GfnUnlockTransfer((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << ");";
@@ -217,12 +234,38 @@ TL::Source Data::do_data()
                     << "_GfnUnlockTransfer((void*)" << var_name 
                     << var_info.get_subscript_to_1d_buf() << ");";
             }
+            
+            if (var_info._is_array_or_pointer && is_partition)
+            {
+                master_recv_src
+                    << create_recv_output_nd_msg(var_name, mpi_type_str, "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/,
+                                                var_info._shared_dimension, var_info._out_pattern_type,
+                                                var_info._dimension_num,  var_info._out_pattern_array.size(),
+                                                var_info._dim_size, var_info._out_pattern_array);
+
+                worker_send_array_src
+                    << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, 
+                                              "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/, var_info._dimension_num,
+                                              var_info._dim_size, var_info._shared_dimension, 
+                                              var_cl_mem_type, var_info._out_pattern_array, var_info._out_pattern_array.size(),
+                                              var_info._out_pattern_type, level1_cond, level2_cond);
+            }
+            else if (var_info._is_array_or_pointer)
+            {
+                master_recv_src
+                    << "_RecvOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                    << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+                    
+                worker_send_array_src
+                    << "_SendOutputMsg((void*)" << ((var_info._is_array_or_pointer)? "" : "&")
+                    << var_name << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
+            }
             else
             {
                 master_recv_src
                     << "_RecvOutputMsg((void*)&" << var_name << "," << size_str << ");";
                     
-                worker_send_src
+                worker_send_scalar_src
                     << create_gfn_q_reduce_scalar(var_name, var_cl_name, mpi_type_str, op_to_mpi_op(var_info._reduction_type), 
                                                   "_global_item_num/_work_group_item_num", level1_cond, level2_cond);
             }
@@ -259,11 +302,14 @@ TL::Source Data::do_data()
             << comment("Declare Generated Variables")
             << worker_decl_gen_var_src
             
+            << comment("Boardcast Scalar Value")
+            << worker_recv_scalar_src
+            
             << comment("Allocate Array Memory")
             << worker_allocate_src
             
             << comment("Distribute Array Memory")
-            << worker_recv_src
+            << worker_recv_array_src
             
             << comment("Lock Transfer")
             << worker_lock_transfer_src
@@ -286,6 +332,9 @@ TL::Source Data::do_data()
             << comment("Declare Generated Variables")
             << worker_decl_gen_var_src
             
+            << comment("Boardcast Scalar Value")
+            << worker_send_scalar_src
+            
             << comment("Allocate Array Memory")
             << worker_allocate_src
             
@@ -293,7 +342,7 @@ TL::Source Data::do_data()
             << worker_unlock_transfer_src
             
             << comment("Gather Array Memory")
-            << worker_send_src
+            << worker_send_array_src
             
             << comment("Deallocate Array Memory")
             << worker_free_src
