@@ -35,27 +35,30 @@ int is_equal(float a, float b) {
 	return (a+EPSILON > b && b > a-EPSILON);
 }
 
-void convolution_kernel(int N, int iterator, float *matrix,
-						int filterN, float *filter)
+void convolution_kernel(int N, int iterator, float **matrix,
+						int filterN, float **filter)
 {
 	int i, j, m, n, tid;
+	int Nsquare = N*N;
 	int it;
 
 // run kernel
 for (it = 0; it < iterator; it++) {
 
-	//#pragma gfn parallel_for copyin(filter[0:5][0:5]) copy(matrix[0:N][0:N])
-	for (tid = 0; tid < (N*N); ++tid) {
+	#pragma gfn parallel_for copyin(filter[0:5][0:5]) \
+		copy(matrix[0:N{partition}][0:N]) \
+		private(i, j, m, n)
+	for (tid = 0; tid < Nsquare; ++tid) {
 		i = tid / N;
 		j = tid % N;
 		if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {
 			float new_val = 0.0;
 			for (m = 0; m < filterN; ++m) {
 				for (n = 0; n < filterN; ++n) {
-					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);
+					new_val += (filter[m][n] * matrix[(i+m-2)][(j+n-2)]);
 				}
 			}
-			matrix[i*N+j] = new_val;
+			matrix[i][j] = new_val;
 		}
 	}
 
@@ -101,12 +104,12 @@ int main(int argc, char *argv[]) {
 	
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
-	convolution_kernel(N, iterator, matrix[0], 5, (void*)filter);
+	convolution_kernel(N, iterator, matrix, 5, (float**)filter);
 
 	time0 = get_time();
 	for (i = 0; i < ite; i++) {
 		copy_matrix(N, orig_mat, matrix);
-		convolution_kernel(N, iterator, matrix[0], 5, (void*)filter);
+		convolution_kernel(N, iterator, matrix, 5, (float**)filter);
 	}
 	time1 = get_time();
 
