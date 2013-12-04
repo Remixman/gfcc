@@ -35,21 +35,34 @@ void convolution_kernel(int N, int iterator, float **matrix, int filterN, float 
     int i, j, m, n, tid;
     int Nsquare = N * N;
     int it;
-    for (it = 0;
-        it < iterator;
-        it++)
+    /* Send call send function message */
+    _SendCallFuncMsg(176685);
+    _SendInputMsg((void *) &N, sizeof(int));
+    _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
+    _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
+    _GfnLockTransfer((void *) filter[0]);
+    _GfnLockTransfer((void *) matrix[0]);
     {
-        /* Send call function message */
-        _SendCallFuncMsg(356690);
-        _SendInputMsg((void *) &Nsquare, sizeof(int));
-        _SendInputMsg((void *) &N, sizeof(int));
-        _SendInputMsg((void *) &filterN, sizeof(int));
-        _SendConstInputMsg((long long) &(filter[0][0]));
-        _SendConstInputMsg((long long) &(matrix[0][0]));
-        _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
-        _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 0, 2, 0, N, N);
-        _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 0, 2, 0, N, N);
+        for (it = 0;
+            it < iterator;
+            it++)
+        {
+            /* Send call function message */
+            _SendCallFuncMsg(456676);
+            _SendInputMsg((void *) &Nsquare, sizeof(int));
+            _SendInputMsg((void *) &N, sizeof(int));
+            _SendInputMsg((void *) &filterN, sizeof(int));
+            _SendConstInputMsg((long long) &(filter[0][0]));
+            _SendConstInputMsg((long long) &(matrix[0][0]));
+            _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
+            _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 1, 2, 2, N, N, - 2, 2);
+            _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 0, 2, 0, N, N);
+        }
     }
+    /* Send call recieve function message */
+    _SendCallFuncMsg(201989);
+    _GfnUnlockTransfer((void *) matrix[0]);
+    _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
 }
 int main(int argc, char *argv[])
 {

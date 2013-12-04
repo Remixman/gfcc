@@ -116,7 +116,7 @@ int _retieve_var_table( long long id, cl_mem *device_ptr, int *dimension_num,
 			*host_ptr = (*(var_record**)retieved_rec)->host_ptr6; 
 			break;
 		default: 
-			fprintf("Pass %d dimension to _retieve_var_table\n", *dimension_num);
+			fprintf(stderr, "Pass %d dimension to _retieve_var_table\n", *dimension_num);
 			break;
 		}
 		
@@ -184,7 +184,7 @@ int _free_mem_and_clear_var_table() {
 int _lock_var_compare(const void *l, const void *r) {
 	const long long *lm = (const long long *)l;
 	const long long *lr = (const long long *)r;
-	return lm - lr;
+	return (*lm) - (*lr);
 }
 
 void * _lock_var_tab_root;
@@ -192,7 +192,7 @@ void * _lock_var_tab_root;
 int _lock_transfer( long long id ) {
 
 #ifdef DEBUG_VAR_TABLE
-	printf("[DEBUG VTAB]: Lock transfer \"%ld\"\n", id);
+	printf("[DEBUG VTAB]: Lock transfer \"%lld\"\n", id);
 #endif
 
 	long long * id_ptr = (long long *) malloc(sizeof(long long));
@@ -215,7 +215,7 @@ int _is_lock_transfer( long long id ) {
 	retieved_id = tfind((void *)&id, &_lock_var_tab_root, _lock_var_compare);
 
 #ifdef DEBUG_VAR_TABLE
-	printf("[DEBUG VTAB]: Check lock \"%ld\" result is ", id);
+	printf("[DEBUG VTAB]: Check lock \"%lld\" result is ", id);
 	if (retieved_id != NULL)  printf("FOUND\n");
 	else                      printf("NOT FOUND\n");
 #endif

@@ -181,7 +181,7 @@ TL::Source Data::do_data()
                                                 var_info._dim_size, var_info._in_pattern_array);
 
                 worker_recv_array_src
-                    << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                                "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/, var_info._dimension_num,
                                                var_info._dim_size, var_info._shared_dimension, 
                                                var_cl_mem_type, var_info._in_pattern_array, var_info._in_pattern_array.size(),
@@ -194,7 +194,7 @@ TL::Source Data::do_data()
                     << var_info.get_subscript_to_1d_buf() << "," << size_str << ");";
                     
                 worker_recv_array_src
-                    << create_gfn_q_bcast_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_bcast_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                             var_info._dimension_num, var_info._dim_size,
                                             level1_cond, level2_cond);
             }
@@ -206,35 +206,11 @@ TL::Source Data::do_data()
                 worker_recv_scalar_src
                     << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             }
-            
-            // create lock transfer for array
-            if (var_info._is_array_or_pointer)
-            {
-                master_lock_transfer_src
-                    << "_GfnLockTransfer((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << ");";
-                    
-                worker_lock_transfer_src
-                    << "_GfnLockTransfer((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << ");";
-            }
         }
         
         
         if (var_info._is_output)
         {
-            // create unlock transfer for array
-            if (var_info._is_array_or_pointer)
-            {
-                master_unlock_transfer_src
-                    << "_GfnUnlockTransfer((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << ");";
-                    
-                worker_unlock_transfer_src
-                    << "_GfnUnlockTransfer((void*)" << var_name 
-                    << var_info.get_subscript_to_1d_buf() << ");";
-            }
-            
             if (var_info._is_array_or_pointer && is_partition)
             {
                 master_recv_src
@@ -244,7 +220,7 @@ TL::Source Data::do_data()
                                                 var_info._dim_size, var_info._out_pattern_array);
 
                 worker_send_array_src
-                    << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_gather_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                               "0"/*dummy*/, "0"/*dummy*/, "0"/*dummy*/, var_info._dimension_num,
                                               var_info._dim_size, var_info._shared_dimension, 
                                               var_cl_mem_type, var_info._out_pattern_array, var_info._out_pattern_array.size(),
@@ -269,6 +245,32 @@ TL::Source Data::do_data()
                     << create_gfn_q_reduce_scalar(var_name, var_cl_name, mpi_type_str, op_to_mpi_op(var_info._reduction_type), 
                                                   "_global_item_num/_work_group_item_num", level1_cond, level2_cond);
             }
+        }
+        
+        // create lock and unlock transfer
+        if (var_info._is_array_or_pointer && (var_info._is_input || var_info._is_output))
+        {
+            master_lock_transfer_src
+                << create_master_lock_var(var_name, var_info._dimension_num);
+                    
+            worker_lock_transfer_src
+                << "_GfnLockTransfer((long long)" << var_unique_id_name << ");";
+            
+            master_unlock_transfer_src
+                << create_master_unlock_var(var_name, var_info._dimension_num);
+                    
+            worker_unlock_transfer_src
+                << "_GfnUnlockTransfer((long long)" << var_unique_id_name << ");";
+        }
+        
+        // send array unique id 
+        if (var_info._is_array_or_pointer && (var_info._is_input || var_info._is_output))
+        {
+            master_send_scalar_src
+                << create_send_var_id_msg(var_name, var_info._dimension_num);
+            
+            worker_recv_scalar_src
+                << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
         }
     }
     

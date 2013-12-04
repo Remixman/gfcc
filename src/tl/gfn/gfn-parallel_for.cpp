@@ -444,7 +444,7 @@ TL::Source ParallelFor::do_parallel_for()
             if (var_info._is_array_or_pointer && is_partition)
             {
                 worker_distribute_array_memory_src
-                    << create_gfn_q_scatter_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                                loop_start, loop_end, loop_step, var_info._dimension_num,
                                                var_info._dim_size, var_info._shared_dimension, 
                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
@@ -453,7 +453,7 @@ TL::Source ParallelFor::do_parallel_for()
             else if (var_info._is_array_or_pointer)
             {
                 worker_distribute_array_memory_src
-                    << create_gfn_q_bcast_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_bcast_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                              var_info._dimension_num, var_info._dim_size,
                                              level1_cond, level2_cond);
             }
@@ -486,7 +486,7 @@ TL::Source ParallelFor::do_parallel_for()
             if (var_info._is_array_or_pointer && is_partition)
             {
                 worker_gather_array_memory_src
-                    << create_gfn_q_gather_nd(var_name, var_cl_name, mpi_type_str, 
+                    << create_gfn_q_gather_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                               loop_start, loop_end, loop_step, var_info._dimension_num, 
                                               var_info._dim_size, var_info._shared_dimension, 
                                               var_cl_mem_type, out_pattern_array, out_pattern_array.size(),

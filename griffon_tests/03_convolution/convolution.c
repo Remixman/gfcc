@@ -57,8 +57,8 @@ void convolution_kernel(int N, int iterator, float **matrix,
 		j = tid % N;
 		if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {
 			float new_val = 0.0;
-			for (m = 0; m < filterN; ++m) {
-				for (n = 0; n < filterN; ++n) {
+			for (m = 0; m < 5; ++m) {
+				for (n = 0; n < 5; ++n) {
 					new_val += (filter[m][n] * matrix[(i+m-2)][(j+n-2)]);
 				}
 			}
@@ -76,14 +76,7 @@ int main(int argc, char *argv[]) {
 	int tid;
 	int N = 1500, ite = 1;
 	int it, iterator = 10;
-	float **matrix, **orig_mat;
-	float filter[5][5] = {
-		{ 1/256.0,  4/256.0,  6/256.0,  4/256.0, 1/256.0 },
-		{ 4/256.0, 16/256.0, 24/256.0, 16/256.0, 4/256.0 },
-		{ 6/256.0, 24/256.0, 36/256.0, 24/256.0, 6/256.0 },
-		{ 4/256.0, 16/256.0, 24/256.0, 16/256.0, 4/256.0 },
-		{ 1/256.0,  4/256.0,  6/256.0,  4/256.0, 1/256.0 }
-	};
+	float **matrix, **orig_mat, **filter;
 	long long time0, time1;
 	int pass = 1;
 
@@ -102,6 +95,16 @@ int main(int argc, char *argv[]) {
 	orig_mat[0] = (float *) malloc(N * N * sizeof(float));
 	for (i = 1; i < N; i++)
 		orig_mat[i] = orig_mat[i-1] + N;
+	filter = (float **) malloc(5 * sizeof(float*));
+	filter[0] = (float *) malloc(5 * 5 * sizeof(float));
+	for (i = 1; i < 5; i++)
+		filter[i] = filter[i-1] + 5;
+		
+	filter[0][0] =  1/256.0; filter[0][1] =  4/256.0; filter[0][2] =  6/256.0; filter[0][3] =  4/256.0; filter[0][4] =  1/256.0;
+	filter[1][0] =  4/256.0; filter[1][1] = 16/256.0; filter[1][2] = 24/256.0; filter[1][3] = 16/256.0; filter[1][4] =  4/256.0;
+	filter[2][0] =  6/256.0; filter[2][1] = 24/256.0; filter[2][2] = 36/256.0; filter[2][3] = 24/256.0; filter[2][4] =  6/256.0;
+	filter[3][0] =  4/256.0; filter[3][1] = 16/256.0; filter[3][2] = 24/256.0; filter[3][3] = 16/256.0; filter[3][4] =  4/256.0;
+	filter[4][0] =  1/256.0; filter[4][1] =  4/256.0; filter[4][2] =  6/256.0; filter[4][3] =  4/256.0; filter[4][4] =  1/256.0;
 	
 	// initialize matrix
 	init(N, orig_mat);
@@ -155,6 +158,8 @@ int main(int argc, char *argv[]) {
 	free(matrix);
 	free(orig_mat[0]);
 	free(orig_mat);
+	free(filter[0]);
+	free(filter);
 
 	return 0;
 }

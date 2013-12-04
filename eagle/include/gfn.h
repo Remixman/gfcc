@@ -11,6 +11,7 @@
 /* Debugging */
 //#define DEBUG_AUTO_ALLOCATE
 //#define DEBUG_VAR_TABLE
+#define DEBUG_BOUND
 //#define DEBUG_INTER_PROC_COMM
 
 /* Optimization */
@@ -52,19 +53,19 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 // Potential to free, maybe not really free
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond);
 // TODO: add boardcast pattern as parameter
-int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...);
-int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, 
+int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...);
+int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishDistributeArray();
 
-int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, 
+int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishGatherArray();
 
-int _GfnLockTransfer(void * ptr);
-int _GfnUnlockTransfer(void * ptr);
+int _GfnLockTransfer(long long id);
+int _GfnUnlockTransfer(long long id);
 
 
 // High Level function for trnsformation

@@ -356,6 +356,24 @@ TL::Source create_send_var_id_msg(std::string var_name,
     return result;
 }
 
+TL::Source create_master_lock_var(std::string var_name, int dim_num)
+{
+    TL::Source result, subscript_to_1d;
+    for (int i = 0; i < dim_num; ++i) subscript_to_1d << "[0]";
+    result
+        << "_GfnLockTransfer((long long)&(" << var_name << subscript_to_1d << "));";
+    return result;
+}
+
+TL::Source create_master_unlock_var(std::string var_name, int dim_num)
+{
+    TL::Source result, subscript_to_1d;
+    for (int i = 0; i < dim_num; ++i) subscript_to_1d << "[0]";
+    result
+        << "_GfnUnlockTransfer((long long)&(" << var_name << subscript_to_1d << "));";
+    return result;
+}
+
 TL::Source create_send_input_nd_msg(std::string var_name,
                                     std::string type_id,
                                     std::string loop_start,
@@ -647,6 +665,7 @@ TL::Source create_gfn_free(std::string var_unique_id_name,
 
 TL::Source create_gfn_q_bcast_nd(std::string var_name,
                                  std::string var_cl_name,
+                                 std::string var_unique_id_name,
                                  std::string mpi_type,
                                  int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                  std::string level1_cond,
@@ -671,7 +690,7 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
     
     result
         << "_GfnEnqueueBoardcastND((void*)" << var_name << subscript_to_1d << "," 
-        << var_cl_name << "," << mpi_type << "," 
+        << var_cl_name << "," << var_unique_id_name << "," << mpi_type << "," 
         << level1_cond << "," << level2_cond << ","
         << dim_num << ((dim_num==0)?"":",") << size_params << ");";
         
@@ -680,6 +699,7 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
 
 TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    std::string var_cl_name,
+                                   std::string var_unique_id_name,
                                    std::string mpi_type,
                                    std::string loop_start,
                                    std::string loop_end,
@@ -717,7 +737,8 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     
     result
         << "_GfnEnqueueScatterND((void*)" << var_name << subscript_to_1d << "," 
-        << var_cl_name << "," << mpi_type << "," << cl_mem_flags << ","
+        << var_cl_name << "," << var_unique_id_name << ","
+        << mpi_type << "," << cl_mem_flags << ","
         << loop_start << "," << loop_end << "," << loop_step << "," 
         << partitioned_dim << "," << pattern_type << "," 
         << level1_cond << "," << level2_cond << ","
@@ -742,6 +763,7 @@ TL::Source create_gfn_f_dist_array()
 
 TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string var_cl_name,
+                                  std::string var_unique_id_name,
                                   std::string mpi_type,
                                   std::string loop_start,
                                   std::string loop_end,
@@ -779,7 +801,8 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
 
     result
         << "_GfnEnqueueGatherND((void*)" << var_name << subscript_to_1d << "," 
-        << var_cl_name << "," << mpi_type << "," << cl_mem_flags << ","
+        << var_cl_name << "," << var_unique_id_name << ","
+        << mpi_type << "," << cl_mem_flags << ","
         << loop_start << "," << loop_end << "," << loop_step << "," 
         << partitioned_dim << "," << pattern_type << ","
         << level1_cond << "," << level2_cond << ","

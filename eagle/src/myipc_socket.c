@@ -177,7 +177,7 @@ int _SendInputNDMsg(	void *ptr, int type_id,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, ... ) {
 
-	if (_is_lock_transfer((long long)ptr)){ printf("ALREADY EXISTED\n"); return 0; }
+	if (_is_lock_transfer((long long)ptr)){ return 0; }
 
 	int i, value;
 	va_list vl;

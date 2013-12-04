@@ -349,7 +349,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	int retieve_dim_num = 0;
 	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
-		//("Don't Allocate 2D Again\n");
+		//printf("Don't Allocate 2D Again\n");
 		return 0;
 	}
 
@@ -694,9 +694,11 @@ int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 	return 0;*/
 }
 
-int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
+int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
 {
-	if (_is_lock_transfer((long long)ptr)) return 0;
+	if (_is_lock_transfer(unique_id)) {
+		return 0;
+	}
 
 	// Not have information case
 	// get variable info from var table
@@ -767,12 +769,13 @@ do { \
 	return 0;
 }
 
-int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	// send only bound data when locked
 	int send_only_bound = 0;
-	if (_is_lock_transfer((long long)ptr)) 
+	if (_is_lock_transfer(unique_id)) {
 		send_only_bound = 1;
+	}
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
@@ -856,11 +859,139 @@ for (i = 0; i < recv_loop_num; ++i) { \
 } \
 } while (0)
 
+#define SEND_LOWER_BOUND_TAG 0
+#define SEND_UPPER_BOUMD_TAG 1
+
 	// Send only bound case
 	if (send_only_bound)
 	{
 		printf("SEND ONLY BOUND\n");
 
+		float * tmp_ptr = (float *) ptr;
+
+		int lower_bound = pattern_array[0];
+    	int upper_bound = pattern_array[1];
+
+		cl_buffer_region send_lower_info;
+		cl_buffer_region send_upper_info;
+		cl_buffer_region recv_lower_info;
+		cl_buffer_region recv_upper_info;
+		cl_mem cl_send_lower;
+		cl_mem cl_send_upper;
+		cl_mem cl_recv_lower;
+		cl_mem cl_recv_upper;
+		MPI_Status mpi_status;
+		MPI_Request send_lower_req;
+		MPI_Request send_upper_req;
+		MPI_Request recv_lower_req;
+		MPI_Request recv_upper_req;
+
+		int lower_bound_size = abs(lower_bound) * block_size;
+		int upper_bound_size = abs(upper_bound) * block_size;
+
+		// FIXME : remove this constraint
+		if (lower_bound_size != upper_bound_size)
+			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal\n");
+
+		// create send lower bound subbuffer
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			send_lower_info.origin = (size_t)(disp[_gfn_rank]*sizeof(float));
+			send_lower_info.size = (size_t)(lower_bound_size*sizeof(float));
+			cl_send_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &send_lower_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE SEND LOWER BOUND");
+		}
+		// create send upper bound subbuffer
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			send_upper_info.origin = (size_t)((disp[_gfn_rank+1]-upper_bound_size)*sizeof(float));
+			send_upper_info.size = (size_t)(upper_bound_size*sizeof(float));
+			cl_send_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &send_upper_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE SEND UPPER BOUND");
+		}
+		// create recieve lower bound subbuffer
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*sizeof(float));
+			recv_lower_info.size = (size_t)(upper_bound_size*sizeof(float));
+			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_lower_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE LOWER BOUND");
+		}
+		// create recieve upper bound subbuffer
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*sizeof(float));
+			recv_upper_info.size = (size_t)(lower_bound_size*sizeof(float));
+			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_upper_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE UPPER BOUND");
+		}
+
+
+		// download send lower bound subbuffer from GPU to host
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_TRUE,
+				0, lower_bound_size*sizeof(float), tmp_ptr+disp[_gfn_rank],
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND LOWER BOUND FROM DEVICE");
+		}
+		// download send upper bound subbuffer from GPU to host
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_TRUE,
+				0, lower_bound_size*sizeof(float), tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
+		}
+
+		
+		// send lower bound asynchonously
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank]), lower_bound_size, 
+				MPI_FLOAT, _gfn_rank-1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &send_lower_req);
+		}
+		// send upper bound asynchonously
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank+1]-upper_bound_size), upper_bound_size, 
+				MPI_FLOAT, _gfn_rank+1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &send_upper_req);
+		}
+		// recieve lower bound asynchonously
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank]-upper_bound_size), upper_bound_size,
+				MPI_FLOAT, _gfn_rank-1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &recv_lower_req);
+		}
+		// recieve upper bound asynchonously
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			MPI_Irecv((void*)tmp_ptr+disp[_gfn_rank+1], lower_bound_size, 
+				MPI_FLOAT, _gfn_rank+1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &recv_upper_req);
+		}
+
+
+		// synchonize recieve
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0)
+			MPI_Wait(&send_upper_req, &mpi_status);
+		if (_gfn_rank != 0 && lower_bound_size > 0)
+			MPI_Wait(&send_lower_req, &mpi_status);
+		if (_gfn_rank != 0 && upper_bound_size > 0)
+			MPI_Wait(&recv_lower_req, &mpi_status);
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0)
+			MPI_Wait(&recv_upper_req, &mpi_status);
+
+
+		// upload upper bound to device
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_TRUE, 
+				0, upper_bound_size*sizeof(float), (tmp_ptr+disp[_gfn_rank]-upper_bound_size),
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE UPPER BOUND FROM HOST");
+		}
+		// upload lower bound to device
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_upper, CL_TRUE, 
+				0, lower_bound_size*sizeof(float), (tmp_ptr+disp[_gfn_rank+1]),
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE LOWER BOUND FROM HOST");
+		}
+
+#if 0
 		// TODO: fix this to support multi-dim pattern (support only syntax)
 		//       we scatter bound just 1 dimension
 		int lower_bound = pattern_array[0];
@@ -924,7 +1055,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 			case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
 			case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 		}
-
+#endif
 		return 0;
 	}
 
@@ -961,11 +1092,13 @@ int _GfnFinishDistributeArray()
 	return 0;
 }
 
-int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	int send_only_bound = 0;
-	if (_is_lock_transfer((long long)ptr))
+	if (_is_lock_transfer(unique_id)) {
+		printf("gather only bound\n");
 		send_only_bound = 1;
+	}
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long gather_start_t, gather_end_t;
@@ -1082,14 +1215,14 @@ int _GfnFinishGatherArray()
 }
 
 
-int _GfnLockTransfer(void * ptr)
+int _GfnLockTransfer(long long id)
 {
-	return _lock_transfer((long long) ptr);
+	return _lock_transfer(id);
 }
 
-int _GfnUnlockTransfer(void * ptr)
+int _GfnUnlockTransfer(long long id)
 {
-	return _unlock_transfer((long long) ptr);
+	return _unlock_transfer(id);
 }
 
 
