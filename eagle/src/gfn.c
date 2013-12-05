@@ -895,8 +895,6 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	// Send only bound case
 	if (send_only_bound)
 	{
-		printf("SEND ONLY BOUND\n");
-
 		float * tmp_ptr = (float *) ptr;
 
 		int lower_bound = pattern_array[0];
@@ -919,6 +917,12 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		int lower_bound_size = abs(lower_bound) * block_size;
 		int upper_bound_size = abs(upper_bound) * block_size;
 
+#ifdef DEBUG_BOUND
+		//printf("[DEBUG BOUND]: Send only bound in _GfnEnqueueScatterND\n");
+		//printf("[DEBUG BOUND]: Lower bound is %d\n", lower_bound);
+		//printf("[DEBUG BOUND]: Upper bound is %d\n", upper_bound);
+#endif
+
 		// FIXME : remove this constraint
 		if (lower_bound_size != upper_bound_size)
 			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal,"
@@ -927,6 +931,10 @@ for (i = 0; i < recv_loop_num; ++i) { \
 
 		// create send lower bound subbuffer
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
+#ifdef DEBUG_BOUND
+			printf("[DEBUG BOUND]: Send lower bound offset = %d\n", 
+				disp[_gfn_rank]);
+#endif
 			send_lower_info.origin = (size_t)(disp[_gfn_rank]*sizeof(float));
 			send_lower_info.size = (size_t)(lower_bound_size*sizeof(float));
 			cl_send_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
@@ -935,6 +943,14 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		}
 		// create send upper bound subbuffer
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+#ifdef DEBUG_BOUND
+			if (_gfn_rank == 0) {
+			printf("[DEBUG BOUND]: Send upper bound offset = %d\n", 
+				((disp[_gfn_rank+1]-upper_bound_size)*sizeof(float)));
+			printf("[DEBUG BOUND]: Send upper bound size = %d\n",
+				(upper_bound_size*sizeof(float)));
+			}
+#endif
 			send_upper_info.origin = (size_t)((disp[_gfn_rank+1]-upper_bound_size)*sizeof(float));
 			send_upper_info.size = (size_t)(upper_bound_size*sizeof(float));
 			cl_send_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
@@ -943,6 +959,10 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		}
 		// create recieve lower bound subbuffer
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
+#ifdef DEBUG_BOUND
+			//printf("[DEBUG BOUND]: Recieve lower bound offset = %d\n", 
+			//	disp[_gfn_rank]-upper_bound_size);
+#endif
 			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*sizeof(float));
 			recv_lower_info.size = (size_t)(upper_bound_size*sizeof(float));
 			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
@@ -951,6 +971,12 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		}
 		// create recieve upper bound subbuffer
 		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+#ifdef DEBUG_BOUND
+			if (_gfn_rank == 0) {
+			printf("[DEBUG BOUND]: Recieve upper bound offset = %d\n", 
+				disp[_gfn_rank+1]);
+			}
+#endif
 			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*sizeof(float));
 			recv_upper_info.size = (size_t)(lower_bound_size*sizeof(float));
 			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
@@ -969,12 +995,12 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		// download send upper bound subbuffer from GPU to host
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
 			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_TRUE,
-				0, lower_bound_size*sizeof(float), tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
+				0, upper_bound_size*sizeof(float), tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
 		}
 
-		
+
 		// send lower bound asynchonously
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
 			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank]), lower_bound_size, 
@@ -992,7 +1018,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		}
 		// recieve upper bound asynchonously
 		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
-			MPI_Irecv((void*)tmp_ptr+disp[_gfn_rank+1], lower_bound_size, 
+			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank+1]), lower_bound_size, 
 				MPI_FLOAT, _gfn_rank+1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &recv_upper_req);
 		}
 
@@ -1470,6 +1496,10 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
 	int i;
 	int lower_bound;
     int upper_bound;
+
+    // FIXME: remove pattern array
+    pattern_type = PATTERN_NONE;
+    pattern_array_size = 0;
 
 	_CalcCnts(size, _gfn_num_proc, cnts, 1);
     _CalcDisp(size, _gfn_num_proc, disp, 1);

@@ -84,6 +84,7 @@ const char *prog_src =
 "#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable			\n"
 "																		\n"
 "__kernel void gpu_convolution(__global float *matrix,					\n"
+"                              __global float *result_matrix,			\n"
 "							   int N,									\n"
 "							   __global float *filter,					\n"
 "							   int filterN,								\n"
@@ -103,8 +104,19 @@ const char *prog_src =
 "					new_val += (filter[m*filterN+n] * matrix[(i+m-2)*N+(j+n-2)]);\n"
 "				}														\n"
 "			}															\n"
-"			matrix[i*N+j] = new_val;									\n"
+"			result_matrix[i*N+j] = new_val;								\n"
 "		}																\n"
+"	}																	\n"
+"}																		\n"
+"																		\n"
+"__kernel void gpu_copy(__global float *matrix,							\n"
+"                       __global float *result_matrix,					\n"
+"						int start,										\n"
+"					    int end) 										\n"
+"{																		\n"
+"	int tid = get_global_id(0) + start;									\n"
+"	if (tid < end) {													\n"
+"		matrix[tid] = result_matrix[tid];								\n"
 "	}																	\n"
 "}																		\n"
 ;
@@ -165,10 +177,10 @@ void copy_bound(int size, float *src, float *dsc) {
 		dsc[i] = src[i];
 }
 
-void convolution_kernel(int N, int iterator, float *matrix,
+void convolution_kernel(int N, int iterator, float *matrix, float *result_matrix,
 						int filterN, float *filter,
 						int rank, int node_size, cl_command_queue queue, 
-				   		cl_kernel kernel, cl_context context)
+				   		cl_kernel kernel, cl_kernel cpy_kernel, cl_context context)
 {
 	int i, j, m, n, tid;
 	int local_start, local_end;
@@ -180,6 +192,7 @@ void convolution_kernel(int N, int iterator, float *matrix,
 
 	cl_int status = CL_SUCCESS;
 	cl_mem cl_matrix;
+	cl_mem cl_result_matrix;
 	cl_mem cl_filter;
 	cl_mem cl_submat;
 	cl_mem cl_h2d_lower;
@@ -215,6 +228,7 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	const size_t group_num = global_work_size/work_group_size;
 
 	cl_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(float), NULL, &status);
+	cl_result_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(float), NULL, &status);
 	cl_filter = clCreateBuffer(context, CL_MEM_READ_ONLY, 5 * 5 * sizeof(float), NULL, &status);
 
 	/*if (rank == 0)
@@ -283,16 +297,18 @@ void convolution_kernel(int N, int iterator, float *matrix,
 	// set kernel arguments
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_matrix);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
-	status = clSetKernelArg(kernel, 1, sizeof(int), (void*)&N);
+	status = clSetKernelArg(kernel, 1, sizeof(cl_mem), &cl_result_matrix);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 1");
-	status = clSetKernelArg(kernel, 2, sizeof(cl_mem), &cl_filter);
+	status = clSetKernelArg(kernel, 2, sizeof(int), (void*)&N);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 2");
-	status = clSetKernelArg(kernel, 3, sizeof(int), (void*)&filterN);
+	status = clSetKernelArg(kernel, 3, sizeof(cl_mem), &cl_filter);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
-	status = clSetKernelArg(kernel, 4, sizeof(int), (void*)&local_start);
+	status = clSetKernelArg(kernel, 4, sizeof(int), (void*)&filterN);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 4");
-	status = clSetKernelArg(kernel, 5, sizeof(int), (void*)&local_end);
+	status = clSetKernelArg(kernel, 5, sizeof(int), (void*)&local_start);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 5");
+	status = clSetKernelArg(kernel, 6, sizeof(int), (void*)&local_end);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 6");
 
 // run kernel
 for (it = 0; it < iterator; it++) {
@@ -389,9 +405,25 @@ for (it = 0; it < iterator; it++) {
 	t2 = get_time();
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
-	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
+	_GfnCheckCLStatus(status, "LAUNCH CONVOLUTION KERNEL");
 	clFinish(queue);
 	t3 = get_time();
+	
+	// set copy kernel arguments
+	status = clSetKernelArg(cpy_kernel, 0, sizeof(cl_mem), &cl_matrix);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
+	status = clSetKernelArg(cpy_kernel, 1, sizeof(cl_mem), &cl_result_matrix);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 1");
+	status = clSetKernelArg(cpy_kernel, 2, sizeof(int), (void*)&local_start);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 2");
+	status = clSetKernelArg(cpy_kernel, 3, sizeof(int), (void*)&local_end);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
+	
+	// launch copy kernel
+	status = clEnqueueNDRangeKernel(queue, cpy_kernel, 1, NULL, &global_work_size,
+		&work_group_size, 0, NULL, NULL);
+	_GfnCheckCLStatus(status, "LAUNCH COPY KERNEL");
+	clFinish(queue);
 }
 
 	// copy back sum buffer
@@ -415,7 +447,8 @@ int main(int argc, char *argv[]) {
 	int i, j, m, n;
 	int N = 1500, ite = 1;
 	int it, iterator = 10;
-	float **matrix, **orig_mat;
+	float **matrix, **result_matrix;
+	float **verify_matrix, **orig_mat;
 	float filter[5][5] = {
 		{ 1/256.0,  4/256.0,  6/256.0,  4/256.0, 1/256.0 },
 		{ 4/256.0, 16/256.0, 24/256.0, 16/256.0, 4/256.0 },
@@ -434,6 +467,7 @@ int main(int argc, char *argv[]) {
 	cl_device_id device;
 	cl_program program;
 	cl_kernel kernel;
+	cl_kernel cpy_kernel;
 	cl_mem cl_sum_buffer;
 
 	// initial cluster
@@ -472,18 +506,29 @@ int main(int argc, char *argv[]) {
         LOG_SIZE, param_value, &param_value_size_ret);
     if (param_value_size_ret != 2)
         printf("Message from kernel compiler : \n%s\n", param_value);
+        
 	kernel = clCreateKernel(program, "gpu_convolution", &status);
-	_GfnCheckCLStatus(status, "CREATE KERNEL");
+	_GfnCheckCLStatus(status, "CREATE CONVOLUTION KERNEL");
+	cpy_kernel = clCreateKernel(program, "gpu_copy", &status);
+	_GfnCheckCLStatus(status, "CREATE COPY KERNEL");
 
 	// allocate matrix memory 
 	matrix = (float **) malloc(N * sizeof(float*));
 	matrix[0] = (float *) malloc(N * N * sizeof(float));
 	for (i = 1; i < N; i++)
 		matrix[i] = matrix[i-1] + N;
+	result_matrix = (float **) malloc(N * sizeof(float*));
+	result_matrix[0] = (float *) malloc(N * N * sizeof(float));
+	for (i = 1; i < N; i++)
+		result_matrix[i] = result_matrix[i-1] + N;
 	orig_mat = (float **) malloc(N * sizeof(float*));
 	orig_mat[0] = (float *) malloc(N * N * sizeof(float));
 	for (i = 1; i < N; i++)
 		orig_mat[i] = orig_mat[i-1] + N;
+	verify_matrix = (float **) malloc(N * sizeof(float*));
+	verify_matrix[0] = (float *) malloc(N * N * sizeof(float));
+	for (i = 1; i < N; i++)
+		verify_matrix[i] = verify_matrix[i-1] + N;
 
 	// initialize matrix
 	if (rank == 0)
@@ -491,14 +536,14 @@ int main(int argc, char *argv[]) {
 
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
-	convolution_kernel(N, iterator, matrix[0], 5, (void*)filter,
-		rank, node_size, queue, kernel, context);
+	convolution_kernel(N, iterator, matrix[0], result_matrix[0], 5, (void*)filter,
+		rank, node_size, queue, kernel, cpy_kernel, context);
 
 	time0 = get_time();
 	for (i = 0; i < ite; i++) {
 		copy_matrix(N, orig_mat, matrix);
-		convolution_kernel(N, iterator, matrix[0], 5, (void*)filter,
-			rank, node_size, queue, kernel, context);
+		convolution_kernel(N, iterator, matrix[0], result_matrix[0], 5, (void*)filter,
+			rank, node_size, queue, kernel, cpy_kernel, context);
 	}
 	time1 = get_time();
 
@@ -507,6 +552,7 @@ int main(int argc, char *argv[]) {
 		int pass = 1;
 
 		for (it = 0; it < iterator; it++) {
+		// apply filter
 		for (i = 0+2; i < N-2; ++i) {	
 			for (j = 0+2; j < N-2; ++j) {
 				float new_val = 0.0;
@@ -515,7 +561,13 @@ int main(int argc, char *argv[]) {
 						new_val += (filter[m][n] * orig_mat[i+m-2][j+n-2]);
 					}
 				}
-				orig_mat[i][j] = new_val;
+				verify_matrix[i][j] = new_val;
+			}
+		}
+		// copy result to original matrix
+		for (i = 0; i < N; ++i) {
+			for (j = 0; j < N; ++j) {
+				orig_mat[i][j] = verify_matrix[i][j];
 			}
 		}
 		}
@@ -544,6 +596,10 @@ int main(int argc, char *argv[]) {
 	free(matrix);
 	free(orig_mat[0]);
 	free(orig_mat);
+	free(result_matrix[0]);
+	free(result_matrix);
+	free(verify_matrix[0]);
+	free(verify_matrix);
 
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
