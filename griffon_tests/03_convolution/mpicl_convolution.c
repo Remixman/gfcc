@@ -105,6 +105,8 @@ const char *prog_src =
 "				}														\n"
 "			}															\n"
 "			result_matrix[i*N+j] = new_val;								\n"
+"		} else {														\n"
+"			result_matrix[i*N+j] = matrix[i*N+j];						\n"
 "		}																\n"
 "	}																	\n"
 "}																		\n"
@@ -567,7 +569,9 @@ int main(int argc, char *argv[]) {
 		// copy result to original matrix
 		for (i = 0; i < N; ++i) {
 			for (j = 0; j < N; ++j) {
-				orig_mat[i][j] = verify_matrix[i][j];
+				if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {
+					orig_mat[i][j] = verify_matrix[i][j];
+				}
 			}
 		}
 		}
