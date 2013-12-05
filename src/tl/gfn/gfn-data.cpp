@@ -75,6 +75,7 @@ TL::Source Data::do_data()
     TL::Source master_send_call_function_send, master_send_call_function_recv;
     //TL::Source master_send_scalar_src;
     TL::Source master_send_scalar_src, master_send_array_src;
+    TL::Source master_send_scalar_recv_src;
     TL::Source master_recv_src;
     TL::Source master_lock_transfer_src, master_unlock_transfer_src;
     
@@ -82,6 +83,7 @@ TL::Source Data::do_data()
     TL::Source worker_recv_scalar_src, worker_recv_array_src; 
     TL::Source worker_send_scalar_src, worker_send_array_src;
     TL::Source worker_lock_transfer_src, worker_unlock_transfer_src;
+    TL::Source worker_recv_send_scalar_src;
     
     /* Send and recieve function source */
     TL::Source worker_send_function;
@@ -200,10 +202,19 @@ TL::Source Data::do_data()
             }
             else
             {
+                std::cout << "SEND SCALAR INPUT : " << var_name << " : " 
+                    << (var_info._is_array_or_pointer? "ARRAY" : "NOT ARRAY") << "\n";
+                
                 master_send_scalar_src
                     << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
                     
                 worker_recv_scalar_src
+                    << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
+                    
+                master_send_scalar_recv_src
+                    << "_SendInputMsg((void*)&" << var_name << "," << size_str << ");";
+                    
+                worker_recv_send_scalar_src
                     << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             }
         }
@@ -271,6 +282,12 @@ TL::Source Data::do_data()
             
             worker_recv_scalar_src
                 << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
+                
+            master_send_scalar_recv_src
+                << create_send_var_id_msg(var_name, var_info._dimension_num);
+                
+            worker_recv_send_scalar_src
+                << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
         }
     }
     
@@ -290,6 +307,7 @@ TL::Source Data::do_data()
         << _stmt
         << comment("Send call recieve function message")
         << master_send_call_function_recv
+        << master_send_scalar_recv_src
         << master_unlock_transfer_src
         << master_recv_src;
         
@@ -335,7 +353,7 @@ TL::Source Data::do_data()
             << worker_decl_gen_var_src
             
             << comment("Boardcast Scalar Value")
-            << worker_send_scalar_src
+            << worker_recv_send_scalar_src
             
             << comment("Allocate Array Memory")
             << worker_allocate_src

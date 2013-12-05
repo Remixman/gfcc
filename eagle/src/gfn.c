@@ -290,6 +290,10 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 		return 0;
 	}
 
+	if (dim1_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d]\n", dim1_size);
+	}
+
 #define SWITCH_MALLOC_1D(type,size1) \
 do { \
 	type * tmp_ptr; \
@@ -351,6 +355,10 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	if (found) {
 		//printf("Don't Allocate 2D Again\n");
 		return 0;
+	}
+
+	if (dim1_size <= 0 && dim2_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d|%d]\n", dim1_size, dim2_size);
 	}
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
@@ -417,6 +425,10 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 		return 0;
 	}
 
+	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d]\n", dim1_size, dim2_size, dim3_size);
+	}
+
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
 do { \
 	type *** tmp_ptr; \
@@ -481,6 +493,12 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 	if (found) {
 		//printf("Don't Allocate 4D Again\n");
 		return 0;
+	}
+
+	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
+		dim4_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+			dim3_size, dim4_size);
 	}
 
 #define SWITCH_MALLOC_4D(type,size1,size2,size3,size4) \
@@ -551,6 +569,12 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 		return 0;
 	}
 
+	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
+		dim4_size <= 0 && dim5_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+			dim3_size, dim4_size, dim5_size);
+	}
+
 #define SWITCH_MALLOC_5D(type,size1,size2,size3,size4,size5) \
 do { \
 	type ***** tmp_ptr; \
@@ -619,6 +643,12 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 	if (found) {
 		//printf("Don't Allocate 6D Again\n");
 		return 0;
+	}
+
+	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
+		dim4_size <= 0 && dim5_size <= 0 && dim6_size <= 0) {
+		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+			dim3_size, dim4_size, dim5_size, dim6_size);
 	}
 
 	// TODO: change to 1D array
@@ -891,7 +921,9 @@ for (i = 0; i < recv_loop_num; ++i) { \
 
 		// FIXME : remove this constraint
 		if (lower_bound_size != upper_bound_size)
-			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal\n");
+			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal,"
+				" lower bound size is %d and upper bound size is %d\n",
+				lower_bound, upper_bound);
 
 		// create send lower bound subbuffer
 		if (_gfn_rank != 0 && lower_bound_size > 0) {

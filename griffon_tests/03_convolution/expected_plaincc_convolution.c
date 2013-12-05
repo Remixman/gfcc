@@ -36,19 +36,21 @@ void convolution_kernel(int N, int iterator, float **matrix, int filterN, float 
     int Nsquare = N * N;
     int it;
     /* Send call send function message */
-    _SendCallFuncMsg(176685);
+    _SendCallFuncMsg(355380);
+    _SendConstInputMsg((long long) &(filter[0][0]));
+    _SendConstInputMsg((long long) &(matrix[0][0]));
     _SendInputMsg((void *) &N, sizeof(int));
     _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
     _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
-    _GfnLockTransfer((void *) filter[0]);
-    _GfnLockTransfer((void *) matrix[0]);
+    _GfnLockTransfer((long long) &(filter[0][0]));
+    _GfnLockTransfer((long long) &(matrix[0][0]));
     {
         for (it = 0;
             it < iterator;
             it++)
         {
             /* Send call function message */
-            _SendCallFuncMsg(456676);
+            _SendCallFuncMsg(667325);
             _SendInputMsg((void *) &Nsquare, sizeof(int));
             _SendInputMsg((void *) &N, sizeof(int));
             _SendInputMsg((void *) &filterN, sizeof(int));
@@ -60,8 +62,10 @@ void convolution_kernel(int N, int iterator, float **matrix, int filterN, float 
         }
     }
     /* Send call recieve function message */
-    _SendCallFuncMsg(201989);
-    _GfnUnlockTransfer((void *) matrix[0]);
+    _SendCallFuncMsg(360592);
+    _SendInputMsg((void *) &N, sizeof(int));
+    _GfnUnlockTransfer((long long) &(filter[0][0]));
+    _GfnUnlockTransfer((long long) &(matrix[0][0]));
     _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
 }
 int main(int argc, char *argv[])
@@ -70,44 +74,7 @@ int main(int argc, char *argv[])
     int tid;
     int N = 1500, ite = 1;
     int it, iterator = 10;
-    float **matrix, **orig_mat;
-    float filter[5][5] = {
-        {
-            1 / 256.0,
-            4 / 256.0,
-            6 / 256.0,
-            4 / 256.0,
-            1 / 256.0
-        },
-        {
-            4 / 256.0,
-            16 / 256.0,
-            24 / 256.0,
-            16 / 256.0,
-            4 / 256.0
-        },
-        {
-            6 / 256.0,
-            24 / 256.0,
-            36 / 256.0,
-            24 / 256.0,
-            6 / 256.0
-        },
-        {
-            4 / 256.0,
-            16 / 256.0,
-            24 / 256.0,
-            16 / 256.0,
-            4 / 256.0
-        },
-        {
-            1 / 256.0,
-            4 / 256.0,
-            6 / 256.0,
-            4 / 256.0,
-            1 / 256.0
-        }
-    };
+    float **matrix, **orig_mat, **filter;
     long long time0, time1;
     int pass = 1;
     N = 1500;
@@ -128,6 +95,37 @@ int main(int argc, char *argv[])
         i < N;
         i++)
         orig_mat[i] = orig_mat[i - 1] + N;
+    filter = (float **) malloc(5 * sizeof(float *));
+    filter[0] = (float *) malloc(5 * 5 * sizeof(float));
+    for (i = 1;
+        i < 5;
+        i++)
+        filter[i] = filter[i - 1] + 5;
+    filter[0][0] = 1 / 256.0;
+    filter[0][1] = 4 / 256.0;
+    filter[0][2] = 6 / 256.0;
+    filter[0][3] = 4 / 256.0;
+    filter[0][4] = 1 / 256.0;
+    filter[1][0] = 4 / 256.0;
+    filter[1][1] = 16 / 256.0;
+    filter[1][2] = 24 / 256.0;
+    filter[1][3] = 16 / 256.0;
+    filter[1][4] = 4 / 256.0;
+    filter[2][0] = 6 / 256.0;
+    filter[2][1] = 24 / 256.0;
+    filter[2][2] = 36 / 256.0;
+    filter[2][3] = 24 / 256.0;
+    filter[2][4] = 6 / 256.0;
+    filter[3][0] = 4 / 256.0;
+    filter[3][1] = 16 / 256.0;
+    filter[3][2] = 24 / 256.0;
+    filter[3][3] = 16 / 256.0;
+    filter[3][4] = 4 / 256.0;
+    filter[4][0] = 1 / 256.0;
+    filter[4][1] = 4 / 256.0;
+    filter[4][2] = 6 / 256.0;
+    filter[4][3] = 4 / 256.0;
+    filter[4][4] = 1 / 256.0;
     init(N, orig_mat);
     copy_matrix(N, orig_mat, matrix);
     convolution_kernel(N, iterator, matrix, 5, (float **) filter);
@@ -198,5 +196,7 @@ int main(int argc, char *argv[])
     free(matrix);
     free(orig_mat[0]);
     free(orig_mat);
+    free(filter[0]);
+    free(filter);
     return 0;
 }
