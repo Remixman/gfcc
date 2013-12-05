@@ -479,10 +479,10 @@ int main(int argc, char *argv[]) {
 
 	if (rank == 0) {
 		N = 1500;
-		ite = 3;
+		ite = 1;
 
 		if (argc > 1) N = atoi(argv[1]);
-		if (argc > 2) ite = atoi(argv[2]);
+		//if (argc > 2) ite = atoi(argv[2]);
 	}
 
 	// boardcast important data
@@ -541,13 +541,14 @@ int main(int argc, char *argv[]) {
 	convolution_kernel(N, iterator, matrix[0], result_matrix[0], 5, (void*)filter,
 		rank, node_size, queue, kernel, cpy_kernel, context);
 
-	time0 = get_time();
+	
 	for (i = 0; i < ite; i++) {
 		copy_matrix(N, orig_mat, matrix);
+		time0 = get_time();
 		convolution_kernel(N, iterator, matrix[0], result_matrix[0], 5, (void*)filter,
 			rank, node_size, queue, kernel, cpy_kernel, context);
+		time1 = get_time();
 	}
-	time1 = get_time();
 
 	// assert and show result
 	if (rank == 0) {
