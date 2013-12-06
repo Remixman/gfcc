@@ -216,10 +216,14 @@ TL::Source ParallelFor::do_parallel_for()
         worker_initialize_generated_variables_src
             << "_local_data_start = _GfnCalcLocalDataStart(0, (" << full_size << ")-1);"
             << "_local_data_end = _GfnCalcLocalDataEnd(0, (" << full_size << ")-1);"
-            << local_start_idx_var << " = _GfnCalcLocalLoopStart(_local_data_start, "
+            /*<< local_start_idx_var << " = _GfnCalcLocalLoopStart(_local_data_start, "
             << loop_start << ", " << loop_step << ");"
             << local_end_idx_var << " = _GfnCalcLocalLoopEnd(_local_data_end, "
-            << loop_end << ");";
+            << loop_end << ");";*/
+            << local_start_idx_var << " = _GfnCalcLocalLoopStart2("
+            << loop_start << ", " << loop_end << ", " << loop_step << ");"
+            << local_end_idx_var << " = _GfnCalcLocalLoopEnd2("
+            << loop_start << ", " << loop_end << ", " << loop_step << ");";
     }
     else
     {
