@@ -117,15 +117,12 @@ TL::Source Data::do_data()
         std::string c_type_str = type_to_ctype(type);
         std::string size_str = var_info.get_allocate_size_in_byte(type);
         
-        // TODO: _GFN_MEM_ALLOC_HOST_PTR()
+        // TODO: _GFN_MEM_ALLOC_HOST_PTR(), [Research] Opttimize memory type
         std::string var_cl_mem_type;
-        if (var_info._is_input && var_info._is_output)
-            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
-        else if (var_info._is_output)
-            var_cl_mem_type = "_GFN_MEM_WRITE_ONLY()";
-        else if (var_info._is_input)
+        if (var_info._is_input && !var_info._is_output)
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
-        /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
+        else
+            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
         
         bool is_partition = (var_info._shared_dimension >= 0);
         
@@ -138,10 +135,12 @@ TL::Source Data::do_data()
             worker_decl_var_src
                 << c_type_str << " " << ptr_stars << var_name << ";";
         }
-        else if (var_info._is_array_or_pointer)
+        else if (var_info._is_array_or_pointer && !var_info._is_private)
         {
-            // TODO: private, create case
-        }
+            // create, present case (all array)
+            worker_decl_var_src
+                << c_type_str << " " << ptr_stars << var_name << ";";
+        } // TODO: private arrray?
         else
         {
             // scalar case
@@ -151,7 +150,7 @@ TL::Source Data::do_data()
         
         /* (2). Declaration generated variables */
         if (var_info._is_array_or_pointer &&
-            (var_info._is_input || var_info._is_output))
+            (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
             worker_decl_gen_var_src
                 << "long long " << var_unique_id_name << ";"
@@ -160,7 +159,7 @@ TL::Source Data::do_data()
         
         /* (XX). Allocate and Deallocate memory */
         if (var_info._is_array_or_pointer &&
-            (var_info._is_input || var_info._is_output))
+            (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
             worker_allocate_src
                 << create_gfn_malloc_nd(var_name, var_cl_name, var_unique_id_name,
@@ -259,7 +258,8 @@ TL::Source Data::do_data()
         }
         
         // create lock and unlock transfer
-        if (var_info._is_array_or_pointer && (var_info._is_input || var_info._is_output))
+        if (var_info._is_array_or_pointer && 
+            (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
             master_lock_transfer_src
                 << create_master_lock_var(var_name, var_info._dimension_num);
@@ -275,7 +275,8 @@ TL::Source Data::do_data()
         }
         
         // send array unique id 
-        if (var_info._is_array_or_pointer && (var_info._is_input || var_info._is_output))
+        if (var_info._is_array_or_pointer && 
+            (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
             master_send_scalar_src
                 << create_send_var_id_msg(var_name, var_info._dimension_num);

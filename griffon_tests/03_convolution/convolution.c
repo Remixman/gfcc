@@ -13,7 +13,7 @@ long long get_time() {
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
-void init(int N, float **mat) {
+void init(int N, double **mat) {
 	int i, j;
 
 	for (i = 0; i < N; i++)
@@ -22,7 +22,7 @@ void init(int N, float **mat) {
 			mat[i][j] = (rand() % 100) / 100.f;
 }
 
-void copy_matrix(int N, float **src, float **dsc) {
+void copy_matrix(int N, double **src, double **dsc) {
 	int i, j;
 
 	for (i = 0; i < N; i++)
@@ -31,42 +31,52 @@ void copy_matrix(int N, float **src, float **dsc) {
 }
 
 #define EPSILON 0.01
-int is_equal(float a, float b) {
+int is_equal(double a, double b) {
 	return (a+EPSILON > b && b > a-EPSILON);
 }
 
-void convolution_kernel(int N, int iterator, float **matrix,
-						int filterN, float **filter)
+void convolution_kernel(int N, int iterator, double **matrix, double **result_matrix)
 {
 	int i, j, m, n, tid;
 	int Nsquare = N*N;
 	int it;
 
 	// run kernel
-	#pragma gfn data copyin(filter[0:5][0:5]) \
+	#pragma gfn data create(result_matrix[0:N][0:N]) \
 		copy(matrix[0:N{partition}][0:N])
 	{
 	for (it = 0; it < iterator; it++) {
 
-	#pragma gfn parallel_for pcopyin(filter[0:5][0:5]) \
+	#pragma gfn parallel_for present(result_matrix[0:N][0:N]) \
 		pcopy(matrix[0:N{partition}][0:N]) \
-		in_pattern(matrix:[-2,2][-2,2]) \
+		in_pattern(matrix:[-60,60][-60,60]) \
 		private(i, j, m, n)
 	for (tid = 0; tid < Nsquare; ++tid) {
 		i = tid / N;
 		j = tid % N;
-		if (i >= 2 && i < N-2 && j >= 2 && j < N-2) {
-			float new_val = 0.0;
-			for (m = 0; m < 5; ++m) {
-				for (n = 0; n < 5; ++n) {
-					new_val += (filter[m][n] * matrix[(i+m-2)][(j+n-2)]);
+		if (i >= 60 && i < N-60 && j >= 60 && j < N-60) {
+			double new_val = 0.0;
+			for (m = 0; m < 121; ++m) {
+				for (n = 0; n < 121; ++n) {
+					new_val += matrix[(i+m-60)][(j+n-60)];
 				}
 			}
-			matrix[i][j] = new_val;
+			result_matrix[i][j] = new_val / 14641.0;
+		} else {
+			result_matrix[i][j] = matrix[i][j];
 		}
 	}
 
+	#pragma gfn parallel_for present(result_matrix[0:N][0:N]) \
+		pcopy(matrix[0:N{partition}][0:N])
+	for (tid = 0; tid < Nsquare; ++tid) {
+		i = tid / N;
+		j = tid % N;
+		matrix[i][j] = result_matrix[i][j];
 	}
+
+	}
+
 	} /* end pragma acc data */
 }
 
@@ -76,61 +86,75 @@ int main(int argc, char *argv[]) {
 	int tid;
 	int N = 1500, ite = 1;
 	int it, iterator = 10;
-	float **matrix, **orig_mat, **filter;
+	double **matrix, **orig_mat;
+	double **result_matrix, **verify_matrix;
 	long long time0, time1;
 	int pass = 1;
 
 	N = 1500;
-	ite = 3;
+	ite = 1;
 
 	if (argc > 1) N = atoi(argv[1]);
 	if (argc > 2) ite = atoi(argv[2]);
 	
 	// allocate matrix memory 
-	matrix = (float **) malloc(N * sizeof(float*));
-	matrix[0] = (float *) malloc(N * N * sizeof(float));
+	matrix = (double **) malloc(N * sizeof(double*));
+	matrix[0] = (double *) malloc(N * N * sizeof(double));
 	for (i = 1; i < N; i++)
 		matrix[i] = matrix[i-1] + N;
-	orig_mat = (float **) malloc(N * sizeof(float*));
-	orig_mat[0] = (float *) malloc(N * N * sizeof(float));
+	result_matrix = (double **) malloc(N * sizeof(double*));
+	result_matrix[0] = (double *) malloc(N * N * sizeof(double));
+	for (i = 1; i < N; i++)
+		result_matrix[i] = result_matrix[i-1] + N;
+	orig_mat = (double **) malloc(N * sizeof(double*));
+	orig_mat[0] = (double *) malloc(N * N * sizeof(double));
 	for (i = 1; i < N; i++)
 		orig_mat[i] = orig_mat[i-1] + N;
-	filter = (float **) malloc(5 * sizeof(float*));
-	filter[0] = (float *) malloc(5 * 5 * sizeof(float));
-	for (i = 1; i < 5; i++)
-		filter[i] = filter[i-1] + 5;
-		
-	filter[0][0] =  1/256.0; filter[0][1] =  4/256.0; filter[0][2] =  6/256.0; filter[0][3] =  4/256.0; filter[0][4] =  1/256.0;
-	filter[1][0] =  4/256.0; filter[1][1] = 16/256.0; filter[1][2] = 24/256.0; filter[1][3] = 16/256.0; filter[1][4] =  4/256.0;
-	filter[2][0] =  6/256.0; filter[2][1] = 24/256.0; filter[2][2] = 36/256.0; filter[2][3] = 24/256.0; filter[2][4] =  6/256.0;
-	filter[3][0] =  4/256.0; filter[3][1] = 16/256.0; filter[3][2] = 24/256.0; filter[3][3] = 16/256.0; filter[3][4] =  4/256.0;
-	filter[4][0] =  1/256.0; filter[4][1] =  4/256.0; filter[4][2] =  6/256.0; filter[4][3] =  4/256.0; filter[4][4] =  1/256.0;
-	
+	verify_matrix = (double **) malloc(N * sizeof(double*));
+	verify_matrix[0] = (double *) malloc(N * N * sizeof(double));
+	for (i = 1; i < N; i++)
+		verify_matrix[i] = verify_matrix[i-1] + N;
+
 	// initialize matrix
 	init(N, orig_mat);
 	
 	// warm up
 	copy_matrix(N, orig_mat, matrix);
-	convolution_kernel(N, iterator, matrix, 5, (float**)filter);
+	convolution_kernel(N, iterator, matrix, result_matrix);
 
-	time0 = get_time();
+	
 	for (i = 0; i < ite; i++) {
 		copy_matrix(N, orig_mat, matrix);
-		convolution_kernel(N, iterator, matrix, 5, (float**)filter);
+		time0 = get_time();
+		convolution_kernel(N, iterator, matrix, result_matrix);
+		time1 = get_time();
 	}
-	time1 = get_time();
 
 	// assert and show result
 	for (it = 0; it < iterator; it++) {
-	for (i = 0+2; i < N-2; ++i) {	
-		for (j = 0+2; j < N-2; ++j) {
-			float new_val = 0.0;
-			for (m = 0; m < 5; ++m) {
-				for (n = 0; n < 5; ++n) {
-					new_val += (filter[m][n] * orig_mat[i+m-2][j+n-2]);
+	// apply filter
+	for (tid = 0; tid < N*N; ++tid) {
+		i = tid / N;
+		j = tid % N;
+		if (i >= 60 && i < N-60 && j >= 60 && j < N-60) {
+			double new_val = 0.0;
+			for (m = 0; m < 121; ++m) {	
+				for (n = 0; n < 121; ++n) {	
+					new_val += orig_mat[i+m-60][j+n-60];
 				}
 			}
-			orig_mat[i][j] = new_val;
+			verify_matrix[i][j] = new_val / 14641.0;
+		} else {
+			verify_matrix[i][j] = orig_mat[i][j];
+		}
+	}
+
+	// copy result to original matrix
+	for (i = 0; i < N; ++i) {
+		for (j = 0; j < N; ++j) {
+			if (i >= 60 && i < N-60 && j >= 60 && j < N-60) {
+				orig_mat[i][j] = verify_matrix[i][j];
+			}
 		}
 	}
 	}
@@ -141,7 +165,7 @@ int main(int argc, char *argv[]) {
 				printf("Error at [%d][%d]\n", i, j);
 				printf("Actual value is %.5f but expected value is %.5f\n",
 					matrix[i][j], orig_mat[i][j]);
-				pass = 0;
+					pass = 0;
 				break;
 			}
 		}
@@ -156,10 +180,12 @@ int main(int argc, char *argv[]) {
 	
 	free(matrix[0]);
 	free(matrix);
+	free(result_matrix[0]);
+	free(result_matrix);
 	free(orig_mat[0]);
 	free(orig_mat);
-	free(filter[0]);
-	free(filter);
+	free(verify_matrix[0]);
+	free(verify_matrix);
 
 	return 0;
 }

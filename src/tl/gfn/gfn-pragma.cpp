@@ -350,6 +350,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     get_pcopyin_clause(construct, kernel_info);
     get_pcopyout_clause(construct, kernel_info);
     get_pcopy_clause(construct, kernel_info);
+    get_create_clause(construct, kernel_info);
     get_copyin_clause(construct, kernel_info);
     get_copyout_clause(construct, kernel_info);
     get_copy_clause(construct, kernel_info);
@@ -459,6 +460,7 @@ void GFNPragmaPhase::data(PragmaCustomConstruct construct)
     get_pcopyin_clause(construct, transfer_info);
     get_pcopyout_clause(construct, transfer_info);
     get_pcopy_clause(construct, transfer_info);
+    get_create_clause(construct, transfer_info);
     get_copyin_clause(construct, transfer_info);
     get_copyout_clause(construct, transfer_info);
     get_copy_clause(construct, transfer_info);
@@ -720,7 +722,9 @@ void GFNPragmaPhase::get_create_clause(PragmaCustomConstruct construct,
                                        TransferInfo *transfer_info)
 {
     TL::PragmaCustomClause create_clause = construct.get_clause("create");
-    // TODO:
+    get_data_clause(create_clause, transfer_info, 
+                    construct.get_statement().get_ast(), 
+                    construct.get_scope_link(), true, "create");
 }
 
 void GFNPragmaPhase::get_present_clause(PragmaCustomConstruct construct, 
@@ -873,8 +877,15 @@ void GFNPragmaPhase::get_data_clause(TL::PragmaCustomClause &copy_clause,
             
                 int idx = transfer_info->get_var_info_index_from_var_name(varname);
                 if (idx >= 0)
-                {                
-                    if (copy_type_str == "copyin")
+                {    
+                    if (copy_type_str == "create")
+                    {
+                        transfer_info->_var_info[idx]._is_input = false;
+                        transfer_info->_var_info[idx]._is_output = false;
+                        transfer_info->_var_info[idx]._is_private = false;
+                        transfer_info->_var_info[idx]._is_temp_array = true;
+                    }
+                    else if (copy_type_str == "copyin")
                     {
                         transfer_info->_var_info[idx]._is_input = true;
                         transfer_info->_var_info[idx]._is_output = false;

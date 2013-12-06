@@ -280,15 +280,12 @@ TL::Source ParallelFor::do_parallel_for()
         std::string ptr_stars = var_info.get_pointer_starts();
         bool is_partition = (var_info._shared_dimension >= 0);
 
-        // TODO: _GFN_MEM_ALLOC_HOST_PTR()
+        // TODO: _GFN_MEM_ALLOC_HOST_PTR(), [Research] Opttimize memory type
         std::string var_cl_mem_type;
-        if (var_info._is_input && var_info._is_output)
-            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
-        else if (var_info._is_output)
-            var_cl_mem_type = "_GFN_MEM_WRITE_ONLY()";
-        else if (var_info._is_input)
+        if (var_info._is_input && !var_info._is_output)
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
-        /* TODO: temp var type ?? _GFN_MEM_READ_WRITE?? or local */
+        else
+            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
         
         int in_pattern_type = var_info._in_pattern_type;
         int out_pattern_type = var_info._out_pattern_type;
@@ -347,7 +344,7 @@ TL::Source ParallelFor::do_parallel_for()
         }
 
         /* 2. Declaration generated variable for each variable */
-        if (var_info._is_input || var_info._is_output)
+        if (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present)
         {
             if (var_info._is_array_or_pointer)
             {
@@ -374,7 +371,7 @@ TL::Source ParallelFor::do_parallel_for()
                 else
                 {
                     cl_actual_param
-                        << "__global " << ((!var_info._is_output)? "const " : "")
+                        << "__global " << ((!var_info._is_output && var_info._is_input)? "const " : "")
                         << c_type_str << " * " << var_name;
                 }
                 cl_actual_params.append_with_separator(cl_actual_param, ",");
@@ -399,7 +396,8 @@ TL::Source ParallelFor::do_parallel_for()
         }
         
         /* 3. Allocate memory for array or pointer */
-        if ((var_info._is_input || var_info._is_output) && var_info._is_array_or_pointer)
+        if (var_info._is_array_or_pointer &&            
+            (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
             master_send_scalar_input
                 << create_send_var_id_msg(var_name, var_info._dimension_num);
