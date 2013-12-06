@@ -1754,6 +1754,9 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 									0);						/* event */
 	_GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
 
+	_gfn_status = clFinish(_gfn_cmd_queue);
+	_GfnCheckCLStatus(_gfn_status, "FINISH KERNEL");
+
 	IF_TIMING (_gpu_kernel_time) {
 		_gfn_status = clFlush(_gfn_cmd_queue);
 		run_kernel_end_t = get_time();
