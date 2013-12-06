@@ -806,9 +806,8 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	if (_is_lock_transfer(unique_id)) {
 		send_only_bound = 1;
 
-		if (pattern_n == 0) {
+		if (pattern_n == 0)
 			return 0;
-		}
 	}
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
@@ -921,6 +920,9 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		int lower_bound_size = abs(lower_bound) * block_size;
 		int upper_bound_size = abs(upper_bound) * block_size;
 
+		int type_size = _CalcTypeSize(type_id);
+		MPI_Datatype mpi_type = _GetMpiDatatype(type_id);
+
 #ifdef DEBUG_BOUND
 		//printf("[DEBUG BOUND]: Send only bound in _GfnEnqueueScatterND\n");
 		//printf("[DEBUG BOUND]: Lower bound is %d\n", lower_bound);
@@ -933,34 +935,35 @@ for (i = 0; i < recv_loop_num; ++i) { \
 				" lower bound size is %d and upper bound size is %d\n",
 				lower_bound, upper_bound);
 
+	if (level2_cond) {
 		// create send lower bound subbuffer
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
-			send_lower_info.origin = (size_t)(disp[_gfn_rank]*sizeof(double));
-			send_lower_info.size = (size_t)(lower_bound_size*sizeof(double));
+			send_lower_info.origin = (size_t)(disp[_gfn_rank]*type_size);
+			send_lower_info.size = (size_t)(lower_bound_size*type_size);
 			cl_send_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
 				CL_BUFFER_CREATE_TYPE_REGION, &send_lower_info, &_gfn_status);
 			_GfnCheckCLStatus(_gfn_status, "CREATE SEND LOWER BOUND");
 		}
 		// create send upper bound subbuffer
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
-			send_upper_info.origin = (size_t)((disp[_gfn_rank+1]-upper_bound_size)*sizeof(double));
-			send_upper_info.size = (size_t)(upper_bound_size*sizeof(double));
+			send_upper_info.origin = (size_t)((disp[_gfn_rank+1]-upper_bound_size)*type_size);
+			send_upper_info.size = (size_t)(upper_bound_size*type_size);
 			cl_send_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
 				CL_BUFFER_CREATE_TYPE_REGION, &send_upper_info, &_gfn_status);
 			_GfnCheckCLStatus(_gfn_status, "CREATE SEND UPPER BOUND");
 		}
 		// create recieve lower bound subbuffer
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
-			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*sizeof(double));
-			recv_lower_info.size = (size_t)(upper_bound_size*sizeof(double));
+			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*type_size);
+			recv_lower_info.size = (size_t)(upper_bound_size*type_size);
 			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
 				CL_BUFFER_CREATE_TYPE_REGION, &recv_lower_info, &_gfn_status);
 			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE LOWER BOUND");
 		}
 		// create recieve upper bound subbuffer
 		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
-			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*sizeof(double));
-			recv_upper_info.size = (size_t)(lower_bound_size*sizeof(double));
+			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*type_size);
+			recv_upper_info.size = (size_t)(lower_bound_size*type_size);
 			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
 				CL_BUFFER_CREATE_TYPE_REGION, &recv_upper_info, &_gfn_status);
 			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE UPPER BOUND");
@@ -970,38 +973,39 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		// download send lower bound subbuffer from GPU to host
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
 			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_TRUE,
-				0, lower_bound_size*sizeof(double), tmp_ptr+disp[_gfn_rank],
+				0, lower_bound_size*type_size, tmp_ptr+disp[_gfn_rank],
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND LOWER BOUND FROM DEVICE");
 		}
 		// download send upper bound subbuffer from GPU to host
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
 			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_TRUE,
-				0, upper_bound_size*sizeof(double), tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
+				0, upper_bound_size*type_size, tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
 		}
+	}
 
 
 		// send lower bound asynchonously
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
 			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank]), lower_bound_size, 
-				MPI_DOUBLE, _gfn_rank-1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &send_lower_req);
+				mpi_type, _gfn_rank-1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &send_lower_req);
 		}
 		// send upper bound asynchonously
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
 			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank+1]-upper_bound_size), upper_bound_size, 
-				MPI_DOUBLE, _gfn_rank+1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &send_upper_req);
+				mpi_type, _gfn_rank+1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &send_upper_req);
 		}
 		// recieve lower bound asynchonously
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
 			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank]-upper_bound_size), upper_bound_size,
-				MPI_DOUBLE, _gfn_rank-1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &recv_lower_req);
+				mpi_type, _gfn_rank-1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &recv_lower_req);
 		}
 		// recieve upper bound asynchonously
 		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
 			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank+1]), lower_bound_size, 
-				MPI_DOUBLE, _gfn_rank+1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &recv_upper_req);
+				mpi_type, _gfn_rank+1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &recv_upper_req);
 		}
 
 
@@ -1016,6 +1020,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 			MPI_Wait(&recv_upper_req, &mpi_status);
 
 
+	if (level2_cond) {
 		// upload upper bound to device
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
 			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_TRUE, 
@@ -1030,6 +1035,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE LOWER BOUND FROM HOST");
 		}
+	}
 
 		return 0;
 	}
@@ -1544,6 +1550,26 @@ MPI_Op _GFN_OP_LXOR()             { return MPI_LXOR; }
 MPI_Op _GFN_OP_BXOR()             { return MPI_BXOR; }
 MPI_Op _GFN_OP_MINLOC()           { return MPI_MINLOC; }
 MPI_Op _GFN_OP_MAXLOC()           { return MPI_MAXLOC; }
+MPI_Datatype _GetMpiDatatype(int type_id)
+{
+	switch (type_id) {
+	case TYPE_CHAR:           return MPI_CHAR;
+	case TYPE_UNSIGNED_CHAR:  return MPI_UNSIGNED_CHAR;
+	case TYPE_SHORT:          return MPI_SHORT;
+	case TYPE_UNSIGNED_SHORT: return MPI_UNSIGNED_SHORT;
+	case TYPE_INT:            return MPI_INT;
+	case TYPE_UNSIGNED:       return MPI_UNSIGNED;
+	case TYPE_LONG:           return MPI_LONG;
+	case TYPE_UNSIGNED_LONG:  return MPI_UNSIGNED_LONG;
+	case TYPE_FLOAT:          return MPI_FLOAT;
+	case TYPE_DOUBLE:         return MPI_DOUBLE;
+	case TYPE_LONG_DOUBLE:    return MPI_LONG_DOUBLE;
+	case TYPE_LONG_LONG_INT:  return MPI_LONG_LONG_INT;
+	default:
+		fprintf(stderr, "Unknown type in _GetMpiDatatype\n");
+		return 0;
+	}
+}
 
 cl_bool _GFN_TRUE()                     { return CL_TRUE; }
 cl_bool _GFN_FALSE()                    { return CL_FALSE; }

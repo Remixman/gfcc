@@ -121,6 +121,7 @@ MPI_Op _GFN_OP_LXOR();
 MPI_Op _GFN_OP_BXOR();
 MPI_Op _GFN_OP_MINLOC();
 MPI_Op _GFN_OP_MAXLOC();
+MPI_Datatype _GetMpiDatatype(int type_id);
 
 cl_bool _GFN_TRUE();
 cl_bool _GFN_FALSE();
