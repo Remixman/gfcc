@@ -48,7 +48,7 @@ void convolution_kernel(int N, int iterator, double **matrix, double **result_ma
 	for (it = 0; it < iterator; it++) {
 
 	#pragma gfn parallel_for present(result_matrix[0:N][0:N]) \
-		pcopy(matrix[0:N{partition}][0:N]) \
+		pcopyin(matrix[0:N{partition}][0:N]) \
 		in_pattern(matrix:[-60,60][-60,60]) \
 		private(i, j, m, n)
 	for (tid = 0; tid < Nsquare; ++tid) {
@@ -68,7 +68,7 @@ void convolution_kernel(int N, int iterator, double **matrix, double **result_ma
 	}
 
 	#pragma gfn parallel_for present(result_matrix[0:N][0:N]) \
-		pcopy(matrix[0:N{partition}][0:N])
+		pcopyout(matrix[0:N{partition}][0:N])
 	for (tid = 0; tid < Nsquare; ++tid) {
 		i = tid / N;
 		j = tid % N;

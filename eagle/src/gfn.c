@@ -952,30 +952,14 @@ for (i = 0; i < recv_loop_num; ++i) { \
 				CL_BUFFER_CREATE_TYPE_REGION, &send_upper_info, &_gfn_status);
 			_GfnCheckCLStatus(_gfn_status, "CREATE SEND UPPER BOUND");
 		}
-		// create recieve lower bound subbuffer
-		if (_gfn_rank != 0 && upper_bound_size > 0) {
-			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*type_size);
-			recv_lower_info.size = (size_t)(upper_bound_size*type_size);
-			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
-				CL_BUFFER_CREATE_TYPE_REGION, &recv_lower_info, &_gfn_status);
-			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE LOWER BOUND");
-		}
-		// create recieve upper bound subbuffer
-		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
-			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*type_size);
-			recv_upper_info.size = (size_t)(lower_bound_size*type_size);
-			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
-				CL_BUFFER_CREATE_TYPE_REGION, &recv_upper_info, &_gfn_status);
-			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE UPPER BOUND");
-		}
-
-
+	
 		// download send lower bound subbuffer from GPU to host
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
 			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_TRUE,
 				0, lower_bound_size*type_size, tmp_ptr+disp[_gfn_rank],
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND LOWER BOUND FROM DEVICE");
+			_gfn_status = clFinish(_gfn_cmd_queue);
 		}
 		// download send upper bound subbuffer from GPU to host
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
@@ -983,6 +967,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 				0, upper_bound_size*type_size, tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
+			_gfn_status = clFinish(_gfn_cmd_queue);
 		}
 	}
 
@@ -1021,6 +1006,23 @@ for (i = 0; i < recv_loop_num; ++i) { \
 
 
 	if (level2_cond) {
+		// create recieve lower bound subbuffer
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*type_size);
+			recv_lower_info.size = (size_t)(upper_bound_size*type_size);
+			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_lower_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE LOWER BOUND");
+		}
+		// create recieve upper bound subbuffer
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*type_size);
+			recv_upper_info.size = (size_t)(lower_bound_size*type_size);
+			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_upper_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE UPPER BOUND");
+		}
+
 		// upload upper bound to device
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
 			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_TRUE, 
@@ -1319,6 +1321,7 @@ int _GfnCalcLocalDataEnd(int data_start, int data_end)
 	return data_start + _CalcOffset(range_size, _gfn_num_proc, _gfn_rank + 1) - 1;
 }
 
+#if 0
 int _GfnCalcLocalLoopStart(int local_data_start, int loop_start, int loop_step)
 {
 	// local_start_step = ceil| local_data_start - loop_start |
@@ -1333,6 +1336,20 @@ int _GfnCalcLocalLoopStart(int local_data_start, int loop_start, int loop_step)
 int _GfnCalcLocalLoopEnd(int local_data_end, int loop_end)
 {
 	return MIN(local_data_end, loop_end);
+}
+#endif
+int _GfnCalcLocalLoopStart2(int loop_start, int loop_end, int loop_step)
+{
+	int range_size = (loop_end - loop_start + 1) / loop_step;
+	int start = _CalcOffset(range_size, _gfn_num_proc, _gfn_rank) * loop_step;
+	return loop_start + start;
+}
+
+int _GfnCalcLocalLoopEnd2(int loop_start, int loop_end, int loop_step)
+{
+	int range_size = (loop_end - loop_start + 1) / loop_step;
+	int next_start = _CalcOffset(range_size, _gfn_num_proc, _gfn_rank+1) * loop_step;
+	return loop_start + next_start - 1;
 }
 
 int _CalcLoopSize(int start, int end, int incre)
