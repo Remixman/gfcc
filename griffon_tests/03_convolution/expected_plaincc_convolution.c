@@ -4,7 +4,7 @@ long long get_time()
     gettimeofday(&tv, ((void *) 0));
     return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
-void init(int N, float **mat)
+void init(int N, double **mat)
 {
     int i, j;
     for (i = 0;
@@ -15,7 +15,7 @@ void init(int N, float **mat)
             j++)
             mat[i][j] = (rand() % 100) / 100.f;
 }
-void copy_matrix(int N, float **src, float **dsc)
+void copy_matrix(int N, double **src, double **dsc)
 {
     int i, j;
     for (i = 0;
@@ -26,47 +26,52 @@ void copy_matrix(int N, float **src, float **dsc)
             j++)
             dsc[i][j] = src[i][j];
 }
-int is_equal(float a, float b)
+int is_equal(double a, double b)
 {
     return (a + 0.01 > b && b > a - 0.01);
 }
-void convolution_kernel(int N, int iterator, float **matrix, int filterN, float **filter)
+void convolution_kernel(int N, int iterator, double **matrix, double **result_matrix)
 {
     int i, j, m, n, tid;
     int Nsquare = N * N;
     int it;
     /* Send call send function message */
-    _SendCallFuncMsg(355380);
-    _SendConstInputMsg((long long) &(filter[0][0]));
+    _SendCallFuncMsg(511137);
     _SendConstInputMsg((long long) &(matrix[0][0]));
+    _SendConstInputMsg((long long) &(result_matrix[0][0]));
     _SendInputMsg((void *) &N, sizeof(int));
-    _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
-    _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
-    _GfnLockTransfer((long long) &(filter[0][0]));
+    _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_DOUBLE(), 0, 0, 0, 0, 0, 2, 0, N, N);
     _GfnLockTransfer((long long) &(matrix[0][0]));
+    _GfnLockTransfer((long long) &(result_matrix[0][0]));
     {
         for (it = 0;
             it < iterator;
             it++)
         {
             /* Send call function message */
-            _SendCallFuncMsg(667325);
+            _SendCallFuncMsg(105999);
             _SendInputMsg((void *) &Nsquare, sizeof(int));
             _SendInputMsg((void *) &N, sizeof(int));
-            _SendInputMsg((void *) &filterN, sizeof(int));
-            _SendConstInputMsg((long long) &(filter[0][0]));
             _SendConstInputMsg((long long) &(matrix[0][0]));
-            _SendInputMsg((void *) filter[0], (sizeof(float) * ((5) * (5))));
-            _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 1, 2, 2, N, N, - 2, 2);
-            _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, (Nsquare) - 1, 1, 0, 0, 2, 0, N, N);
+            _SendConstInputMsg((long long) &(result_matrix[0][0]));
+            _SendInputNDMsg(&(matrix[0][0]), _GFN_TYPE_DOUBLE(), 0, (Nsquare) - 1, 1, 0, 1, 2, 2, N, N, - 60, 60);
+            /* Send call function message */
+            _SendCallFuncMsg(896635);
+            _SendInputMsg((void *) &Nsquare, sizeof(int));
+            _SendInputMsg((void *) &N, sizeof(int));
+            _SendConstInputMsg((long long) &(matrix[0][0]));
+            _SendConstInputMsg((long long) &(result_matrix[0][0]));
+            _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_DOUBLE(), 0, (Nsquare) - 1, 1, 0, 0, 2, 0, N, N);
         }
     }
     /* Send call recieve function message */
-    _SendCallFuncMsg(360592);
+    _SendCallFuncMsg(471941);
+    _SendConstInputMsg((long long) &(matrix[0][0]));
+    _SendConstInputMsg((long long) &(result_matrix[0][0]));
     _SendInputMsg((void *) &N, sizeof(int));
-    _GfnUnlockTransfer((long long) &(filter[0][0]));
     _GfnUnlockTransfer((long long) &(matrix[0][0]));
-    _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_FLOAT(), 0, 0, 0, 0, 0, 2, 0, N, N);
+    _GfnUnlockTransfer((long long) &(result_matrix[0][0]));
+    _RecvOutputNDMsg(&(matrix[0][0]), _GFN_TYPE_DOUBLE(), 0, 0, 0, 0, 0, 2, 0, N, N);
 }
 int main(int argc, char *argv[])
 {
@@ -74,95 +79,95 @@ int main(int argc, char *argv[])
     int tid;
     int N = 1500, ite = 1;
     int it, iterator = 10;
-    float **matrix, **orig_mat, **filter;
+    double **matrix, **orig_mat;
+    double **result_matrix, **verify_matrix;
     long long time0, time1;
     int pass = 1;
     N = 1500;
-    ite = 3;
+    ite = 1;
     if (argc > 1)
         N = atoi(argv[1]);
     if (argc > 2)
         ite = atoi(argv[2]);
-    matrix = (float **) malloc(N * sizeof(float *));
-    matrix[0] = (float *) malloc(N * N * sizeof(float));
+    matrix = (double **) malloc(N * sizeof(double *));
+    matrix[0] = (double *) malloc(N * N * sizeof(double));
     for (i = 1;
         i < N;
         i++)
         matrix[i] = matrix[i - 1] + N;
-    orig_mat = (float **) malloc(N * sizeof(float *));
-    orig_mat[0] = (float *) malloc(N * N * sizeof(float));
+    result_matrix = (double **) malloc(N * sizeof(double *));
+    result_matrix[0] = (double *) malloc(N * N * sizeof(double));
+    for (i = 1;
+        i < N;
+        i++)
+        result_matrix[i] = result_matrix[i - 1] + N;
+    orig_mat = (double **) malloc(N * sizeof(double *));
+    orig_mat[0] = (double *) malloc(N * N * sizeof(double));
     for (i = 1;
         i < N;
         i++)
         orig_mat[i] = orig_mat[i - 1] + N;
-    filter = (float **) malloc(5 * sizeof(float *));
-    filter[0] = (float *) malloc(5 * 5 * sizeof(float));
+    verify_matrix = (double **) malloc(N * sizeof(double *));
+    verify_matrix[0] = (double *) malloc(N * N * sizeof(double));
     for (i = 1;
-        i < 5;
+        i < N;
         i++)
-        filter[i] = filter[i - 1] + 5;
-    filter[0][0] = 1 / 256.0;
-    filter[0][1] = 4 / 256.0;
-    filter[0][2] = 6 / 256.0;
-    filter[0][3] = 4 / 256.0;
-    filter[0][4] = 1 / 256.0;
-    filter[1][0] = 4 / 256.0;
-    filter[1][1] = 16 / 256.0;
-    filter[1][2] = 24 / 256.0;
-    filter[1][3] = 16 / 256.0;
-    filter[1][4] = 4 / 256.0;
-    filter[2][0] = 6 / 256.0;
-    filter[2][1] = 24 / 256.0;
-    filter[2][2] = 36 / 256.0;
-    filter[2][3] = 24 / 256.0;
-    filter[2][4] = 6 / 256.0;
-    filter[3][0] = 4 / 256.0;
-    filter[3][1] = 16 / 256.0;
-    filter[3][2] = 24 / 256.0;
-    filter[3][3] = 16 / 256.0;
-    filter[3][4] = 4 / 256.0;
-    filter[4][0] = 1 / 256.0;
-    filter[4][1] = 4 / 256.0;
-    filter[4][2] = 6 / 256.0;
-    filter[4][3] = 4 / 256.0;
-    filter[4][4] = 1 / 256.0;
+        verify_matrix[i] = verify_matrix[i - 1] + N;
     init(N, orig_mat);
     copy_matrix(N, orig_mat, matrix);
-    convolution_kernel(N, iterator, matrix, 5, (float **) filter);
-    time0 = get_time();
+    convolution_kernel(N, iterator, matrix, result_matrix);
     for (i = 0;
         i < ite;
         i++)
     {
         copy_matrix(N, orig_mat, matrix);
-        convolution_kernel(N, iterator, matrix, 5, (float **) filter);
+        time0 = get_time();
+        convolution_kernel(N, iterator, matrix, result_matrix);
+        time1 = get_time();
     }
-    time1 = get_time();
     for (it = 0;
         it < iterator;
         it++)
     {
-        for (i = 0 + 2;
-            i < N - 2;
-            ++i)
+        for (tid = 0;
+            tid < N * N;
+            ++tid)
         {
-            for (j = 0 + 2;
-                j < N - 2;
-                ++j)
+            i = tid / N;
+            j = tid % N;
+            if (i >= 60 && i < N - 60 && j >= 60 && j < N - 60)
             {
-                float new_val = 0.0;
+                double new_val = 0.0;
                 for (m = 0;
-                    m < 5;
+                    m < 121;
                     ++m)
                 {
                     for (n = 0;
-                        n < 5;
+                        n < 121;
                         ++n)
                     {
-                        new_val += (filter[m][n] * orig_mat[i + m - 2][j + n - 2]);
+                        new_val += orig_mat[i + m - 60][j + n - 60];
                     }
                 }
-                orig_mat[i][j] = new_val;
+                verify_matrix[i][j] = new_val / 14641.0;
+            }
+            else
+            {
+                verify_matrix[i][j] = orig_mat[i][j];
+            }
+        }
+        for (i = 0;
+            i < N;
+            ++i)
+        {
+            for (j = 0;
+                j < N;
+                ++j)
+            {
+                if (i >= 60 && i < N - 60 && j >= 60 && j < N - 60)
+                {
+                    orig_mat[i][j] = verify_matrix[i][j];
+                }
             }
         }
     }
@@ -194,9 +199,11 @@ int main(int argc, char *argv[])
     printf("\tAverage time = %f sec.\n", ((float) (time1 - time0) / 1000000) / ite);
     free(matrix[0]);
     free(matrix);
+    free(result_matrix[0]);
+    free(result_matrix);
     free(orig_mat[0]);
     free(orig_mat);
-    free(filter[0]);
-    free(filter);
+    free(verify_matrix[0]);
+    free(verify_matrix);
     return 0;
 }
