@@ -222,10 +222,6 @@ void convolution_kernel(int N, int iterator, double *matrix, double *result_matr
 	cl_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(double), NULL, &status);
 	cl_result_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, N * N * sizeof(double), NULL, &status);
 
-	/*if (rank == 0)
-		for (i = 0; i < node_size; ++i)
-			printf("%d : cnts[%d] = %d | disp[%d] = %d\n", i, i, cnts[i], i, disp[i]);*/
-
 	// scatter matrix
 	MPI_Scatterv((void*)matrix, cnts, disp, MPI_DOUBLE,
 		(void*)(matrix+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -236,6 +232,11 @@ void convolution_kernel(int N, int iterator, double *matrix, double *result_matr
 	sub_matrix_info.size = (size_t)(cnts[rank] * sizeof(double));
 	cl_submat = clCreateSubBuffer(cl_matrix, CL_MEM_READ_WRITE, 
 		CL_BUFFER_CREATE_TYPE_REGION, &sub_matrix_info, &status);
+
+	// send data to GPU
+	//t0 = get_time();
+	status = clEnqueueWriteBuffer(queue, cl_submat, CL_FALSE, 0, cnts[rank] * sizeof(double),
+		matrix+disp[rank], 0, NULL, NULL);
 
 	// create download upper bound subbuffer
 	cl_buffer_region d2h_upper_info;
@@ -273,12 +274,9 @@ void convolution_kernel(int N, int iterator, double *matrix, double *result_matr
 			CL_BUFFER_CREATE_TYPE_REGION, &h2d_lower_info, &status);
 	}
 
-	// send data to GPU
-	t0 = get_time();
-	status = clEnqueueWriteBuffer(queue, cl_submat, CL_TRUE, 0, cnts[rank] * sizeof(double),
-		matrix+disp[rank], 0, NULL, NULL);
+	// wait write buffer
 	clFinish(queue);
-	t1 = get_time();
+
 
 	// set kernel arguments
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_matrix);
@@ -291,6 +289,16 @@ void convolution_kernel(int N, int iterator, double *matrix, double *result_matr
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
 	status = clSetKernelArg(kernel, 4, sizeof(int), (void*)&local_end);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 4");
+
+	// set copy kernel arguments
+	status = clSetKernelArg(cpy_kernel, 0, sizeof(cl_mem), &cl_matrix);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
+	status = clSetKernelArg(cpy_kernel, 1, sizeof(cl_mem), &cl_result_matrix);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 1");
+	status = clSetKernelArg(cpy_kernel, 2, sizeof(int), (void*)&local_start);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 2");
+	status = clSetKernelArg(cpy_kernel, 3, sizeof(int), (void*)&local_end);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
 
 // run kernel
 for (it = 0; it < iterator; it++) {
@@ -327,12 +335,14 @@ for (it = 0; it < iterator; it++) {
 			0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 	/*int MPI_Wait(MPI_Request *request, MPI_Status *status)*/
-	if (rank != 0) {
+	if (rank != 0)
 		MPI_Wait(&send_upper_req, &mstatus);
-	}
-	if (rank != (node_size-1)) {
+	if (rank != (node_size-1))
 		MPI_Wait(&send_lower_req, &mstatus);
-	}
+	if (rank != (node_size-1))
+		MPI_Wait(&recv_lower_req, &mstatus);
+	if (rank != 0)
+		MPI_Wait(&recv_upper_req, &mstatus);
 
 
 	// upload upper bound to GPU
@@ -355,16 +365,6 @@ for (it = 0; it < iterator; it++) {
 	clFinish(queue);
 	t3 = get_time();
 	
-	// set copy kernel arguments
-	status = clSetKernelArg(cpy_kernel, 0, sizeof(cl_mem), &cl_matrix);
-	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
-	status = clSetKernelArg(cpy_kernel, 1, sizeof(cl_mem), &cl_result_matrix);
-	_GfnCheckCLStatus(status, "SET KERNEL ARG 1");
-	status = clSetKernelArg(cpy_kernel, 2, sizeof(int), (void*)&local_start);
-	_GfnCheckCLStatus(status, "SET KERNEL ARG 2");
-	status = clSetKernelArg(cpy_kernel, 3, sizeof(int), (void*)&local_end);
-	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
-	
 	// launch copy kernel
 	status = clEnqueueNDRangeKernel(queue, cpy_kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
@@ -373,11 +373,11 @@ for (it = 0; it < iterator; it++) {
 }
 
 	// copy back sum buffer
-	t4 = get_time();
+	//t4 = get_time();
 	status = clEnqueueReadBuffer(queue, cl_submat, CL_TRUE, 0, cnts[rank] * sizeof(double), 
 		matrix+disp[rank], 0, NULL, NULL);
-	clFinish(queue);
-	t5 = get_time();
+	//clFinish(queue);
+	//t5 = get_time();
 
 	MPI_Gatherv((void*)(matrix+disp[rank]), cnts[rank], MPI_DOUBLE,
 		(void*)matrix, cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
