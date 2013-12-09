@@ -358,12 +358,12 @@ for (it = 0; it < iterator; it++) {
 	}
 
 	// launch kernel
-	t2 = get_time();
+	//t2 = get_time();
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH CONVOLUTION KERNEL");
 	clFinish(queue);
-	t3 = get_time();
+	//t3 = get_time();
 	
 	// launch copy kernel
 	status = clEnqueueNDRangeKernel(queue, cpy_kernel, 1, NULL, &global_work_size,
@@ -487,7 +487,7 @@ int main(int argc, char *argv[]) {
 	if (rank == 0) {
 		int pass = 1;
 
-		for (it = 0; it < iterator; it++) {
+		/*for (it = 0; it < iterator; it++) {
 		// apply filter
 		for (tid = 0; tid < N*N; ++tid) {
 			i = tid / N;
@@ -526,7 +526,7 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 			}
-		}
+		}*/
 
 		printf("TEST 03 - Convolution\n");
 		printf("\tTest result = ");
