@@ -99,12 +99,14 @@ int _GfnInit(int *argc, char **argv[])
 	_gpu_transfer_d2h_time  = FALSE;
 	_mm_overhead_time       = FALSE;
 
-	char *trace_level = getenv("GFN_TRACE");
+	char trace_level = '0';
+	char *trace_env = getenv("GFN_TRACE");
+	if (trace_env) trace_level = trace_env[0];
 
-	MPI_Bcast(trace_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&trace_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
 
-	if (trace_level != NULL) {
-	switch (trace_level[0]) {
+	if (trace_level != '0') {
+	switch (trace_level) {
 	case '4':
 		_mm_overhead_time        = TRUE;
 	case '3':
