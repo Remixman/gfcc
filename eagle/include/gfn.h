@@ -26,6 +26,8 @@ extern cl_command_queue _gfn_cmd_queue;
 extern cl_int _gfn_status;
 extern cl_program _gfn_cl_program;
 
+extern long long _gfn_last_kernel_time;
+
 extern char current_kernel_name[50];
 
 // API for user

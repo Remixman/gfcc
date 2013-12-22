@@ -16,6 +16,8 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
+long long _gfn_last_kernel_time;
+
 char current_kernel_name[50];
 
 static int _cluster_malloc_time;
@@ -1704,7 +1706,7 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 {
 	long long run_kernel_start_t, run_kernel_end_t;
 
-	IF_TIMING (_gpu_kernel_time) run_kernel_start_t = get_time();
+	run_kernel_start_t = get_time();			/* start time */
 
 	_gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, 	/* command queue */
 									kernel, 				/* kernel */
@@ -1720,14 +1722,12 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 	_gfn_status = clFinish(_gfn_cmd_queue);
 	_GfnCheckCLStatus(_gfn_status, "FINISH KERNEL");
 
-	IF_TIMING (_gpu_kernel_time) {
-		_gfn_status = clFlush(_gfn_cmd_queue);
-		run_kernel_end_t = get_time();
-	}
+	run_kernel_end_t = get_time();				/* end time */
+	_gfn_last_kernel_time = run_kernel_end_t - run_kernel_start_t;
 
 	IF_TIMING (_gpu_kernel_time) {
-		printf("[%d] Launch kernel : %.10f s. global size %zu , local size %zu\n", _gfn_rank, 
-			(float)(run_kernel_end_t-run_kernel_start_t)/1000000, *global_size, *local_size);
+		printf("[%d] Launch kernel : %2.6f s. (global size %zu , local size %zu)\n", _gfn_rank, 
+			(double)_gfn_last_kernel_time/1000000.0, *global_size, *local_size);
 	}
 
 }
