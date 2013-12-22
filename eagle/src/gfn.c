@@ -89,7 +89,6 @@ int _GfnInit(int *argc, char **argv[])
 	
 	printf("Rank %d is at %s\n", _gfn_rank, processor_name);
 
-
 	_cluster_malloc_time    = FALSE;
 	_cluster_scatter_time   = FALSE;
 	_cluster_bcast_time     = FALSE;
@@ -101,6 +100,9 @@ int _GfnInit(int *argc, char **argv[])
 	_mm_overhead_time       = FALSE;
 
 	char *trace_level = getenv("GFN_TRACE");
+
+	MPI_Bcast(trace_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+
 	if (trace_level != NULL) {
 	switch (trace_level[0]) {
 	case '4':
