@@ -103,9 +103,6 @@ int main() {
     }
   }
 	
-	#pragma gfn finish
-
-	
 	// Test result
 	/*for (i = 0; i < gp0; i++) {
  		for (j = 0; j < gp1; j++) {

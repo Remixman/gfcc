@@ -82,8 +82,6 @@ int main(int argc, char **argv) {
   char class;
   FILE *fp;
 
-  #pragma gfn start
-
 /*--------------------------------------------------------------------
 c      Root node reads input file (if it exists) else takes
 c      defaults from parameters
@@ -155,8 +153,6 @@ c-------------------------------------------------------------------*/
   tmax = timer_read(1);
        
   verify(niter, &class, &verified);
-
-  #pragma gfn finish
 
   n3 = grid_points[0]*grid_points[1]*grid_points[2];
   navg = (grid_points[0]+grid_points[1]+grid_points[2])/3.0;
@@ -642,7 +638,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 --------------------------------------------------------------------*/
 
-#pragma gfn use_in_parallel
+//#pragma gfn use_in_parallel
 static void exact_solution(double xi, double eta, double zeta,
 			   double ce[5][13], double dtemp[5]) {
 
@@ -691,7 +687,7 @@ c  the corner elements are not used, but it convenient (and faster)
 c  to compute the whole thing with a simple loop. Make sure those 
 c  values are nonzero by initializing the whole thing here. 
 c-------------------------------------------------------------------*/
-//  #pragma gfn parallel_for output(u[uisize][ujsize][uksize][5])
+//#pragma gfn parallel_for copyout(u[0:uisize{partition}][0:ujsize][0:uksize][5])
   for (i = 0; i < IMAX; i++) {
     for (j = 0; j < IMAX; j++) {
       for (k = 0; k < IMAX; k++) {
@@ -706,8 +702,8 @@ c-------------------------------------------------------------------*/
 c     first store the "interpolated" values everywhere on the grid    
 c-------------------------------------------------------------------*/
 
-  #pragma gfn parallel_for temp(Pface[2][3][5]) \
-    input(ce[5][13]) output(u[uisize][ujsize][uksize][5])
+/*#pragma gfn parallel_for temp(Pface[2][3][5]) \
+    input(ce[5][13]) output(u[uisize][ujsize][uksize][5])*/
   for (i = 0; i < grid_points0; i++) {
     xi = (double)i * dnxm1;
     
