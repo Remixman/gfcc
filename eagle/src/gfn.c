@@ -789,6 +789,7 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueBoardcastND");
  	}
 
+ 	_get_var_info(unique_id, &mem_type, &found); /* get mem flags */
 	chunk_size = 100;
 	chunk_num = (total_size + chunk_size - 1) / chunk_size;
 	last_ite_size = (total_size % chunk_size == 0)?
