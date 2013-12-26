@@ -97,6 +97,7 @@ int _GfnInit(int *argc, char **argv[])
 	if (opt_env) opt_level = opt_env[0];
 
 	MPI_Bcast(&opt_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);	
+	if (_gfn_rank == 0) printf("GFN_OPT = %c\n", opt_level);
 
 	if (opt_level != '0') {
 		is_overlap_node_dev_trans = TRUE;
@@ -118,6 +119,7 @@ int _GfnInit(int *argc, char **argv[])
 	if (trace_env) trace_level = trace_env[0];
 
 	MPI_Bcast(&trace_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+	if (_gfn_rank == 0) printf("GFN_TRACE = %c\n", trace_level);
 
 	if (trace_level != '0') {
 	switch (trace_level) {
