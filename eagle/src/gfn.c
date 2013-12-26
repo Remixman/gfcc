@@ -17,6 +17,7 @@ cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
 long long _gfn_last_kernel_time;
+int is_overlap_node_dev_trans;
 
 char current_kernel_name[50];
 
@@ -89,6 +90,19 @@ int _GfnInit(int *argc, char **argv[])
 	
 	printf("Rank %d is at %s\n", _gfn_rank, processor_name);
 
+	/* Overlap transfer */
+	is_overlap_node_dev_trans = FALSE;
+	char opt_level = '0';
+	char *opt_env = getenv("GFN_OPT");
+	if (opt_env) opt_level = opt_env[0];
+
+	MPI_Bcast(&opt_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);	
+
+	if (opt_level != '0') {
+		is_overlap_node_dev_trans = TRUE;
+	}
+
+	/* Trace timing */
 	_cluster_malloc_time    = FALSE;
 	_cluster_scatter_time   = FALSE;
 	_cluster_bcast_time     = FALSE;
@@ -290,7 +304,8 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 1D Again\n");
 		return 0;
@@ -316,7 +331,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
     } \
     IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-    _insert_to_var_table(unique_id, *cl_ptr, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
+    _insert_to_var_table(unique_id, *cl_ptr, mem_type, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
     IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -357,7 +372,8 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 2D Again\n");
 		return 0;
@@ -385,7 +401,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 2, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 2, (void *)tmp_ptr[0], (void **)tmp_ptr, NULL, NULL, NULL, NULL); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -425,7 +441,8 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 3D Again\n");
 		return 0;
@@ -455,7 +472,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 3, (void *)tmp_ptr[0][0], (void **)tmp_ptr[0], (void ***)tmp_ptr, NULL, NULL, NULL); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 3, (void *)tmp_ptr[0][0], (void **)tmp_ptr[0], (void ***)tmp_ptr, NULL, NULL, NULL); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -495,7 +512,8 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 4D Again\n");
 		return 0;
@@ -529,7 +547,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 4, (void *)tmp_ptr[0][0][0], (void **)tmp_ptr[0][0], (void ***)tmp_ptr[0], (void ****)tmp_ptr, NULL, NULL); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 4, (void *)tmp_ptr[0][0][0], (void **)tmp_ptr[0][0], (void ***)tmp_ptr[0], (void ****)tmp_ptr, NULL, NULL); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -569,7 +587,8 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 5D Again\n");
 		return 0;
@@ -605,7 +624,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 5, (void *)tmp_ptr[0][0][0][0], (void **)tmp_ptr[0][0][0], (void ***)tmp_ptr[0][0], (void ****)tmp_ptr[0], (void *****)tmp_ptr, NULL); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 5, (void *)tmp_ptr[0][0][0][0], (void **)tmp_ptr[0][0][0], (void ***)tmp_ptr[0][0], (void ****)tmp_ptr[0], (void *****)tmp_ptr, NULL); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -645,7 +664,8 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	int found = 0;
 	int retieve_dim_num = 0;
-	_retieve_var_table(unique_id, cl_ptr, &retieve_dim_num, (void**)ptr, &found);
+	cl_mem_flags dummy_mem_type = 0;
+	_retieve_var_table(unique_id, cl_ptr, &dummy_mem_type, &retieve_dim_num, (void**)ptr, &found);
 	if (found) {
 		//printf("Don't Allocate 6D Again\n");
 		return 0;
@@ -685,7 +705,7 @@ do { \
     	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
 	} \
 	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-	_insert_to_var_table(unique_id, *cl_ptr, 6, (void *)tmp_ptr[0][0][0][0][0], (void **)tmp_ptr[0][0][0][0], (void ***)tmp_ptr[0][0][0], (void ****)tmp_ptr[0][0], (void *****)tmp_ptr[0], (void ******)tmp_ptr); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 6, (void *)tmp_ptr[0][0][0][0][0], (void **)tmp_ptr[0][0][0][0], (void ***)tmp_ptr[0][0][0], (void ****)tmp_ptr[0][0], (void *****)tmp_ptr[0], (void ******)tmp_ptr); \
 	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
@@ -736,20 +756,20 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 		return 0;
 	}
 
-	// Not have information case
-	// get variable info from var table
-	if (dim_n == 0) {
-
-	}
+	int chunk_size, chunk_num;
+	size_t transfer_size, last_ite_size;
+	cl_mem_flags mem_type;
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long bcast_start_t, bcast_end_t;
+	long long overall_bcast_start_t, overall_bcast_end_t;
 
 	// TODO: make queue and boardcast out-of-order
 	// TODO: level 2 transfer only used partition
 
 	va_list vl;
-	int i, size_array[dim_n];
+	int found = 0;
+	int i, size_array[MAX_DIM_SUPPORT];
 	size_t total_size = 1;
 
 	va_start(vl, dim_n);
@@ -758,6 +778,19 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 		total_size *= size_array[i];
 	}
 	va_end(vl);
+
+	// Not have information case
+	if (dim_n == 0) {
+		// TODO: get other information from var table
+		_get_var_info(unique_id, &mem_type, &found);
+		if (!found)
+			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueBoardcastND");
+ 	}
+
+	chunk_size = 100;
+	chunk_num = (total_size + chunk_size - 1) / chunk_size;
+	last_ite_size = (total_size % chunk_size == 0)?
+		chunk_size : total_size % chunk_size;
 
 #define SWITCH_BCAST_ND(type,mpi_type) \
 do { \
@@ -778,21 +811,63 @@ do { \
 	} \
 } while (0)
 
-	switch(type_id)
+#define OVERLAP_SWITCH_BCAST_ND(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * total_size); \
+	cl_buffer_region subbuf_info; \
+	for (i = 0; i < chunk_num; ++i) { \
+		transfer_size = (i == chunk_num-1)? last_ite_size : chunk_size; \
+		MPI_Bcast((void *)(tmp_ptr), transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
+		subbuf_info.origin = (size_t)(chunk_size * i * sizeof(type)); \
+		subbuf_info.size = (size_t)(transfer_size * sizeof(type)); \
+		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &subbuf_info, &_gfn_status); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER FOR OVERLAP BCAST"); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * transfer_size, tmp_ptr, 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "OVERLAP BCAST WRITE BUFFER"); \
+		tmp_ptr += chunk_size; \
+	} \
+} while (0)
+
+	overall_bcast_start_t = get_time();
+	if (is_overlap_node_dev_trans && level2_cond &&
+			(total_size > chunk_size))
 	{
-	case TYPE_CHAR:           SWITCH_BCAST_ND(char,MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_BCAST_ND(short,MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_BCAST_ND(int,MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_BCAST_ND(long,MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_BCAST_ND(float,MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
+		switch(type_id)
+		{
+		case TYPE_CHAR:           OVERLAP_SWITCH_BCAST_ND(char,MPI_CHAR); break;
+		case TYPE_UNSIGNED_CHAR:  OVERLAP_SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+		case TYPE_SHORT:          OVERLAP_SWITCH_BCAST_ND(short,MPI_SHORT); break;
+		case TYPE_UNSIGNED_SHORT: OVERLAP_SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+		case TYPE_INT:            OVERLAP_SWITCH_BCAST_ND(int,MPI_INT); break;
+		case TYPE_UNSIGNED:       OVERLAP_SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
+		case TYPE_LONG:           OVERLAP_SWITCH_BCAST_ND(long,MPI_LONG); break;
+		case TYPE_UNSIGNED_LONG:  OVERLAP_SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+		case TYPE_FLOAT:          OVERLAP_SWITCH_BCAST_ND(float,MPI_FLOAT); break;
+		case TYPE_DOUBLE:         OVERLAP_SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
+		case TYPE_LONG_DOUBLE:    OVERLAP_SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
+		case TYPE_LONG_LONG_INT:  OVERLAP_SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
+		}
 	}
+	else
+	{
+		switch(type_id)
+		{
+		case TYPE_CHAR:           SWITCH_BCAST_ND(char,MPI_CHAR); break;
+		case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+		case TYPE_SHORT:          SWITCH_BCAST_ND(short,MPI_SHORT); break;
+		case TYPE_UNSIGNED_SHORT: SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+		case TYPE_INT:            SWITCH_BCAST_ND(int,MPI_INT); break;
+		case TYPE_UNSIGNED:       SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
+		case TYPE_LONG:           SWITCH_BCAST_ND(long,MPI_LONG); break;
+		case TYPE_UNSIGNED_LONG:  SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+		case TYPE_FLOAT:          SWITCH_BCAST_ND(float,MPI_FLOAT); break;
+		case TYPE_DOUBLE:         SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
+		case TYPE_LONG_DOUBLE:    SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
+		case TYPE_LONG_LONG_INT:  SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
+		}
+	}
+	overall_bcast_end_t = get_time();
 
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
 		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 

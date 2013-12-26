@@ -14,6 +14,7 @@ typedef struct var_record {
 	void ***** host_ptr5;
 	void ****** host_ptr6;
 	cl_mem device_ptr;
+	cl_mem_flags mem_flags;
 } var_record;
 
 int _var_compare(const void *l, const void *r) {
@@ -57,8 +58,8 @@ void _var_free_action(const void *nodep, const VISIT which, const int depth) {
 
 void * _var_tab_root;
 
-int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num, 
-						  void * host_ptr1, void ** host_ptr2, void *** host_ptr3,
+int _insert_to_var_table( long long id, cl_mem device_ptr, cl_mem_flags mem_type,
+							int dimension_num, void * host_ptr1, void ** host_ptr2, void *** host_ptr3,
 						  void **** host_ptr4, void ***** host_ptr5, void ****** host_ptr6 ) {
 
 #ifdef DEBUG_AUTO_ALLOCATE
@@ -77,14 +78,15 @@ int _insert_to_var_table( long long id, cl_mem device_ptr, int dimension_num,
 	new_rec->host_ptr5 = host_ptr5;
 	new_rec->host_ptr6 = host_ptr6;
 	new_rec->device_ptr = device_ptr;
+	new_rec->mem_flags = mem_type;
 
 	tsearch(new_rec, &_var_tab_root, _var_compare);
 
 	return 0;
 }
 
-int _retieve_var_table( long long id, cl_mem *device_ptr, int *dimension_num,
-						void ** host_ptr, int *found ) {
+int _retieve_var_table( long long id, cl_mem *device_ptr, cl_mem_flags *mem_type,
+								int *dimension_num, void ** host_ptr, int *found ) {
 
 	// FIND
 	// void * tfind (const void *key, void *const *rootp, comparison_fn_t compar)
@@ -121,6 +123,7 @@ int _retieve_var_table( long long id, cl_mem *device_ptr, int *dimension_num,
 		}
 		
 		*device_ptr = (*(var_record**)retieved_rec)->device_ptr;
+		*mem_type = (*(var_record**)retieved_rec)->mem_flags;
 		*found = 1 /* TRUE */;
 	} else {
 		*found = 0 /* FALSE */;
@@ -129,6 +132,28 @@ int _retieve_var_table( long long id, cl_mem *device_ptr, int *dimension_num,
 #ifdef DEBUG_AUTO_ALLOCATE
 	printf("[DEBUG]: Found [%d] Retieve : %ld : %p\n", *found, id, *host_ptr);
 #endif
+
+	return 0;
+}
+
+int _get_var_info( long long id, cl_mem_flags *mem_type, int *found ) {
+
+	// FIND
+	// void * tfind (const void *key, void *const *rootp, comparison_fn_t compar)
+	void *retieved_rec = NULL;
+	var_record find_rec;
+	find_rec.id = id;
+
+	retieved_rec = tfind((void *)&find_rec, &_var_tab_root, _var_compare);
+
+	if (retieved_rec) {
+		if (mem_type)
+			*mem_type = (*(var_record**)retieved_rec)->mem_flags;
+
+		*found = 1 /* TRUE */;
+	} else {
+		*found = 0 /* FALSE */;
+	}
 
 	return 0;
 }

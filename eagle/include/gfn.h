@@ -17,6 +17,9 @@
 /* Optimization */
 #define OPTIMIZE_NO_USE_CL_SUBBUFFER
 
+/* Constant */
+#define MAX_DIM_SUPPORT 6
+
 extern int _gfn_rank;		/**/
 extern int _gfn_num_proc;	/**/
 extern cl_platform_id _gfn_platform_id;
