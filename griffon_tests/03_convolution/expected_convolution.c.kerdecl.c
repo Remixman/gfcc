@@ -27,12 +27,12 @@ void _Function_105999()
     cl_mem _cl_mem_matrix = 0;
     long long _id_result_matrix;
     cl_mem _cl_mem_result_matrix = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&Nsquare, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&N, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&Nsquare, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&N, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc2D((void ***) &matrix, &_cl_mem_matrix, _id_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_ONLY(), 1, 1);
     _GfnMalloc2D((void ***) &result_matrix, &_cl_mem_result_matrix, _id_result_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
@@ -129,12 +129,12 @@ void _Function_896635()
     cl_mem _cl_mem_matrix = 0;
     long long _id_result_matrix;
     cl_mem _cl_mem_result_matrix = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&Nsquare, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&N, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&Nsquare, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&N, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc2D((void ***) &matrix, &_cl_mem_matrix, _id_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
     _GfnMalloc2D((void ***) &result_matrix, &_cl_mem_result_matrix, _id_result_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
@@ -198,10 +198,10 @@ void _Function_send_511137()
     cl_mem _cl_mem_matrix = 0;
     long long _id_result_matrix;
     cl_mem _cl_mem_result_matrix = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&N, _GFN_TYPE_INT());
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&N, _GFN_TYPE_INT());
     /* Allocate Array Memory */
     _GfnMalloc2D((void ***) &matrix, &_cl_mem_matrix, _id_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
     _GfnMalloc2D((void ***) &result_matrix, &_cl_mem_result_matrix, _id_result_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
@@ -227,10 +227,10 @@ void _Function_recv_471941()
     cl_mem _cl_mem_matrix = 0;
     long long _id_result_matrix;
     cl_mem _cl_mem_result_matrix = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&N, _GFN_TYPE_INT());
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_result_matrix, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&N, _GFN_TYPE_INT());
     /* Allocate Array Memory */
     _GfnMalloc2D((void ***) &matrix, &_cl_mem_matrix, _id_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);
     _GfnMalloc2D((void ***) &result_matrix, &_cl_mem_result_matrix, _id_result_matrix, _GFN_TYPE_DOUBLE(), N, N, _GFN_MEM_READ_WRITE(), 1, 1);

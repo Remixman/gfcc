@@ -323,7 +323,7 @@ TL::Source Data::do_data()
             << comment("Declare Generated Variables")
             << worker_decl_gen_var_src
             
-            << comment("Boardcast Scalar Value")
+            << comment("Broadcast Scalar Value")
             << worker_recv_scalar_src
             
             << comment("Allocate Array Memory")
@@ -353,7 +353,7 @@ TL::Source Data::do_data()
             << comment("Declare Generated Variables")
             << worker_decl_gen_var_src
             
-            << comment("Boardcast Scalar Value")
+            << comment("Broadcast Scalar Value")
             << worker_recv_send_scalar_src
             
             << comment("Allocate Array Memory")

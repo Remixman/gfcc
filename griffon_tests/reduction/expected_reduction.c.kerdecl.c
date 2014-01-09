@@ -18,9 +18,9 @@ void _Function_1()
     cl_kernel _kernel;
     cl_mem _cl_mem_s1 = 0;
     cl_mem _cl_mem_s2 = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&n, _GFN_TYPE_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&n, _GFN_TYPE_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     /* Initialize Generated Variables */
     _local_i_start = _CalcLocalStartIndex(1, n, _gfn_num_proc, _gfn_rank + 1);

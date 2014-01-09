@@ -582,14 +582,14 @@ TL::Source create_gfn_q_bcast_scalar(std::string var_name,
                                      std::string mpi_type)
 {
     TL::Source result;
-    result << "_GfnEnqueueBoardcastScalar(&" << var_name << "," << mpi_type << ");";
+    result << "_GfnEnqueueBroadcastScalar(&" << var_name << "," << mpi_type << ");";
     return result;
 }
 
 TL::Source create_gfn_f_bcast_scalar()
 {
     TL::Source result;
-    result << "_GfnFinishBoardcastScalar();";
+    result << "_GfnFinishBroadcastScalar();";
     return result;
 }
 
@@ -689,7 +689,7 @@ TL::Source create_gfn_q_bcast_nd(std::string var_name,
     }
     
     result
-        << "_GfnEnqueueBoardcastND((void*)" << var_name << subscript_to_1d << "," 
+        << "_GfnEnqueueBroadcastND((void*)" << var_name << subscript_to_1d << "," 
         << var_cl_name << "," << var_unique_id_name << "," << mpi_type << "," 
         << level1_cond << "," << level2_cond << ","
         << dim_num << ((dim_num==0)?"":",") << size_params << ");";

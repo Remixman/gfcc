@@ -25,15 +25,15 @@ void _Function_837377()
     cl_kernel _kernel;
     long long _id_us;
     cl_mem _cl_mem_us = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&gp0, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp1, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp2, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&isize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&jsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_us, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&gp0, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp1, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp2, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&isize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&jsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_us, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc3D((void ****) &us, &_cl_mem_us, _id_us, _GFN_TYPE_FLOAT(), isize, jsize, ksize, _GFN_MEM_WRITE_ONLY(), 1, 1);
     /* Initialize Generated Variables */
@@ -123,15 +123,15 @@ void _Function_164222()
     cl_kernel _kernel;
     long long _id_lhs;
     cl_mem _cl_mem_lhs = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&gp0, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp1, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp2, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&isize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&jsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_lhs, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&gp0, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp1, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp2, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&isize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&jsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_lhs, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc6D((void *******) &lhs, &_cl_mem_lhs, _id_lhs, _GFN_TYPE_FLOAT(), isize, jsize, ksize, 3, 5, 5, _GFN_MEM_WRITE_ONLY(), 1, 1);
     /* Initialize Generated Variables */
@@ -253,24 +253,24 @@ void _Function_982620()
     cl_mem _cl_mem_ws = 0;
     long long _id_square;
     cl_mem _cl_mem_square = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&gp0, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp1, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp2, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&uisize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ujsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&uksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&isize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&jsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_qs, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_u, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_rho_i, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_us, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_vs, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_ws, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_square, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&gp0, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp1, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp2, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&uisize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ujsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&uksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&isize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&jsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_qs, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_u, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_rho_i, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_us, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_vs, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_ws, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_square, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc3D((void ****) &qs, &_cl_mem_qs, _id_qs, _GFN_TYPE_FLOAT(), isize, jsize, ksize, _GFN_MEM_WRITE_ONLY(), 1, 1);
     _GfnMalloc4D((void *****) &u, &_cl_mem_u, _id_u, _GFN_TYPE_FLOAT(), uisize, ujsize, uksize, 5, _GFN_MEM_READ_ONLY(), 1, 1);
@@ -398,20 +398,20 @@ void _Function_248767()
     cl_mem _cl_mem_rhs = 0;
     long long _id_u;
     cl_mem _cl_mem_u = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&gp1, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&gp2, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&i, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&dssp, _GFN_TYPE_FLOAT());
-    _GfnEnqueueBoardcastScalar(&uisize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ujsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&uksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&isize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&jsize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&ksize, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&_id_rhs, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_u, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&gp1, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&gp2, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&i, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&dssp, _GFN_TYPE_FLOAT());
+    _GfnEnqueueBroadcastScalar(&uisize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ujsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&uksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&isize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&jsize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&ksize, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&_id_rhs, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_u, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc4D((void *****) &rhs, &_cl_mem_rhs, _id_rhs, _GFN_TYPE_FLOAT(), isize, jsize, ksize, 5, _GFN_MEM_READ_WRITE(), 1, 1);
     _GfnMalloc4D((void *****) &u, &_cl_mem_u, _id_u, _GFN_TYPE_FLOAT(), uisize, ujsize, uksize, 5, _GFN_MEM_READ_ONLY(), 1, 1);

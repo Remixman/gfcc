@@ -32,10 +32,10 @@ void _Function_133237()
     cl_mem _cl_mem_A = 0;
     long long _id_B;
     cl_mem _cl_mem_B = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 500, _GFN_MEM_WRITE_ONLY(), 1, 1);
     _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 500, _GFN_MEM_READ_ONLY(), 1, 1);
@@ -51,7 +51,7 @@ void _Function_133237()
     _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);
     /* Allocate Reduce Scalar Variables */
     /* Distribute Array Memory */
-    _GfnEnqueueBoardcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
+    _GfnEnqueueBroadcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)
@@ -99,7 +99,7 @@ void _Function_send_145409()
     _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 500, _GFN_MEM_WRITE_ONLY(), 1, 1);
     _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 500, _GFN_MEM_READ_ONLY(), 1, 1);
     /* Distribute Array Memory */
-    _GfnEnqueueBoardcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
+    _GfnEnqueueBroadcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
     /* Lock Transfer */
     _GfnLockTransfer((void *) B);
     /* Deallocate Array Memory */

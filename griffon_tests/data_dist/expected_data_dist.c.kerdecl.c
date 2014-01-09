@@ -24,11 +24,11 @@ void _Function_793671()
     cl_mem _cl_mem_A = 0;
     long long _id_C;
     cl_mem _cl_mem_C = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_C, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_C, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 1000, _GFN_MEM_READ_ONLY(), 1, 1);
     _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 1000, _GFN_MEM_WRITE_ONLY(), 1, 1);
@@ -46,7 +46,7 @@ void _Function_793671()
     /* Allocate Reduce Scalar Variables */
     /* Distribute Array Memory */
     _GfnEnqueueScatterND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), _GFN_MEM_READ_ONLY(), 0, (1000) - 1, 1, 0, 0, 1, 1, 1, 0, 1000);
-    _GfnEnqueueBoardcastND((void *) C, _cl_mem_C, _GFN_TYPE_INT(), 1, 1, 1, 7);
+    _GfnEnqueueBroadcastND((void *) C, _cl_mem_C, _GFN_TYPE_INT(), 1, 1, 1, 7);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)

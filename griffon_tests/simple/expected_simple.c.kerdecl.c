@@ -20,10 +20,10 @@ void _Function_1()
     cl_mem _cl_mem_A = 0;
     long long _id_B;
     cl_mem _cl_mem_B = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
-    _GfnEnqueueBoardcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
+    _GfnEnqueueBroadcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 300, _GFN_MEM_WRITE_ONLY(), 1, 1);
     _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 300, _GFN_MEM_READ_ONLY(), 1, 1);

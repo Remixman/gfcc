@@ -18,10 +18,10 @@ void _Function_1()
     size_t _work_item_num, _work_group_item_num, _global_item_num;
     cl_kernel _kernel;
     cl_mem _cl_mem_sum = 0;
-    /* Boardcast Scalar Value */
-    _GfnEnqueueBoardcastScalar(&n, _GFN_TYPE_INT());
-    _GfnEnqueueBoardcastScalar(&h, _GFN_TYPE_DOUBLE());
-    _GfnFinishBoardcastScalar();
+    /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&n, _GFN_TYPE_INT());
+    _GfnEnqueueBroadcastScalar(&h, _GFN_TYPE_DOUBLE());
+    _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
     /* Initialize Generated Variables */
     _local_i_start = _CalcLocalStartIndex(1, n, _gfn_num_proc, _gfn_rank + 1);

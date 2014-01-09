@@ -194,7 +194,7 @@ void matmul_kernel(int n, float *A, float *B, float *C,
 	MPI_Scatterv((void*)A, A_cnts, A_disp, MPI_FLOAT, 
 		(void*)(A+A_disp[rank]), A_cnts[rank], MPI_FLOAT, 0, MPI_COMM_WORLD);
 
-	// boardcast B
+	// broadcast B
 	MPI_Bcast(B, nsquare, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	
 	cl_A_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, nsquare * sizeof(float), NULL, &status);
@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
 		if (argc > 2) ite = atoi(argv[2]);
 	}
 	
-	// boardcast important data
+	// broadcast important data
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&ite, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	

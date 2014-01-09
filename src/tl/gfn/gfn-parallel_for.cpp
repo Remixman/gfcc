@@ -83,7 +83,7 @@ TL::Source ParallelFor::do_parallel_for()
     // Core worker sources
     TL::Source worker_declare_variables_src;
     TL::Source worker_declare_generated_variables_src;
-    TL::Source worker_boardcast_scalar_src;
+    TL::Source worker_broadcast_scalar_src;
     TL::Source worker_allocate_array_memory_src;
     TL::Source worker_initialize_generated_variables_src;
     TL::Source worker_allocate_reduce_scalar_src;
@@ -177,7 +177,7 @@ TL::Source ParallelFor::do_parallel_for()
             << "_SendInputMsg((void *)&" << var_name
             << ", sizeof (" << c_type_str << "));";
 
-        worker_boardcast_scalar_src
+        worker_broadcast_scalar_src
             << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             
         TL::Source cl_actual_param;
@@ -406,7 +406,7 @@ TL::Source ParallelFor::do_parallel_for()
             master_send_scalar_input
                 << create_send_var_id_msg(var_name, var_info._dimension_num);
 
-            worker_boardcast_scalar_src
+            worker_broadcast_scalar_src
                 << create_gfn_q_bcast_scalar(var_unique_id_name, "_GFN_TYPE_LONG_LONG_INT()");
 
             worker_allocate_array_memory_src
@@ -461,7 +461,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
             else if (!var_info._is_loop_variable)
             {
-                worker_boardcast_scalar_src
+                worker_broadcast_scalar_src
                     << create_gfn_q_bcast_scalar(var_name, mpi_type_str);
             }
         }
@@ -677,8 +677,8 @@ std::cout << "Create OpenCL reduction\n";
             << comment("Declare Generated Variables")
             << worker_declare_generated_variables_src
         
-            << comment("Boardcast Scalar Value")
-            << worker_boardcast_scalar_src
+            << comment("Broadcast Scalar Value")
+            << worker_broadcast_scalar_src
             << create_gfn_f_bcast_scalar()
             
             << comment("Allocate Array Memory")

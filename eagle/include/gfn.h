@@ -44,8 +44,8 @@ int _GfnFinalize();
 
 int _GfnMallocReduceScalar(void * ptr, cl_mem *cl_ptr, int type_id, int group_num, int level1_cond, int level2_cond);
 int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond);
-int _GfnEnqueueBoardcastScalar(void *ptr, int type_id); /*-> recv, bcast*/
-int _GfnFinishBoardcastScalar();
+int _GfnEnqueueBroadcastScalar(void *ptr, int type_id); /*-> recv, bcast*/
+int _GfnFinishBroadcastScalar();
 int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int group_num, int level1_cond, int level2_cond);
 int _GfnFinishReduceScalar();
 // TODO: _GfnEnqueueReduce1D() ???
@@ -57,8 +57,8 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, size_t dim2_size, size_t dim3_size, size_t dim4_size, size_t dim5_size, size_t dim6_size, cl_mem_flags mem_type, int level1_cond, int level2_cond);
 // Potential to free, maybe not really free
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond);
-// TODO: add boardcast pattern as parameter
-int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...);
+// TODO: add broadcast pattern as parameter
+int _GfnEnqueueBroadcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...);
 int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );

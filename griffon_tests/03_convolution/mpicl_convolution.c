@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
 		if (argc > 2) ite = atoi(argv[2]);
 	}
 
-	// boardcast important data
+	// broadcast important data
 	MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&ite, 1, MPI_INT, 0, MPI_COMM_WORLD);
 

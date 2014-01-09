@@ -54,7 +54,7 @@ namespace TL
             VAR_ACCESS_T    _access_type;
             REDUCTION_T     _reduction_type;
             // For multi-dimension var, what dimension that we must distributed
-            // (0 is shared and must boardcast to all node)
+            // (0 is shared and must broadcast to all node)
             int             _shared_dimension;
             unsigned        _dimension_num; // for scalar dim num equal 0
             TL::ObjectList<TL::Expression> _subarray_start;

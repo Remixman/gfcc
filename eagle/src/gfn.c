@@ -207,11 +207,11 @@ int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
 	}
 }
 
-int _GfnEnqueueBoardcastScalar(void *ptr, int type_id)
+int _GfnEnqueueBroadcastScalar(void *ptr, int type_id)
 {
 	long long bcast_start_t, bcast_end_t;
 
-	// TOD0: MPI pack and bcast at _GfnFinishBoardcastScalar
+	// TOD0: MPI pack and bcast at _GfnFinishBroadcastScalar
 
 #define SWITCH_BCAST(mpi_type) \
 do { \
@@ -241,13 +241,13 @@ do { \
 	}
 
 	IF_TIMING (_cluster_bcast_time)
-		printf("[%d] Boardcast %p : %.10f s.\n", _gfn_rank, ptr, 
+		printf("[%d] Broadcast %p : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(bcast_end_t-bcast_start_t)/1000000);
 
 	return 0;
 }
 
-int _GfnFinishBoardcastScalar()
+int _GfnFinishBroadcastScalar()
 {
 	return 0;
 }
@@ -752,7 +752,7 @@ int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 	return 0;*/
 }
 
-int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
+int _GfnEnqueueBroadcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, int level1_cond, int level2_cond, int dim_n, ...)
 {
 	if (_is_lock_transfer(unique_id)) {
 		return 0;
@@ -766,7 +766,7 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 	long long bcast_start_t, bcast_end_t;
 	long long overall_bcast_start_t, overall_bcast_end_t;
 
-	// TODO: make queue and boardcast out-of-order
+	// TODO: make queue and broadcast out-of-order
 	// TODO: level 2 transfer only used partition
 
 	va_list vl;
@@ -786,7 +786,7 @@ int _GfnEnqueueBoardcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 		// TODO: get other information from var table
 		_get_var_info(unique_id, &mem_type, &found);
 		if (!found)
-			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueBoardcastND");
+			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueBroadcastND");
  	}
 
  	_get_var_info(unique_id, &mem_type, &found); /* get mem flags */
@@ -877,7 +877,7 @@ do { \
 			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
 
 	IF_TIMING (_cluster_bcast_time)
-		printf("[%d] Boardcast %p : %.10f s.\n", _gfn_rank, ptr, 
+		printf("[%d] Broadcast %p : %.10f s.\n", _gfn_rank, ptr, 
 			(float)(bcast_end_t-bcast_start_t)/1000000);
 
 	return 0;
