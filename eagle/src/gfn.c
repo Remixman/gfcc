@@ -18,6 +18,7 @@ cl_program _gfn_cl_program;
 
 long long _gfn_last_kernel_time;
 int is_overlap_node_dev_trans;
+int optimize_chunk_size;
 
 char current_kernel_name[50];
 
@@ -102,6 +103,15 @@ int _GfnInit(int *argc, char **argv[])
 	if (opt_level != '0') {
 		is_overlap_node_dev_trans = TRUE;
 	}
+
+	/* Chunk size */
+	optimize_chunk_size = 5000;
+	char *opt_chunk_size = getenv("GFN_OPT_CHUNK_SIZE");
+	if (opt_chunk_size) 
+		sscanf(opt_chunk_size, "%d", &optimize_chunk_size);
+	MPI_Bcast(&optimize_chunk_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if (_gfn_rank == 0) printf("GFN_OPT_CHUNK_SIZE = %d\n", optimize_chunk_size);
+
 
 	/* Trace timing */
 	_cluster_malloc_time    = FALSE;
@@ -790,7 +800,7 @@ int _GfnEnqueueBroadcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
  	}
 
  	_get_var_info(unique_id, &mem_type, &found); /* get mem flags */
-	chunk_size = 100;
+	chunk_size = optimize_chunk_size;
 	chunk_num = (total_size + chunk_size - 1) / chunk_size;
 	last_ite_size = (total_size % chunk_size == 0)?
 		chunk_size : total_size % chunk_size;

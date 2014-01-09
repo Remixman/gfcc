@@ -88,24 +88,7 @@ int main(int argc, char *argv[]) {
 	time1 = get_time();
 	
 	// assert with sequential solution
-	/*for (tid = 0; tid < (n*n); ++tid) {
-		int i = tid / n;
-		int j = tid % n;
-		int k = 0;
-		float sum = 0.0;
-		for (k = 0; k < n; ++k)
-			sum += A[i][k] * B[k][j];
-		
-		if (fabs(sum-C[i][j]) > 0.1) {
-			printf("Error at [%d][%d]\n", i, j);
-			printf("C[%d][%d] is %.5f but expected value is %.5f\n", i, j,
-				C[i][j], sum);
-			pass = 0;
-			break;
-		}
-		if (!pass) break;
-	}*/
-	for (i = 0; i < n; i++) {
+	/*for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			sum = 0.f;
 			for (k = 0; k < n; k++) {
@@ -120,7 +103,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		if (!pass) break;
-	}
+	}*/
 	
 	free(A[0]); free(A);
 	free(B[0]); free(B);
