@@ -97,6 +97,8 @@ int _CalcLocalEndIndex(int old_start, int old_end, int num_proc, int rank);
 int _CalcOffset(int size, int num_proc, int rank);
 void _CalcCnts(int size, int num_proc, int *cnts /* OUTS */, int block_size);
 void _CalcDisp(int size, int num_proc, int *disp /* OUTS */, int block_size);
+void _CalcCnts2(int size, int num_proc, int *cnts, int block_size, int offset);
+void _CalcDisp2(int size, int num_proc, int *disp, int block_size, int offset);
 size_t _CalcTypeSize(int type_id);
 
 void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, int loop_step,
