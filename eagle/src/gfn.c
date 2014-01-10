@@ -916,7 +916,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	long long scatter_start_t, scatter_end_t;
 	long long overall_scatter_start_t, overall_scatter_end_t;
 
-	int i, value;
+	int i, r, value;
 	va_list vl;
 	int found = 0;
 
@@ -971,6 +971,27 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	_CalcCnts(last_ite_size, _gfn_num_proc, lastsubcnts, 1);
 	_CalcDisp(last_ite_size, _gfn_num_proc, lastsubdisp, 1);
 
+	if (_gfn_rank == 0) {
+		printf("sub_size = %d\n", sub_size);
+		printf("chunk_num = %d\n", chunk_num);
+		printf("subcnts = { %d ", subcnts[0]);
+		for (i = 1; i < _gfn_num_proc; ++i)
+			printf(", %d ", subcnts[i]);
+		printf("}\n");
+		printf("subdisp = { %d ", subdisp[0]);
+		for (i = 1; i < _gfn_num_proc; ++i)
+			printf(", %d ", subdisp[i]);
+		printf("}\n");
+		printf("lastsubcnts = { %d ", lastsubcnts[0]);
+		for (i = 1; i < _gfn_num_proc; ++i)
+			printf(", %d ", lastsubcnts[i]);
+		printf("}\n");
+		printf("lastsubdisp = { %d ", lastsubdisp[0]);
+		for (i = 1; i < _gfn_num_proc; ++i)
+			printf(", %d ", lastsubdisp[i]);
+		printf("}\n");
+	}
+
 #ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
 #define UPLOAD_TO_GPU(type) \
 	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + recv_it_offset, 0, 0, 0); \
@@ -1021,20 +1042,21 @@ do { \
 						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
 	} \
 	cl_buffer_region subbuf_info; \
-for (i = 0; i < recv_loop_num; ++i) { \
+for (r = 0; r < recv_loop_num; ++r) { \
+	type * sub_tmp_ptr = tmp_ptr + recv_it_offset; \
 	for (i = 0; i < chunk_num; ++i) { \
 		transfer_size = (i == chunk_num-1)? last_ite_size : chunk_size; \
 		subcntsptr = (i == chunk_num-1)? lastsubcnts : subcnts; \
 		subdispptr = (i == chunk_num-1)? lastsubdisp : subdisp; \
-		MPI_Scatterv(tmp_ptr + recv_it_offset, subcntsptr, subdispptr, mpi_type, \
-			tmp_ptr + recv_it_offset + recv_elem_offset, transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
-		subbuf_info.origin = (size_t)(chunk_size * i * sizeof(type)); \
+		MPI_Scatterv(sub_tmp_ptr, subcntsptr, subdispptr, mpi_type, \
+			sub_tmp_ptr + subdispptr[_gfn_rank], transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
+		subbuf_info.origin = (size_t)((recv_it_offset + chunk_size * i) * sizeof(type)); \
 		subbuf_info.size = (size_t)(transfer_size * sizeof(type)); \
 		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &subbuf_info, &_gfn_status); \
 		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER FOR OVERLAP SCATTER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * transfer_size, tmp_ptr, 0, 0, 0); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * transfer_size, sub_tmp_ptr, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "OVERLAP SCATTER WRITE BUFFER"); \
-		tmp_ptr += chunk_size; \
+		sub_tmp_ptr += transfer_size; \
 	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
