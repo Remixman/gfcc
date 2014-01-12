@@ -906,17 +906,14 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 
 	int chunk_size, chunk_num;
 	size_t transfer_size, last_ite_size;
-	int *subcntsptr, *subdispptr;
 	int subcnts[_gfn_num_proc];
 	int subdisp[_gfn_num_proc];
-	int lastsubcnts[_gfn_num_proc];
-	int lastsubdisp[_gfn_num_proc];
 
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
 	long long overall_scatter_start_t, overall_scatter_end_t;
 
-	int i, r, value;
+	int i, k, r, value;
 	va_list vl;
 	int found = 0;
 
@@ -967,30 +964,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	last_ite_size = (sub_size % chunk_size == 0)?
 		chunk_size : sub_size % chunk_size;
 	_CalcCnts(chunk_size, _gfn_num_proc, subcnts, 1);
-	_CalcDisp(chunk_size, _gfn_num_proc, subdisp, 1);
-	_CalcCnts(last_ite_size, _gfn_num_proc, lastsubcnts, 1);
-	_CalcDisp(last_ite_size, _gfn_num_proc, lastsubdisp, 1);
-
-	if (_gfn_rank == 0) {
-		printf("sub_size = %d\n", sub_size);
-		printf("chunk_num = %d\n", chunk_num);
-		printf("subcnts = { %d ", subcnts[0]);
-		for (i = 1; i < _gfn_num_proc; ++i)
-			printf(", %d ", subcnts[i]);
-		printf("}\n");
-		printf("subdisp = { %d ", subdisp[0]);
-		for (i = 1; i < _gfn_num_proc; ++i)
-			printf(", %d ", subdisp[i]);
-		printf("}\n");
-		printf("lastsubcnts = { %d ", lastsubcnts[0]);
-		for (i = 1; i < _gfn_num_proc; ++i)
-			printf(", %d ", lastsubcnts[i]);
-		printf("}\n");
-		printf("lastsubdisp = { %d ", lastsubdisp[0]);
-		for (i = 1; i < _gfn_num_proc; ++i)
-			printf(", %d ", lastsubdisp[i]);
-		printf("}\n");
-	}
+	_CalcDisp(sub_size, _gfn_num_proc, subdisp, 1);
 
 #ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
 #define UPLOAD_TO_GPU(type) \
@@ -1045,18 +1019,23 @@ do { \
 for (r = 0; r < recv_loop_num; ++r) { \
 	type * sub_tmp_ptr = tmp_ptr + recv_it_offset; \
 	for (i = 0; i < chunk_num; ++i) { \
-		transfer_size = (i == chunk_num-1)? last_ite_size : chunk_size; \
-		subcntsptr = (i == chunk_num-1)? lastsubcnts : subcnts; \
-		subdispptr = (i == chunk_num-1)? lastsubdisp : subdisp; \
-		MPI_Scatterv(sub_tmp_ptr, subcntsptr, subdispptr, mpi_type, \
-			sub_tmp_ptr + subdispptr[_gfn_rank], transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
-		subbuf_info.origin = (size_t)((recv_it_offset + chunk_size * i) * sizeof(type)); \
-		subbuf_info.size = (size_t)(transfer_size * sizeof(type)); \
+		if (i == chunk_num) { \
+			transfer_size = last_ite_size; \
+			_CalcCnts(last_ite_size, _gfn_num_proc, subcnts, 1); \
+		} else { \
+			transfer_size = chunk_size; \
+		} \
+		MPI_Scatterv(sub_tmp_ptr, subcnts, subdisp, mpi_type, \
+			sub_tmp_ptr + subdisp[_gfn_rank], transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
+		subbuf_info.origin = (size_t)((recv_it_offset + subdisp[_gfn_rank]) * sizeof(type)); \
+		subbuf_info.size = (size_t)(subcnts[_gfn_rank] * sizeof(type)); \
 		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &subbuf_info, &_gfn_status); \
 		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER FOR OVERLAP SCATTER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * transfer_size, sub_tmp_ptr, 0, 0, 0); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * subcnts[_gfn_rank], \
+			sub_tmp_ptr + subdisp[_gfn_rank], 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "OVERLAP SCATTER WRITE BUFFER"); \
-		sub_tmp_ptr += transfer_size; \
+		for (k = 0; k < _gfn_num_proc; ++k) \
+			subdisp[k] += subcnts[k]; \
 	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
