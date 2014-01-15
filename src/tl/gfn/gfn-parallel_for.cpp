@@ -276,6 +276,8 @@ TL::Source ParallelFor::do_parallel_for()
         DataReference var_ref = _kernel_info->_var_ref[i];
 
         std::string var_name = var_info.get_name();
+        if (debug)
+            std::cout << "GENERATED CODE FOR " <<  var_name << "\n";
         std::string var_unique_id_name = var_info.get_id_name();
         std::string var_cl_name = var_info.get_cl_name();
         std::string var_cl_global_reduction = "_global_reduction_" + var_name;
@@ -305,6 +307,7 @@ TL::Source ParallelFor::do_parallel_for()
         //std::cout << i << ". Type of " << var_info._name << " is " << c_type_str << std::endl;
 
         /* 1. Declaration necessary variable */
+        if (debug) std::cout << "\tSTEP 1\n";
         if (var_info._is_private)
         {
             //std::cout << "temp or private\n";
@@ -348,6 +351,7 @@ TL::Source ParallelFor::do_parallel_for()
         }
 
         /* 2. Declaration generated variable for each variable */
+        if (debug) std::cout << "\tSTEP 2\n";
         if (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present)
         {
             if (var_info._is_array_or_pointer)
@@ -400,6 +404,7 @@ TL::Source ParallelFor::do_parallel_for()
         }
         
         /* 3. Allocate memory for array or pointer */
+        if (debug) std::cout << "\tSTEP 3\n";
         if (var_info._is_array_or_pointer &&            
             (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
@@ -418,6 +423,7 @@ TL::Source ParallelFor::do_parallel_for()
                 << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
         }
 
+        if (debug) std::cout << "\tSTEP 4\n";
         if (var_info._is_input)
         {
             /* Master code */
@@ -466,6 +472,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
         }
         
+        if (debug) std::cout << "\tSTEP 5\n";
         if (var_info._is_output)
         {
             /* Master code */
@@ -506,6 +513,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
         }
 
+        if (debug) std::cout << "\tSTEP 6\n";
         if (var_info._is_reduction)
         {
             worker_allocate_reduce_scalar_src

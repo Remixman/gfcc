@@ -97,6 +97,7 @@ TL::Source Data::do_data()
     std::string level1_cond = "1";//_kernel_info->_level_1_condition;
     std::string level2_cond = "1";//_kernel_info->_level_2_condition;
     
+    if (debug) std::cout << "Start data construct translate\n";
     worker_send_func_name << "_Function_send_" << _transfer_info->send_func_id;
     worker_recv_func_name << "_Function_recv_" << _transfer_info->recv_func_id;
 
@@ -129,6 +130,7 @@ TL::Source Data::do_data()
         std::cout << "Data clause handle variable : " << var_name << std::endl;
         
         /* (1). Declare array variables */
+        if (debug) std::cout << "\tSTEP 1\n";
         if (var_info._is_array_or_pointer &&
             (var_info._is_input || var_info._is_output))
         {
@@ -149,6 +151,7 @@ TL::Source Data::do_data()
         }
         
         /* (2). Declaration generated variables */
+        if (debug) std::cout << "\tSTEP 2\n";
         if (var_info._is_array_or_pointer &&
             (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
@@ -158,6 +161,7 @@ TL::Source Data::do_data()
         }
         
         /* (XX). Allocate and Deallocate memory */
+        if (debug) std::cout << "\tSTEP 3\n";
         if (var_info._is_array_or_pointer &&
             (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
@@ -170,6 +174,7 @@ TL::Source Data::do_data()
                 << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
         }
         
+        if (debug) std::cout << "\tSTEP 4\n";
         if (var_info._is_input)
         {
             // create scatter input
@@ -218,7 +223,7 @@ TL::Source Data::do_data()
             }
         }
         
-        
+        if (debug) std::cout << "\tSTEP 5\n";
         if (var_info._is_output)
         {
             if (var_info._is_array_or_pointer && is_partition)
@@ -258,6 +263,7 @@ TL::Source Data::do_data()
         }
         
         // create lock and unlock transfer
+        if (debug) std::cout << "\tSTEP 6\n";
         if (var_info._is_array_or_pointer && 
             (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
@@ -275,6 +281,7 @@ TL::Source Data::do_data()
         }
         
         // send array unique id 
+        if (debug) std::cout << "\tSTEP 7\n";
         if (var_info._is_array_or_pointer && 
             (var_info._is_input || var_info._is_output || var_info._is_temp_array || var_info._is_present))
         {
@@ -292,13 +299,16 @@ TL::Source Data::do_data()
         }
     }
     
+    if (debug) "MASTER call send function\n";
     master_send_call_function_send
         << "_SendCallFuncMsg(" << _transfer_info->send_func_id << ");";
         
+    if (debug) "MASTER call receieve function\n";
     master_send_call_function_recv
         << "_SendCallFuncMsg(" << _transfer_info->recv_func_id << ");";
         
     /* Create master source */
+    if (debug) std::cout << "Geneated master code for data construct\n";
     ret_src
         << comment("Send call send function message")
         << master_send_call_function_send
@@ -313,6 +323,7 @@ TL::Source Data::do_data()
         << master_recv_src;
         
     /* Create send function source */
+    if (debug) std::cout << "Geneated worker send function code for data construct\n";
     worker_send_function
         << comment("SEND_FUNCTION " + int_to_string(_transfer_info->send_func_id) + " " + (std::string)worker_send_func_name)
         << "void " << worker_send_func_name << "() {"
@@ -343,6 +354,7 @@ TL::Source Data::do_data()
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_send_function);
     
     /* Create receive function source */
+    if (debug) std::cout << "Geneated worker receive function code for data construct\n";
     worker_recv_function
         << comment("RECV_FUNCTION " + int_to_string(_transfer_info->recv_func_id) + " " + (std::string)worker_recv_func_name)
         << "void " << worker_recv_func_name << "() {"
