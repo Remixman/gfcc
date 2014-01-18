@@ -58,23 +58,18 @@ namespace TL
                 virtual void run(TL::DTO& dto);
             private:
                 /* Directives */
-                void start(PragmaCustomConstruct construct);
-                void finish(PragmaCustomConstruct construct);
                 void parallel_for(PragmaCustomConstruct construct);
                 void data(PragmaCustomConstruct construct);
                 void data_post(PragmaCustomConstruct construct);
-                void use_in_parallel(PragmaCustomConstruct construct);
-                void overlapcompute(PragmaCustomConstruct construct);
+                void fission_loop(PragmaCustomConstruct construct);
+                void loop(PragmaCustomConstruct construct);
+                //void use_in_parallel(PragmaCustomConstruct construct);
                 void barrier(PragmaCustomConstruct construct);
                 void atomic(PragmaCustomConstruct construct);
 
                 /* Clauses */
                 void get_if_clause(PragmaCustomConstruct construct,
                                    KernelInfo *kernel_info);
-                /*void get_kernelname_clause(PragmaCustomConstruct construct,
-                                           KernelInfo *kernel_info);
-                void get_waitfor_clause(PragmaCustomConstruct construct,
-                                        KernelInfo *kernel_info);*/
                 void get_private_clause(PragmaCustomConstruct construct,
                                         KernelInfo *kernel_info,
                                         ObjectList<IdExpression> &symbol_list);
@@ -126,7 +121,8 @@ namespace TL
                 // Assert condition
                 void post_collect_variable_info(TransferInfo *transfer_info);
                 void collect_loop_info(ForStatement for_stmt,
-                                       KernelInfo *kernel_info);
+                                       KernelInfo *kernel_info,
+                                       bool is_inner_loop = false);
                 
                 void add_expr_to_input_var(TransferInfo *transfer_info, 
                                            TL::Expression &expr);

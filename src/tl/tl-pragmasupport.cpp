@@ -224,6 +224,18 @@ namespace TL
 
         return result;
     }
+    
+    std::string PragmaCustomConstruct::get_construct() const
+    {
+        size_t i = 0;
+        std::string str = (std::string)(*this);
+        for (i = 0; i < str.length(); ++i)
+        {
+            if (i > 0 && str[i]=='\n' && str[i-1]=='\\') continue;
+            else if (str[i]=='\n') break;
+        }
+        return str.substr(0,i+1);
+    }
 
     bool PragmaCustomConstruct::is_directive() const
     {

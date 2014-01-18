@@ -250,6 +250,9 @@ namespace TL
 
             //! Returns the name of the pragma directive
             std::string get_directive() const;
+            
+            //! Returns only pragma
+            std::string get_construct() const;
 
             //! States if this is a directive
             /*!

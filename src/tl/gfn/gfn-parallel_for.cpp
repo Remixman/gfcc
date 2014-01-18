@@ -125,7 +125,6 @@ TL::Source ParallelFor::do_parallel_for()
     //
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
 
-
     /* _function_def is function that call for_stmt */
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
 
@@ -137,7 +136,6 @@ TL::Source ParallelFor::do_parallel_for()
     std::string loop_start = lower_bound.prettyprint();
     std::string loop_end = upper_bound.prettyprint();
     std::string loop_step = (std::string)step;
-    std::string full_size = _kernel_info->get_full_size(); // return empty if don't have partitioned shared array
     //std::string bound_opr = (std::string)_for_stmt.get_bound_operator();
     std::string loop_iter_size;
     TL::Statement original_loop_body = _for_stmt.get_loop_body();
@@ -146,6 +144,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Statement gpu_loop_body(original_loop_body);
 
     std::string induction_var_name = (std::string)induction_var;
+    std::string inner_induction_var_name = _kernel_info->_inner_induction_var;
     std::string new_induction_var_name = GFN_PREFIX_LOCAL + induction_var_name;
     
     std::string level1_cond = _kernel_info->_level_1_condition;
@@ -158,6 +157,7 @@ TL::Source ParallelFor::do_parallel_for()
     kernel_name << "_kernel_" << _kernel_info->kernel_id;
 
     /*== ---------- Create source about loop size ------------------==*/
+    if (debug) std::cout << "create source about loop size\n";
     loop_size_var_list.append( lower_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
     loop_size_var_list.append( upper_bound.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES) );
     for (int i = 0; i < loop_size_var_list.size(); ++i)
@@ -199,11 +199,16 @@ TL::Source ParallelFor::do_parallel_for()
     std::string loop_step_var = "_loop_step";
     std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
-    if (full_size != "")
-    {
-        worker_declare_generated_variables_src
-            << "int _local_data_start, _local_data_end;";
-    }
+    
+    std::string inner_start_idx_var = "_" + inner_induction_var_name + "_start";
+    std::string inner_end_idx_var = "_" + inner_induction_var_name + "_end";
+    std::string inner_loop_step_var = "_inner" + loop_step_var;
+    std::string inner_cl_loop_step_var = "_cl_inner_loop_step";
+    std::string inner_loop_size_var = "_inner" + loop_size_var;
+
+    std::string gen_index = "_gen_idx";
+    std::string gen_loop_size = "_gen_loop_size";
+    
     worker_declare_generated_variables_src
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
         << "int " << loop_step_var << ";"
@@ -211,42 +216,48 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << new_induction_var_name << " = 0;"
         << "size_t _work_item_num, _work_group_item_num, _global_item_num;"
         << "cl_kernel _kernel;";
-    if (full_size != "")
+    if (_kernel_info->_has_inner_loop)
     {
-        worker_initialize_generated_variables_src
-            << "_local_data_start = _GfnCalcLocalDataStart(0, (" << full_size << ")-1);"
-            << "_local_data_end = _GfnCalcLocalDataEnd(0, (" << full_size << ")-1);"
-            /*<< local_start_idx_var << " = _GfnCalcLocalLoopStart(_local_data_start, "
-            << loop_start << ", " << loop_step << ");"
-            << local_end_idx_var << " = _GfnCalcLocalLoopEnd(_local_data_end, "
-            << loop_end << ");";*/
-            << local_start_idx_var << " = _GfnCalcLocalLoopStart2("
-            << loop_start << ", " << loop_end << ", " << loop_step << ");"
-            << local_end_idx_var << " = _GfnCalcLocalLoopEnd2("
-            << loop_start << ", " << loop_end << ", " << loop_step << ");";
+        worker_declare_generated_variables_src
+            << "int " << inner_start_idx_var << "," << inner_end_idx_var << ";"
+            << "int " << inner_loop_step_var << ";"
+            << "int " << inner_loop_size_var << ";";
+        worker_declare_generated_variables_src
+            << "int " << gen_index << ";"
+            << "int " << gen_loop_size << ";";
     }
-    else
-    {
-        worker_initialize_generated_variables_src
-            << local_start_idx_var << " = _CalcLocalStartIndex("
-            << loop_start << ","
-            << loop_end << ",_gfn_num_proc,_gfn_rank+1);"
-            << local_end_idx_var << " = _CalcLocalEndIndex("
-            << loop_start << ","
-            << loop_end << ",_gfn_num_proc,_gfn_rank+1);";
-    }
+    
     worker_initialize_generated_variables_src
+        << local_start_idx_var << " = _GfnCalcLocalLoopStart2("
+        << loop_start << ", " << loop_end << ", " << loop_step << ");"
+        << local_end_idx_var << " = _GfnCalcLocalLoopEnd2("
+        << loop_start << ", " << loop_end << ", " << loop_step << ");"
         << loop_size_var << " = _CalcLoopSize("
         << loop_start << ","
         << loop_end << ","
         << step.prettyprint() << ");"
         << loop_step_var << " = " << loop_step << ";";
+    if (_kernel_info->_has_inner_loop)
+    {
+        worker_initialize_generated_variables_src
+            << inner_start_idx_var << " = " << _kernel_info->_inner_lower_bound_expr << ";"
+            << inner_end_idx_var << " = " << _kernel_info->_inner_upper_bound_expr << ";"
+            << inner_loop_step_var << " = " << _kernel_info->_inner_loop_step << ";"
+            << inner_loop_size_var << " = _CalcLoopSize("
+                << inner_start_idx_var << ","
+                << inner_end_idx_var << ","
+                << inner_loop_step_var << ");";
+        worker_initialize_generated_variables_src
+            << gen_loop_size << " = " << loop_size_var << " * " << inner_loop_size_var << ";";
+    }
     worker_initialize_generated_variables_src
-        << "_work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);"
+        << "_work_item_num = _CalcSubSize("
+        << ((_kernel_info->_has_inner_loop)? gen_loop_size : loop_size_var)
+        << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
         << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
-
-
+        
+        
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (loop_step[0] == '-')? false : true;
     if (is_incre_loop)
@@ -321,7 +332,7 @@ TL::Source ParallelFor::do_parallel_for()
             //std::cout << "dim num = " << var_info._dimension_num << "\n";
                 
             worker_declare_variables_src << tmp_decl_src;
-            cl_kernel_var_decl << tmp_decl_src;
+            cl_kernel_var_decl << tmp_decl_src << CL_EOL;
         }
         else if (var_info._is_array_or_pointer)
         {
@@ -345,7 +356,7 @@ TL::Source ParallelFor::do_parallel_for()
                 !var_info._is_input /* Scalar input is function parameters, not need to declare again */)
             {
                 cl_kernel_var_decl
-                    << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";\n";
+                    << var_ref.get_type().get_declaration(var_ref.get_scope(), var_name) << ";" << CL_EOL;
                     std::cout << "Add code declaration on kernel " << var_name << "\n";
             }
         }
@@ -423,6 +434,7 @@ TL::Source ParallelFor::do_parallel_for()
                 << create_gfn_free(var_unique_id_name, level1_cond, level2_cond);
         }
 
+        /* 4. Broadcasr and scatter for input array */
         if (debug) std::cout << "\tSTEP 4\n";
         if (var_info._is_input)
         {
@@ -472,6 +484,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
         }
         
+        /* 5. Gather data from output array */
         if (debug) std::cout << "\tSTEP 5\n";
         if (var_info._is_output)
         {
@@ -513,6 +526,7 @@ TL::Source ParallelFor::do_parallel_for()
             }
         }
 
+        /* 6. Reduction */
         if (debug) std::cout << "\tSTEP 6\n";
         if (var_info._is_reduction)
         {
@@ -578,35 +592,59 @@ TL::Source ParallelFor::do_parallel_for()
     cl_replace_types[GFN_REPLACE_ARRAY_ND] = true;
     cl_replace_types[GFN_REPLACE_ARRAY_INDEX] = false;
     replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);
-    std::cout << "After replace\n";
+    //std::cout << "After replace\n";
 
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
+    // Current local loop start
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_start_idx_var);
+    cl_actual_params.append_with_separator(("int " + local_start_idx_var), ",");
+    // Current local loop end
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_end_idx_var);
+    cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
+    // Current loop step
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
+    cl_actual_params.append_with_separator(("int " + loop_step_var), ",");
+    if (_kernel_info->_has_inner_loop)
+    {
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_start_idx_var);
+        cl_actual_params.append_with_separator(("int " + inner_start_idx_var), ",");
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_end_idx_var);
+        cl_actual_params.append_with_separator(("int " + inner_end_idx_var), ",");
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_loop_step_var);
+        cl_actual_params.append_with_separator(("int " + inner_loop_step_var), ",");
+    }
 
-    // TODO: Refactor this
-    TL::Source tmp_src_1;
-    tmp_src_1 << "int " << local_start_idx_var;
-    cl_actual_params.append_with_separator(tmp_src_1, ",");
-    TL::Source tmp_src_2;
-    tmp_src_2 << "int " << local_end_idx_var;
-    cl_actual_params.append_with_separator(tmp_src_2, ",");
-    TL::Source tmp_src_3;
-    tmp_src_3 << "int " << loop_step_var;
-    cl_actual_params.append_with_separator(tmp_src_3, ",");
-
-    cl_kernel_var_decl
-        << "int " << loop_size_var << " = ("
-            << local_end_idx_var << " - " << local_start_idx_var
-            << ") / " << loop_step_var << ";" << CL_EOL
-        << "int " << new_induction_var_name << " = "
-        << "get_global_id(0) * " << loop_step_var << ";" << CL_EOL
-        << "int " << induction_var << " = " << new_induction_var_name 
-        <<" + " << local_start_idx_var << ";" << CL_EOL;
+    if (_kernel_info->_has_inner_loop)
+    {
+        cl_kernel_var_decl
+            << "int outer_loop_size = (" << local_end_idx_var << " - " << local_start_idx_var << ")"
+            << " / " << loop_step_var << ";" << CL_EOL
+            << "int inner_loop_size = (" << inner_end_idx_var << " - " << inner_start_idx_var << ")"
+            << " / " << inner_loop_step_var << ";" << CL_EOL
+            << "int " << loop_size_var << " = outer_loop_size * inner_loop_size;" << CL_EOL
+            
+            << "int " << induction_var << " = ((get_global_id(0) / inner_loop_size) * " 
+                << loop_step_var << ") + " << local_start_idx_var << ";" << CL_EOL
+            << inner_induction_var_name << " = ((get_global_id(0) % inner_loop_size) * "
+                << inner_loop_step_var << ") + " << inner_start_idx_var << ";"<< CL_EOL;
+    }
+    else
+    {
+        cl_kernel_var_decl
+            << "int " << loop_size_var << " = ("
+                << local_end_idx_var << " - " << local_start_idx_var
+                << ") / " << loop_step_var << ";" << CL_EOL
+            << "int " << new_induction_var_name << " = "
+            << "get_global_id(0) * " << loop_step_var << ";" << CL_EOL
+            << "int " << induction_var << " = " << new_induction_var_name 
+            <<" + " << local_start_idx_var << ";" << CL_EOL;
+    }
     // Kernel helper function
     //cl_kernel
         //<< create_cl_help_barrier() // TODO: insert if use
@@ -615,7 +653,6 @@ TL::Source ParallelFor::do_parallel_for()
         //<< create_cl_help_atomic_add_double(); // TODO: insert if use
 
     // Kernel reduction implement
-std::cout << "Create OpenCL reduction\n";
     TL::Source cl_kernel_reduction;
     if (_kernel_info->_has_reduction_clause)
     {

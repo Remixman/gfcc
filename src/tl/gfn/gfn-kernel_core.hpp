@@ -163,9 +163,6 @@ namespace TL
                 void set_wait_for(ObjectList<std::string> &wait_for);
                 ObjectList<std::string> get_wait_for();
                 
-                // return empty if don't have partitioned shared array
-                std::string get_full_size();
-                
                 static std::map< std::string, KernelInfo > _kernel_map;
 
                 std::string loop_index_var_name;
@@ -177,6 +174,13 @@ namespace TL
                 // Loop iterator
                 bool _is_const_loop_upper_bound;
                 std::string _const_upper_bound; // if const
+                
+                // Inner loop information
+                bool _has_inner_loop;
+                std::string _inner_lower_bound_expr;
+                std::string _inner_upper_bound_expr;
+                std::string _inner_loop_step;
+                std::string _inner_induction_var;
         };
         //! @}
     }

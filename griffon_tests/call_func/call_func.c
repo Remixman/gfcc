@@ -4,44 +4,27 @@
 #include <gfn.h>
 #endif
 
-#pragma gfn use_in_parallel
-int b(int x) {
-  return x * x;
-}
-#pragma gfn use_in_parallel
-int c(int x) {
-  return x + x + 1;
-}
-#pragma gfn use_in_parallel
-int a(int x, int y) {
-  return b(x) + c(y);
-}
-
 int main(int argc, char *argv[]) {
-  int i, A[500], B[500];
+  int i, j, C[50][50], A[50][50], B[50][50];
   
-  for (i=0;i<500;i++) {
-  	B[i] = i;
-  }
+  for (i=0;i<50;i++)
+  	for (j=0;j<50;j++)
+  		A[i][j] = B[i][j] = i*50+j;
   
-  #pragma gfn data copyin(B[0:500{partition}]) copyout(A[0:500{partition}])
-  {
-  
-  #pragma gfn parallel_for pcopyin(B[0:500{partition}]) pcopyout(A[0:500{partition}])
-  for (i=0;i<500;i++) {
-    A[i] = a(B[i],8);
-  }
-  
-  } /* end acc data */
-  
-  // Test result
-  for (i=0;i<500;i++) {
-  	if (A[i] != a(B[i],8)) {
-  	  printf("Fail at i = %d , Expected = %d but A[i] = %d\n", i, a(B[i],8), A[i]);
-      assert(0);
+  #pragma gfn parallel_for \
+  	copyin(A[0:50{partition}][0:50]) \
+  	copyin(B[0:50][0:50]) \
+  	copyout(C[0:50{partition}][0:50])
+  for (i=0;i<50;++i) {
+  	#pragma gfn loop
+  	for (j=0;j<50;++j) {
+  		C[i][j] = A[i][j] + B[i][j];
   	}
   }
-  printf("TEST PASS!\n");
+  
+  for (i=0;i<50;++i)
+  	for (j=0;j<50;++j)
+  		assert(C[i][j] == (A[i][j]+B[i][j]));
   
   return 0;
 }

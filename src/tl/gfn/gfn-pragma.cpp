@@ -158,18 +158,12 @@ GFNPragmaPhase::GFNPragmaPhase()
     set_phase_description("This phase implements griffon transformations "
             "available through the usage of #pragma gfn");
 
-    register_construct("start");
-    on_directive_pre["start"].connect(functor(&GFNPragmaPhase::start, *this));
-
-    register_construct("finish");
-    on_directive_pre["finish"].connect(functor(&GFNPragmaPhase::finish, *this));
-
-    
-    register_construct("use_in_parallel");
-    on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));
+    /*register_construct("use_in_parallel");
+    on_directive_post["use_in_parallel"].connect(functor(&GFNPragmaPhase::use_in_parallel, *this));*/
     
     
     register_construct("parallel_for");
+    on_directive_pre["parallel_for"].connect(functor(&GFNPragmaPhase::fission_loop, *this));
     on_directive_post["parallel_for"].connect(functor(&GFNPragmaPhase::parallel_for, *this));
     
     register_construct("data");
@@ -177,13 +171,10 @@ GFNPragmaPhase::GFNPragmaPhase()
     on_directive_post["data"].connect(functor(&GFNPragmaPhase::data_post, *this));
     // XXX: on_directive_pre ???
     
-    
-    
-    
-    /*register_construct("overlapcompute");
-    on_directive_post["overlapcompute"].connect(functor(&GFNPragmaPhase::overlapcompute, *this));
+    register_construct("loop");
+    on_directive_post["loop"].connect(functor(&GFNPragmaPhase::loop, *this));
 
-    register_construct("atomic");
+    /*register_construct("atomic");
     on_directive_post["atomic"].connect(functor(&GFNPragmaPhase::atomic, *this));*/
 }
 
@@ -235,37 +226,6 @@ void GFNPragmaPhase::run(TL::DTO& dto)
  *
  * so we cannot replace all of construct
  */
-void GFNPragmaPhase::start(PragmaCustomConstruct construct)
-{
-    std::cerr << "=== CALL START\n";
-    Source result;
-    result
-        << comment("Initialize IPC to worker")
-        << "_OpenMasterMsgQueue();"
-        << construct.get_statement(); // XXX: get startment of construct before replace
-
-    AST_t master_start_tree = result.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-
-    construct.get_ast().replace(master_start_tree);
-}
-
-void GFNPragmaPhase::finish(PragmaCustomConstruct construct)
-{
-    std::cerr << "=== CALL FINISH\n";
-    Source result;
-
-    result
-        << comment("Close IPC to worker")
-        << "_SendCallFuncMsg(0);"
-        << "_CloseMasterMsgQueue();"
-        << construct.get_statement(); // XXX: get startment of construct before replace
-
-    AST_t master_finish_tree = result.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-
-    construct.get_ast().replace(master_finish_tree);
-}
 
 static void parallel_for_fun(TL::PragmaCustomConstruct construct, 
                              TL::ForStatement for_stmt, 
@@ -293,12 +253,11 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
 
     /* Get for_statement and for loop body */
     ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
-    Statement for_body = for_statement.get_loop_body();
-    
-    /*if (for_statement.empty())
+    /*if ()
     {
-        throw GFNException(construct, "not found for statement followed #pragma gfn parallel_for");
+        throw GFNException(construct, "not found for statement followed #pragma acc parallel loop");
     }*/
+    Statement for_body = for_statement.get_loop_body();
 
     ObjectList<IdExpression> symbol_list = for_statement.all_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
 
@@ -339,6 +298,23 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     collect_variable_info(loop_body, kernel_info);
     post_collect_variable_info(kernel_info); // XXX: must call before process in/out clauses
 
+    /* Get inner loop infomation if inner loop is pragma acc loop */
+    if (loop_body.is_compound_statement())
+    {
+        TL::ObjectList<TL::Statement> statements = loop_body.get_inner_statements();
+        std::string construct_type = (std::string)(statements[0].get_pragma_line());
+        construct_type = construct_type.substr(0, construct_type.find(" "));
+        if (statements.size() == 1 && construct_type=="loop")
+        {
+            TL::Statement inner_for = statements[0].get_pragma_construct_statement();
+            ForStatement inner_for_statement(inner_for.get_ast(), inner_for.get_scope_link());
+            collect_loop_info(inner_for_statement, kernel_info, true);
+            
+            TL::Statement inner_loop_body = inner_for_statement.get_loop_body();
+            for_statement.get_loop_body().get_ast().replace(inner_loop_body.get_ast());
+        }
+    }
+    
     // get data from clauses
     /*get_kernelname_clause(construct, kernel_info);
     get_waitfor_clause(construct, kernel_info);*/
@@ -374,6 +350,106 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     construct.get_ast().replace(statement.get_ast());
     
     delete kernel_info;
+}
+
+TL::Source create_new_parallel_loop(std::string construct_str,
+                                    TL::ForStatement orig_for,
+                                    std::string new_body)
+{
+    TL::Source new_for;
+    
+    if (new_body == "")
+    {
+        return new_for; /* return empty source */
+    }
+    
+    new_for 
+        << construct_str
+        << "for (" << orig_for.get_induction_variable() << "=" << orig_for.get_lower_bound() << ";"
+        << orig_for.get_induction_variable() << orig_for.get_bound_operator() << orig_for.get_upper_bound() << ";"
+        << orig_for.get_induction_variable() << "+=" << orig_for.get_step() << ") {"
+        << new_body
+        << "}";
+        
+    return new_for;
+}
+
+void GFNPragmaPhase::fission_loop(PragmaCustomConstruct construct)
+{
+    std::cerr << "=== CALL FISSION LOOP\n";
+    Statement statement = construct.get_statement();
+    std::string construct_str = construct.get_construct();
+    
+    TL::Source new_stmt;
+    TL::ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
+    
+    Statement for_body = for_statement.get_loop_body();
+    if (!for_body.is_compound_statement())
+    {
+        return;
+    }
+    
+    TL::ObjectList<TL::Statement> statements = for_body.get_inner_statements();
+    if (statements.size() <= 1)
+    {
+        return;
+    }
+    
+    std::string cum_subloop = "";
+    for (TL::ObjectList<TL::Statement>::iterator it = statements.begin();
+         it != statements.end();
+         ++it)
+    {
+        // TODO: check for sure this statement is pragma acc loop
+        // assume always pragma acc loop now!!
+        if (it->is_pragma_construct() && (std::string)(it->get_pragma_line())=="loop")
+        {
+            new_stmt
+                << create_new_parallel_loop(construct_str, for_statement, cum_subloop)
+                << create_new_parallel_loop(construct_str, for_statement, (std::string)*it);
+            cum_subloop = "";
+        }
+        else
+        {
+            cum_subloop += (std::string)*it;
+        }
+    }
+    new_stmt
+        << create_new_parallel_loop(construct_str, for_statement, cum_subloop);
+        
+    TL::AST_t new_for_tree = new_stmt.parse_statement(statement.get_ast(), statement.get_scope_link());
+        
+    statement.get_ast().replace(new_for_tree);
+}
+
+void GFNPragmaPhase::loop(PragmaCustomConstruct construct)
+{
+    return;
+    
+    std::cout << "=== CALL LOOP\n";
+    Statement statement = construct.get_statement();
+    
+    TL::ForStatement for_statement(construct.get_statement().get_ast(), construct.get_scope_link());
+    /*if ()
+    {
+        throw GFNException(construct, "not found for statement followed #pragma acc loop");
+    }*/
+    
+    
+    // TODO: send loop info up
+    /*TL::Expression lower_bound_expr = for_statement.get_lower_bound();
+    TL::Expression upper_bound_expr = for_statement.get_upper_bound();
+
+    TL::IdExpression induction_var = for_statement.get_induction_variable();
+    TL::Symbol sym = induction_var.get_symbol();*/
+
+    // TODO: send reduction clause up
+    //get_private_clause(construct, kernel_info, symbol_list);
+    //get_reduction_clause(construct, kernel_info);
+    
+    Statement for_body = for_statement.get_loop_body();
+    AST_t for_body_tree = for_body.get_ast();
+    construct.get_ast().replace(for_body_tree);
 }
 
 static void data_fun(TL::PragmaCustomConstruct construct, 
@@ -487,7 +563,7 @@ void GFNPragmaPhase::data_post(PragmaCustomConstruct construct)
     delete transfer_info;
 }
 
-void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
+/*void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
 {
     // Add define GFN_WORKER
     TL::Source kernel_result;
@@ -516,26 +592,7 @@ void GFNPragmaPhase::use_in_parallel(PragmaCustomConstruct construct)
     
     // print to kernel declare file
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, kernel_result);
-}
-
-void GFNPragmaPhase::overlapcompute(PragmaCustomConstruct construct)
-{
-    TL::PragmaCustomClause kernelname_clause = construct.get_clause("kernelname");
-    if (kernelname_clause.is_defined())
-    {
-        ObjectList<std::string> kernel_name_list = kernelname_clause.get_arguments();
-        
-        if (kernel_name_list.size() != 1)
-        {
-            throw GFNException(construct, "kernelname only accepts one name");
-        }
-        kernel_name_list[0];
-    }
-    else
-    {
-        // get last kernelname in overlapcompute scope
-    }
-}
+}*/
 
 static void atomic_fun(TL::Statement assign_stmt)
 {
@@ -1307,7 +1364,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
         if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'ASSIGNMENT\n";
         //std::cout << "ASSIGN STMT : " << expr.prettyprint() << "\n";
         stmt_var_list = expr.get_second_operand().all_symbol_occurrences(Statement::ONLY_VARIABLES);
-        
+
         Expression tmp_expr = expr.get_first_operand();
         while (tmp_expr.is_array_subscript()) {
             stmt_var_list.append( tmp_expr.get_subscript_expression().all_symbol_occurrences(Statement::ONLY_VARIABLES) );
@@ -1321,7 +1378,7 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
             if (transfer_info->_var_info[idx]._is_use == false)
                 transfer_info->_var_info[idx]._is_def_before_use = true;
             transfer_info->_var_info[idx]._is_def = true;
-            
+
             ObjectList<std::string> dim_size;
             int dim_num = get_dimension_form_decl(tmp_expr.get_id_expression().get_declaration(), 
                                                   var_name, dim_size);
@@ -1377,6 +1434,8 @@ void GFNPragmaPhase::collect_variable_info(Expression expr,
     }
     /* End Find USE/DEF */
     
+    
+    /* Traverse children */
     if (expr.is_id_expression())
     {
         if (debug) std::cout << "COLLECT VARIABLE INFO EXPR 'IDEXPRESSION\n";
@@ -1568,7 +1627,7 @@ int GFNPragmaPhase::get_dimension_form_decl(TL::Declaration decl,
                 int close_pos = orig_decl_str.find("]", start_pos);
                 std::string size = orig_decl_str.substr( open_pos+1, close_pos-open_pos-1 );
                 dim_size_params.push_back( size );
-                start_pos = close_pos;
+                start_pos = close_pos + 1;
             }
             
             for (int i = 0; i < orig_decl_str.size(); i++)
@@ -1622,14 +1681,26 @@ void GFNPragmaPhase::post_collect_variable_info(TransferInfo *transfer_info)
 }
 
 void GFNPragmaPhase::collect_loop_info(TL::ForStatement for_stmt,
-                                       KernelInfo *kernel_info)
+                                       KernelInfo *kernel_info,
+                                       bool is_inner_loop)
 {
     TL::Expression lower_bound_expr = for_stmt.get_lower_bound();
     TL::Expression upper_bound_expr = for_stmt.get_upper_bound();
+    TL::Expression loop_step = for_stmt.get_step();
 
     TL::IdExpression induction_var = for_stmt.get_induction_variable();
     TL::Symbol sym = induction_var.get_symbol();
 
+    if (is_inner_loop)
+    {
+        kernel_info->_has_inner_loop = true;
+        kernel_info->_inner_lower_bound_expr = (std::string)lower_bound_expr;
+        kernel_info->_inner_upper_bound_expr = (std::string)upper_bound_expr;
+        kernel_info->_inner_loop_step = (std::string)loop_step;
+        kernel_info->_inner_induction_var = (std::string)induction_var;
+        return;
+    }
+    
     /* Find index variable and set flag */
     int idx_idx = kernel_info->get_var_info_index_from_var_name(sym.get_name());
     kernel_info->_var_info[idx_idx]._is_index = true;

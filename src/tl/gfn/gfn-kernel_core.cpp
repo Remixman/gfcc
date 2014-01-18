@@ -89,7 +89,7 @@ VariableInfo& TransferInfo::get_var_info(std::string var_name)
 }
 
 KernelInfo::KernelInfo() : 
-    _has_reduction_clause(false)
+    _has_reduction_clause(false), _has_inner_loop(false)
 {
     // Loop bound
     _is_const_loop_upper_bound = false;
@@ -101,7 +101,7 @@ KernelInfo::KernelInfo() :
 }
 
 KernelInfo::KernelInfo(std::string &kernel_name) :
-    _has_reduction_clause(false)
+    _has_reduction_clause(false), _has_inner_loop(false)
 {
     // Loop bound
     _is_const_loop_upper_bound = false;
@@ -157,23 +157,6 @@ ObjectList<std::string> KernelInfo::get_wait_for()
     return _wait_for;
 }
 
-std::string KernelInfo::get_full_size()
-{
-    for (int i = 0; i < _var_info.size(); ++i)
-    {
-        VariableInfo var_info = _var_info[i];
-        
-        if (var_info._is_array_or_pointer &&
-            (var_info._is_input || var_info._is_output) &&
-            var_info._shared_dimension >= 0)
-        {
-            return (std::string)var_info._dim_size[ var_info._shared_dimension ];
-        }
-    }
-    
-    return "";
-}
-
 std::string VariableInfo::get_name()
 {
     return _name;
@@ -191,6 +174,12 @@ std::string VariableInfo::get_cl_name()
 
 std::string VariableInfo::get_mem_size()
 {
+    if (_dimension_num <= 0 || _dimension_num >= 7) 
+    {
+        std::cerr << "Don't support memory size for " << _name << "\n";
+        return "1";
+    }
+    
     std::stringstream result;
 
     result << "(";
