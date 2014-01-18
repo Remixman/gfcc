@@ -95,7 +95,6 @@ static void parse_pattern_list_and_append(std::string var_list_str,
         
         std::string var_name;
         var_name = var_list_str.substr(start_pos, colon_pos - start_pos);
-        std::cout << "Add " << var_name << " to pattern\n"; 
         var_names.append(var_name);
         
         // Range type

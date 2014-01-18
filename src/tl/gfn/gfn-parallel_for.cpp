@@ -623,9 +623,9 @@ TL::Source ParallelFor::do_parallel_for()
     if (_kernel_info->_has_inner_loop)
     {
         cl_kernel_var_decl
-            << "int outer_loop_size = (" << local_end_idx_var << " - " << local_start_idx_var << ")"
+            << "int outer_loop_size = ((" << local_end_idx_var << " - " << local_start_idx_var << ") + 1)"
             << " / " << loop_step_var << ";" << CL_EOL
-            << "int inner_loop_size = (" << inner_end_idx_var << " - " << inner_start_idx_var << ")"
+            << "int inner_loop_size = ((" << inner_end_idx_var << " - " << inner_start_idx_var << ") + 1)"
             << " / " << inner_loop_step_var << ";" << CL_EOL
             << "int " << loop_size_var << " = outer_loop_size * inner_loop_size;" << CL_EOL
             

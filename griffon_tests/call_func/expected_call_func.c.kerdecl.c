@@ -1,67 +1,69 @@
-/* DEVICE_FUNCTION_DEFINITION b */
-const char *_decl_b_src = "int b(int x);\n";
-const char *_def_b_src = "int b(int x)""{""    return x * x;""}\n";
+/* KERNEL_DEFINITION _kernel_863273 */
+const char *_kernel_863273_src = "__kernel void _kernel_863273(__global int * C,__global const int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n"
+"int j;\n"
+"int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n"
+"int _local_i = get_global_id(0) * _loop_step;\n"
+"int i = _local_i + _local_i_start;\n"
+"if (i <= (50) - 1) {\n"
+"{""    for (j = 0;""        j < 50;""        ++j)""    {""        C[((i) * 50) + (j)] = A[((i) * 50) + (j)] + B[((i) * 50) + (j)];""    }""}\n"
+"}\n"
+"}\n"
+"\n";
 
-/* DEVICE_FUNCTION_DEFINITION c */
-const char *_decl_c_src = "int c(int x);\n";
-const char *_def_c_src = "int c(int x)""{""    return x + x + 1;""}\n";
-
-/* DEVICE_FUNCTION_DEFINITION a */
-const char *_decl_a_src = "int a(int x, int y);\n";
-const char *_def_a_src = "int a(int x, int y)""{""    return b(x) + c(y);""}\n";
-
-/* KERNEL_DEFINITION _kernel_133237 */
-const char *_kernel_133237_src = "__kernel void _kernel_133237(__global int * A,__global const int * B,int _local_i_start,int _local_i_end,int _loop_step) {\n""int _loop_size = (_local_i_end - _local_i_start) / _loop_step;\n""int _local_i = get_global_id(0) * _loop_step;\n""int i = _local_i + _local_i_start;\n""if (i <= (500) - 1) {\n""{""    A[(i)] = a(B[i], 8);""}\n""}\n""}\n""\n";
-
-/* WORKER_FUNCTION 133237 _Function_133237 */
-void _Function_133237()
+/* WORKER_FUNCTION 863273 _Function_863273 */
+void _Function_863273()
 {
     /* Declare Variables */
     int i;
-    int *A;
-    int *B;
+    int j;
+    int **C;
+    int **A;
+    int **B;
     /* Declare Generated Variables */
-    int _local_data_start, _local_data_end;
     int _local_i_start, _local_i_end;
     int _loop_step;
     int _loop_size;
     int _local_i = 0;
     size_t _work_item_num, _work_group_item_num, _global_item_num;
     cl_kernel _kernel;
+    long long _id_C;
+    cl_mem _cl_mem_C = 0;
     long long _id_A;
     cl_mem _cl_mem_A = 0;
     long long _id_B;
     cl_mem _cl_mem_B = 0;
     /* Broadcast Scalar Value */
+    _GfnEnqueueBroadcastScalar(&_id_C, _GFN_TYPE_LONG_LONG_INT());
     _GfnEnqueueBroadcastScalar(&_id_A, _GFN_TYPE_LONG_LONG_INT());
     _GfnEnqueueBroadcastScalar(&_id_B, _GFN_TYPE_LONG_LONG_INT());
     _GfnFinishBroadcastScalar();
     /* Allocate Array Memory */
-    _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 500, _GFN_MEM_WRITE_ONLY(), 1, 1);
-    _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 500, _GFN_MEM_READ_ONLY(), 1, 1);
+    _GfnMalloc2D((void ***) &C, &_cl_mem_C, _id_C, _GFN_TYPE_INT(), 50, 50, _GFN_MEM_READ_WRITE(), 1, 1);
+    _GfnMalloc2D((void ***) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 50, 50, _GFN_MEM_READ_ONLY(), 1, 1);
+    _GfnMalloc2D((void ***) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 50, 50, _GFN_MEM_READ_ONLY(), 1, 1);
     /* Initialize Generated Variables */
-    _local_data_start = _GfnCalcLocalDataStart(0, (500) - 1);
-    _local_data_end = _GfnCalcLocalDataEnd(0, (500) - 1);
-    _local_i_start = _GfnCalcLocalLoopStart(_local_data_start, 0, 1);
-    _local_i_end = _GfnCalcLocalLoopEnd(_local_data_end, (500) - 1);
-    _loop_size = _CalcLoopSize(0, (500) - 1, 1);
+    _local_i_start = _GfnCalcLocalLoopStart2(0, (50) - 1, 1);
+    _local_i_end = _GfnCalcLocalLoopEnd2(0, (50) - 1, 1);
+    _loop_size = _CalcLoopSize(0, (50) - 1, 1);
     _loop_step = 1;
     _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
     _work_group_item_num = 64;
     _global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);
     /* Allocate Reduce Scalar Variables */
     /* Distribute Array Memory */
-    _GfnEnqueueBroadcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
+    _GfnEnqueueScatterND((void *) A[0], _cl_mem_A, _id_A, _GFN_TYPE_INT(), _GFN_MEM_READ_ONLY(), 0, (50) - 1, 1, 0, 0, 1, 1, 2, 0, 50, 50);
+    _GfnEnqueueBroadcastND((void *) B[0], _cl_mem_B, _id_B, _GFN_TYPE_INT(), 1, 1, 2, 50, 50);
     _GfnFinishDistributeArray();
     /* Compute Workload */
     if (1)
     {
-        _kernel = _GfnCreateKernel("_kernel_133237");
-        _GfnSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_A);
-        _GfnSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_B);
-        _GfnSetKernelArg(_kernel, 2, sizeof(int), (void *) &_local_i_start);
-        _GfnSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_end);
-        _GfnSetKernelArg(_kernel, 4, sizeof(int), (void *) &_loop_step);
+        _kernel = _GfnCreateKernel("_kernel_863273");
+        _GfnSetKernelArg(_kernel, 0, sizeof(cl_mem), (void *) &_cl_mem_C);
+        _GfnSetKernelArg(_kernel, 1, sizeof(cl_mem), (void *) &_cl_mem_A);
+        _GfnSetKernelArg(_kernel, 2, sizeof(cl_mem), (void *) &_cl_mem_B);
+        _GfnSetKernelArg(_kernel, 3, sizeof(int), (void *) &_local_i_start);
+        _GfnSetKernelArg(_kernel, 4, sizeof(int), (void *) &_local_i_end);
+        _GfnSetKernelArg(_kernel, 5, sizeof(int), (void *) &_loop_step);
         _GfnLaunchKernel(_kernel, &_global_item_num, &_work_group_item_num);
         _GfnClearKernel(_kernel);
     }
@@ -69,63 +71,23 @@ void _Function_133237()
     {
         for (i = _local_i_start;
             i <= _local_i_end;
-            i++ , _local_i += _loop_step)
+            ++i , _local_i += _loop_step)
         {
-            A[i] = a(B[i], 8);
+            for (j = 0;
+                j < 50;
+                ++j)
+            {
+                C[i][j] = A[i][j] + B[i][j];
+            }
         }
     }
     /* Gather Array Memory */
-    _GfnEnqueueGatherND((void *) A, _cl_mem_A, _GFN_TYPE_INT(), _GFN_MEM_WRITE_ONLY(), 0, (500) - 1, 1, 0, 0, 1, 1, 1, 0, 500);
+    _GfnEnqueueGatherND((void *) C[0], _cl_mem_C, _id_C, _GFN_TYPE_INT(), _GFN_MEM_READ_WRITE(), 0, (50) - 1, 1, 0, 0, 1, 1, 2, 0, 50, 50);
     _GfnFinishGatherArray();
     /* Reduce Scalar Value */
     _GfnFinishReduceScalar();
     /* Deallocate Array Memory */
-    _GfnFree(_id_A, 1, 1);
-    _GfnFree(_id_B, 1, 1);
-}
-
-/* SEND_FUNCTION 145409 _Function_send_145409 */
-void _Function_send_145409()
-{
-    /* Declare Variables */
-    int *A;
-    int *B;
-    /* Declare Generated Variables */
-    long long _id_A;
-    cl_mem _cl_mem_A = 0;
-    long long _id_B;
-    cl_mem _cl_mem_B = 0;
-    /* Allocate Array Memory */
-    _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 500, _GFN_MEM_WRITE_ONLY(), 1, 1);
-    _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 500, _GFN_MEM_READ_ONLY(), 1, 1);
-    /* Distribute Array Memory */
-    _GfnEnqueueBroadcastND((void *) B, _cl_mem_B, _GFN_TYPE_INT(), 1, 1, 1, 500);
-    /* Lock Transfer */
-    _GfnLockTransfer((void *) B);
-    /* Deallocate Array Memory */
-    _GfnFree(_id_A, 1, 1);
-    _GfnFree(_id_B, 1, 1);
-}
-
-/* RECV_FUNCTION 530979 _Function_recv_530979 */
-void _Function_recv_530979()
-{
-    /* Declare Variables */
-    int *A;
-    int *B;
-    /* Declare Generated Variables */
-    long long _id_A;
-    cl_mem _cl_mem_A = 0;
-    long long _id_B;
-    cl_mem _cl_mem_B = 0;
-    /* Allocate Array Memory */
-    _GfnMalloc1D((void **) &A, &_cl_mem_A, _id_A, _GFN_TYPE_INT(), 500, _GFN_MEM_WRITE_ONLY(), 1, 1);
-    _GfnMalloc1D((void **) &B, &_cl_mem_B, _id_B, _GFN_TYPE_INT(), 500, _GFN_MEM_READ_ONLY(), 1, 1);
-    /* Unlock Transfer */
-    _GfnUnlockTransfer((void *) A);
-    /* Gather Array Memory */
-    _SendOutputMsg((void *) A, (sizeof(int) * ((500))));
-    /* Deallocate Array Memory */
+    _GfnFree(_id_C, 1, 1);
     _GfnFree(_id_A, 1, 1);
     _GfnFree(_id_B, 1, 1);
 }

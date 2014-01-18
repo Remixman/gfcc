@@ -1,50 +1,32 @@
-int b(int x)
-{
-    return x * x;
-}
-int c(int x)
-{
-    return x + x + 1;
-}
-int a(int x, int y)
-{
-    return b(x) + c(y);
-}
 int main(int argc, char *argv[])
 {
-    int i, A[500], B[500];
+    int i, j, C[50][50], A[50][50], B[50][50];
     for (i = 0;
-        i < 500;
+        i < 50;
         i++)
-    {
-        B[i] = i;
-    }
-    /* Send call send function message */
-    _SendCallFuncMsg(145409);
-    _SendInputMsg((void *) B, (sizeof(int) * ((500))));
-    _GfnLockTransfer((void *) B);
-    {
-        /* Send call function message */
-        _SendCallFuncMsg(133237);
-        _SendConstInputMsg((long long) &A);
-        _SendConstInputMsg((long long) &B);
-        _SendInputMsg((void *) B, (sizeof(int) * ((500))));
-        _RecvOutputNDMsg(&(A[0]), _GFN_TYPE_INT(), 0, (500) - 1, 1, 0, 0, 1, 0, 500);
-    }
-    /* Send call recieve function message */
-    _SendCallFuncMsg(530979);
-    _GfnUnlockTransfer((void *) A);
-    _RecvOutputMsg((void *) A, (sizeof(int) * ((500))));
+        for (j = 0;
+            j < 50;
+            j++)
+            A[i][j] = B[i][j] = i * 50 + j;
+    /* Send call function message */
+    _SendCallFuncMsg(863273);
+    _SendConstInputMsg((long long) &(C[0][0]));
+    _SendConstInputMsg((long long) &(A[0][0]));
+    _SendConstInputMsg((long long) &(B[0][0]));
+    _SendInputNDMsg(&(A[0][0]), _GFN_TYPE_INT(), 0, (50) - 1, 1, 0, 0, 2, 0, 50, 50);
+    _SendInputMsg((void *) B[0], (sizeof(int) * ((50) * (50))));
+    _RecvOutputNDMsg(&(C[0][0]), _GFN_TYPE_INT(), 0, (50) - 1, 1, 0, 0, 2, 0, 50, 50);
     for (i = 0;
-        i < 500;
-        i++)
-    {
-        if (A[i] != a(B[i], 8))
-        {
-            printf("Fail at i = %d , Expected = %d but A[i] = %d\n", i, a(B[i], 8), A[i]);
-            ((0) ? (void) (0) : __assert_fail("0", "call_func.c", 46, __PRETTY_FUNCTION__));
-        }
-    }
-    printf("TEST PASS!\n");
+        i < 50;
+        ++i)
+        for (j = 0;
+            j < 50;
+            ++j)
+            if (C[i][j] != (A[i][j] + B[i][j]))
+            {
+                printf("Error at i=%d,j=%d Expected value is %d, actual value is %d\n", i, j, A[i][j] + B[i][j], C[i][j]);
+                return - 1;
+            }
+    printf("SUCCESS\n");
     return 0;
 }
