@@ -59,6 +59,7 @@ int main(int argc, char* argv[])
     double meanA = 0.0f;
     double meanB = 0.0f;
     double meanC = 0.0f;
+    long long time0, time1;
 
 	if (argc != 5)
 	{
