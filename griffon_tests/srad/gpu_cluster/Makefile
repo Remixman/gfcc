@@ -1,5 +1,5 @@
-GFN_INCLUDE_PATH = ../../eagle/include
-GFN_LIB_PATH = ../../eagle/lib
+GFN_INCLUDE_PATH = ../../../eagle/include
+GFN_LIB_PATH = ../../../eagle/lib
 
 # should set MPI_PATH , CL_INC_PATH , CL_LIB_PATH in ~/.bashrc
 

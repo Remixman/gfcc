@@ -1085,7 +1085,12 @@ void ParallelFor::replace_parallel_loop_body(Expression expr,
     else if (expr.is_function_call())
     {
         // Traverse child nodes
-        // TODO:
+        TL::ObjectList<TL::Expression> arg_list = expr.get_argument_list();
+        for (TL::ObjectList<TL::Expression>::iterator it = arg_list.begin();
+            it != arg_list.end(); it++)
+        {
+            replace_parallel_loop_body(*it, replace_types, old_idx_name, new_idx_name);
+        }
     }
     else if (expr.is_casting())
     {
@@ -1171,7 +1176,7 @@ void ParallelFor::replace_loop_index_name(Expression expr,
     }
     else
     {
-        std::cout << "unknown type\n";
+        std::cout << "unknown expression type in replace_loop_index_name\n";
         // TODO:
     }
 }
