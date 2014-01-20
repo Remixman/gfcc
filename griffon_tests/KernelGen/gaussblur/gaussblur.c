@@ -21,6 +21,16 @@ long long get_time() {
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
+#define parse_arg(name, arg) \
+	name = atoi(arg); \
+	if (name < 0) \
+	{ \
+		printf("Value for " #name " is invalid: %d\n", name); \
+		exit(1); \
+	}
+
+#define double_rand() (((double)(rand() / (double)RAND_MAX) - 0.5) * 2)
+
 void gaussblur(int nx, int ny,
 	const double s0, const double s1, const double s2,
 	const double s4, const double s5, const double s8,
@@ -61,16 +71,6 @@ void gaussblur(int nx, int ny,
 		}
     }
 }
-
-#define parse_arg(name, arg) \
-	name = atoi(arg); \
-	if (name < 0) \
-	{ \
-		printf("Value for " #name " is invalid: %d\n", name); \
-		exit(1); \
-	}
-
-#define double_rand() (((double)(rand() / (double)RAND_MAX) - 0.5) * 2)
 
 int main(int argc, char* argv[])
 {
@@ -127,6 +127,11 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("initial mean = %f\n", mean / (nx * ny) / 2);
+
+	// warm up
+	#pragma gfn data copy(w0[0:nx{partition}][0:ny]) \
+        create(w1[0:nx{partition}][0:ny])
+	gaussblur(nx, ny, s0, s1, s2, s4, s5, s8, w0, w1);
 
     time0 = get_time();
     #pragma gfn data copy(w0[0:nx{partition}][0:ny]) \

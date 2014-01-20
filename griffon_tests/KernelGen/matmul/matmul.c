@@ -31,13 +31,13 @@ long long get_time() {
 
 #define double_rand() (((double)(rand() / (double)RAND_MAX) - 0.5) * 2)
 
-void matmul_(int nx, int ny, int nz,	double** A, double** B, double** C)
+void matmul_(int nx, int ny, int nz, double** A, double** B, double** C)
 {
     int i, j, k;
     double Cij;
     
-    #pragma gfn parallel_for pcopyin(A[0:nx{partition}][0:ny]) \
-	    pcopyin(B[0:ny][0:nz]) pcopyout(C[0:nx{partition}][0:nz])
+    #pragma gfn parallel_for copyin(A[0:nx{partition}][0:ny]) \
+	    copyin(B[0:ny][0:nz]) copyout(C[0:nx{partition}][0:nz])
     for (i = 0; i < nx; i++)
     {
         #pragma gfn loop
@@ -46,7 +46,7 @@ void matmul_(int nx, int ny, int nz,	double** A, double** B, double** C)
             Cij = 0.0f;
             for (k = 0; k < ny; k++)
             {
-                Cij = A[i][k] * B[k][j];
+                Cij += A[i][k] * B[k][j];
             }
             C[i][j] = Cij;
         }  
@@ -105,14 +105,13 @@ int main(int argc, char* argv[])
 		}
 	}
 	printf("initial mean = %f\n", (meanA / (nx * ny) + meanB / (ny * ns)));
+
+	// warm up
+	matmul_(nx, ny, ns, A, B, C);
 	
 	time0 = get_time();
-	#pragma gfn data copyin(A[0:nx{partition}][0:ny]) \
-	    copyin(B[0:ny][0:ns]) copyout(C[0:nx{partition}][0:ny])
-	{
-		for (it = 0; it < nt; it++)
-			matmul_(nx, ny, ns, A, B, C);
-	}
+	for (it = 0; it < nt; it++)
+		matmul_(nx, ny, ns, A, B, C);
     time1 = get_time();
 
 	// For the final mean - account only the norm of the top
