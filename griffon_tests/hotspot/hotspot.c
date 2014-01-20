@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#ifdef _GFN
+#include <gfn.h>
+#endif
 #define STR_SIZE	256
 
 /* maximum power density possible (say 300W for a 10mm x 10mm chip)	*/
@@ -34,73 +37,31 @@ void single_iteration(double **result, double **temp, double **power, int row, i
 					  double Cap, double Rx, double Ry, double Rz, 
 					  double step)
 {
-	double delta;
+	double delta, temprc;
 	int r, c;
+	int rN, rS, cW, cE;
 
-    #pragma omp parallel for shared(power, temp,result) private(r, c, delta) firstprivate(row, col) schedule(static)
+    #pragma gfn parallel_for private(rN, rS, cW, cE, delta) \
+    	pcopy(temp[0:row{partition}][0:col]) in_pattern(temp:[-1,1][-1,1]) \
+    	pcopyin(power[0:row{partition}][0:col]) \
+    	pcopyout(result[0:row{partition}][0:col])
 	for (r = 0; r < row; r++) {
 		#pragma gfn loop
 		for (c = 0; c < col; c++) {
-  			/*	Corner 1	*/
-			if ( (r == 0) && (c == 0) ) {
-				delta = (step / Cap) * (power[r][c] +
-						(temp[1][0] - temp[r][c]) / Ry +
-						(temp[0][1] - temp[r][c]) / Rx +
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Corner 2	*/
-			else if ((r == 0) && (c == col-1)) {
-				delta = (step / Cap) * (power[r][c] +
-						(temp[1][c] - temp[r][c]) / Ry +
-						(temp[0][c-1] - temp[r][c]) / Rx +
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Corner 3	*/
-			else if ((r == row-1) && (c == col-1)) {
-				delta = (step / Cap) * (power[r][c] + 
-						(temp[(r-1)][c] - temp[r][c]) / Ry + 
-						(temp[r][c-1] - temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);					
-			}	/*	Corner 4	*/
-			else if ((r == row-1) && (c == 0)) {
-				delta = (step / Cap) * (power[r][c] + 
-						(temp[(r-1)][0] - temp[r][c]) / Ry + 
-						(temp[r][1] - temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Edge 1	*/
-			else if (r == 0) {
-				delta = (step / Cap) * (power[0][c] + 
-						(temp[1][c] - temp[r][c]) / Ry + 
-						(temp[0][c+1] + temp[0][c-1] - 2.0*temp[0][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Edge 2	*/
-			else if (c == col-1) {
-				delta = (step / Cap) * (power[r][c] + 
-						(temp[(r+1)][c] + temp[(r-1)][c] - 2.0*temp[r][c]) / Ry + 
-						(temp[r][c-1] - temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Edge 3	*/
-			else if (r == row-1) {
-				delta = (step / Cap) * (power[r][c] + 
-						(temp[(r-1)][c] - temp[r][c]) / Ry + 
-						(temp[r][c+1] + temp[r][c-1] - 2.0*temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Edge 4	*/
-			else if (c == 0) {
-				delta = (step / Cap) * (power[r][0] + 
-						(temp[(r+1)][0] + temp[(r-1)][0] - 2.0*temp[r][0]) / Ry + 
-						(temp[r][1] - temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}	/*	Inside the chip	*/
-			else {
-				delta = (step / Cap) * (power[r][c] + 
-						(temp[(r+1)][c] + temp[(r-1)][c] - 2.0*temp[r][c]) / Ry + 
-						(temp[r][(c+1)] + temp[r][(c-1)] - 2.0*temp[r][c]) / Rx + 
-						(amb_temp - temp[r][c]) / Rz);
-			}
+			rN = (r==0)? r : r-1;
+			rS = (r==row-1)? r : r+1;
+			cW = (c==0)? c : c-1;
+			cE = (c==col-1)? c : c+1;
+			
+			temprc = temp[r][c];
+			
+			delta = (step / Cap) * (power[r][c] + 
+					(temp[rS][c] + temp[rN][c] - 2.0*temprc) / Ry + 
+					(temp[r][cE] + temp[r][cW] - 2.0*temprc) / Rx + 
+					(amb_temp - temprc) / Rz);
   			
 			/*	Update Temperatures	*/
-			result[r][c] =temp[r][c]+ delta;
-
-
+			result[r][c] =temprc+ delta;
 		}
 	}
 
@@ -142,6 +103,11 @@ void compute_tran_temp(double **result, int num_iterations, double **temp, doubl
 	#endif
 
 	time0 = get_time();
+
+#pragma gfn data copy(temp[0:row{partition}][0:col]) \
+    copyin(power[0:row{partition}][0:col]) \
+    create(result[0:row{partition}][0:col])
+{
      for (i = 0; i < num_iterations ; i++)
 	{
 		#ifdef VERBOSE
@@ -149,6 +115,8 @@ void compute_tran_temp(double **result, int num_iterations, double **temp, doubl
 		#endif
 		single_iteration(result, temp, power, row, col, Cap, Rx, Ry, Rz, step);
 	}	
+}	
+	
 	time1 = get_time();
 	printf("%.12f s : TOTAL TIME\n", (float) (time1-time0) / 1000000);
 

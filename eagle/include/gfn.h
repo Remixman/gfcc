@@ -11,7 +11,7 @@
 /* Debugging */
 //#define DEBUG_AUTO_ALLOCATE
 //#define DEBUG_VAR_TABLE
-#define DEBUG_BOUND
+//#define DEBUG_BOUND
 //#define DEBUG_INTER_PROC_COMM
 
 /* Optimization */

@@ -1,0 +1,8 @@
+# C compiler
+CC = gcc
+
+hotspot: hotspot.c
+	$(CC) $(CC_FLAGS) hotspot.c -o hotspot 
+
+clean:
+	rm -f hotspot result.txt
