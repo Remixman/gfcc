@@ -15,6 +15,12 @@
 #include <gfn.h>
 #endif
 
+long long get_time() {
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (tv.tv_sec * 1000000) + tv.tv_usec;
+}
+
 #define parse_arg(name, arg) \
 	int name = atoi(arg); \
 	if (name < 0) \
@@ -99,13 +105,14 @@ int main(int argc, char* argv[])
 	}
 	printf("initial mean = %f\n", (meanA / (nx * ny) + meanB / (ny * ns)));
 	
+	time0 = get_time();
 	#pragma gfn data copyin(A[0:nx{partition}][0:ny]) \
 	    copyin(B[0:ny][0:ns]) copyout(C[0:nx{partition}][0:ny])
 	{
 		for (it = 0; it < nt; it++)
 			matmul_(nx, ny, ns, A, B, C);
 	}
-
+    time1 = get_time();
 
 	// For the final mean - account only the norm of the top
 	// most level (tracked by swapping idxs array of indexes).
@@ -113,6 +120,9 @@ int main(int argc, char* argv[])
 	    for (j = 0; j < ns; j++)
 		    meanC += C[i][j];
 	printf("final mean = %f\n", meanC / (ny * ns));
+	
+	printf("total time = %f sec.\n", (float)(time1-time0)/1000000);
+	printf("average time = %f sec.\n", ((float)(time1-time0)/1000000)/nt);
 
     free(A[0]);
 	free(A);
