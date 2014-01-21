@@ -192,12 +192,10 @@ int main(int argc, char *argv []){
     c  = malloc(sizeof(fp)*Ne) ;											// diffusion coefficient
         
     // N/S/W/E indices of surrounding pixels (every element of IMAGE)
-	// #pragma omp parallel
     for (i=0; i<Nr; i++) {
         iN[i] = i-1;														// holds index of IMAGE row above
         iS[i] = i+1;														// holds index of IMAGE row below
     }
-	// #pragma omp parallel
     for (j=0; j<Nc; j++) {
         jW[j] = j-1;														// holds index of IMAGE column on the left
         jE[j] = j+1;														// holds index of IMAGE column on the right
@@ -248,7 +246,6 @@ int main(int argc, char *argv []){
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
 
         // directional derivatives, ICOV, diffusion coefficent
-		//#pragma omp parallel for shared(image, dN, dS, dW, dE, c, Nr, Nc, iN, iS, jW, jE) private(i, j, k, Jc, G2, L, num, den, qsqr)
 		for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
 
             for (i=0; i<Nr; i++) {											// do for the range of rows in IMAGE 

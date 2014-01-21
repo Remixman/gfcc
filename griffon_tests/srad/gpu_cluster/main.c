@@ -244,12 +244,13 @@ int main(int argc, char *argv []){
 		#pragma gfn parallel_for pcopy(c[0:Nr{partition}][0:Nc]) \
 			present(dN[0:Ne],dS[0:Ne],dW[0:Ne],dE[0:Ne]) \
 			pcopy(image[0:Nr{partition}][0:Nc]) in_pattern(image:[-1,1][-1,1]) \
-			private(iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
+			private(k, iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
 		for (i=0; i<Nr; i++) {
 			#pragma gfn loop
 			for (j=0; j<Nc; j++) {
 
                 // current index/pixel
+                k = i * Nc + j;
                 Jc = image[i][j];													// get value of the current element
                 
                 iN = (i==0)? 0 : i-1;
@@ -298,12 +299,13 @@ int main(int argc, char *argv []){
 		#pragma gfn parallel_for pcopy(image[0:Nr{partition}][0:Nc]) \
 			pcopyin(dN[0:Ne],dS[0:Ne],dW[0:Ne],dE[0:Ne]) \
 			pcopyin(c[0:Nr{partition}][0:Nc]) in_pattern(c:[-1,1][-1,1]) \
-			private(iS, jE, D, cS, cN, cW, cE)    
+			private(k, iS, jE, D, cS, cN, cW, cE)    
 		for (i=0; i<Nr; i++) {
 			#pragma gfn loop
 			for (j=0; j<Nc; j++) {
 
 				// current index
+				k = i * Nc + j;
                 iS = (i==Nr-1)? Nr-1 : i+1;
                 jE = (j==Nc-1)? Nc-1 : j+1;
 
@@ -361,9 +363,11 @@ int main(int argc, char *argv []){
 	//================================================================================80
 
 	free(image_ori);
+	free(image[0]);
 	free(image);
 
     free(dN); free(dS); free(dW); free(dE);									// deallocate directional derivative memory
+    free(c[0]);
     free(c);																// deallocate diffusion coefficient memory
 
 	time10 = get_time();
