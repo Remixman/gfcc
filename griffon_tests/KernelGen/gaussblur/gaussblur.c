@@ -90,6 +90,8 @@ int main(int argc, char* argv[])
 	parse_arg(nx, argv[1]);
 	parse_arg(ny, argv[2]);
 	parse_arg(nt, argv[3]);
+	
+	printf("nx = %d , ny = %d , nt = %d\n", nx, ny, nt);
 
 	s0 = double_rand();
 	s1 = double_rand();

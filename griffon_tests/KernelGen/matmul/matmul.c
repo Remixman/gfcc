@@ -71,6 +71,8 @@ int main(int argc, char* argv[])
 	parse_arg(ny, argv[2]);
 	parse_arg(ns, argv[3]);
 	parse_arg(nt, argv[4]);
+	
+	printf("nx = %d , ny = %d, ns = %d, nt = %d", nx, ny, ns, nt);
 
 	double** A = (double**)malloc(nx * sizeof(double*));
 	A[0] = (double*)malloc(nx * ny * sizeof(double));
