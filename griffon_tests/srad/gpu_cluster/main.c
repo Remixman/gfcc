@@ -102,8 +102,10 @@ int main(int argc, char *argv []){
     long k;      // image single index    
 
 	// number of threads
-	int threads;
-	
+	char *filename;
+	char fileinname[100];
+	char fileoutname[100];
+
 	int iN, iS, jW, jE;
 
 	time1 = get_time();
@@ -121,7 +123,11 @@ int main(int argc, char *argv []){
 		lambda = atof(argv[2]);
 		Nr = atoi(argv[3]);						// it is 502 in the original image
 		Nc = atoi(argv[4]);						// it is 458 in the original image
-		threads = atoi(argv[5]);
+		filename = argv[5];
+		strcpy(fileinname,"../");
+		strcat(fileinname, filename);
+		strcpy(fileoutname, "../out_");
+		strcat(fileoutname, filename);
 	}
 
 	time2 = get_time();
@@ -131,13 +137,13 @@ int main(int argc, char *argv []){
 	//================================================================================80
 
     // read image
-	image_ori_rows = 502;
-	image_ori_cols = 458;
+	image_ori_rows = Nr;
+	image_ori_cols = Nc;
 	image_ori_elem = image_ori_rows * image_ori_cols;
 
 	image_ori = (fp*)malloc(sizeof(fp) * image_ori_elem);
 
-	read_graphics(	"image.pgm",
+	read_graphics(	fileinname,
 								image_ori,
 								image_ori_rows,
 								image_ori_cols,
@@ -349,7 +355,7 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	write_graphics(	"image_out.pgm",
+	write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
