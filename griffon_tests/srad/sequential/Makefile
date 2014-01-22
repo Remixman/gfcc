@@ -16,7 +16,7 @@ a.out:	main.o
 
 # compile main function file into object (binary)
 main.o: main.c define.c graphics.c
-	$(CC) main.c -c -O3 $(CC_FLAGS)
+	$(CC) main.c -c $(CC_FLAGS)
 
 # delete all object files
 clean:

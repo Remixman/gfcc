@@ -252,19 +252,19 @@ int main(int argc, char *argv []){
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
 
         // directional derivatives, ICOV, diffusion coefficent
-		for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
+		for (i=0; i<Nr; i++) {												// do for the range of columns in IMAGE
 
-            for (i=0; i<Nr; i++) {											// do for the range of rows in IMAGE 
+            for (j=0; j<Nc; j++) {											// do for the range of rows in IMAGE 
 
                 // current index/pixel
-                k = i + Nr*j;												// get position of current element
+                k = i * Nc + j;												// get position of current element
                 Jc = image[k];													// get value of the current element
 
                 // directional derivates (every element of IMAGE)
-                dN[k] = image[iN[i] + Nr*j] - Jc;								// north direction derivative
-                dS[k] = image[iS[i] + Nr*j] - Jc;								// south direction derivative
-                dW[k] = image[i + Nr*jW[j]] - Jc;								// west direction derivative
-                dE[k] = image[i + Nr*jE[j]] - Jc;								// east direction derivative
+                dN[k] = image[iN[i]*Nc + j] - Jc;								// north direction derivative
+                dS[k] = image[iS[i]*Nc + j] - Jc;								// south direction derivative
+                dW[k] = image[i*Nc + jW[j]] - Jc;								// west direction derivative
+                dE[k] = image[i*Nc + jE[j]] - Jc;								// east direction derivative
 
                 // normalized discrete gradient mag squared (equ 52,53)
                 G2 = (dN[k]*dN[k] + dS[k]*dS[k]								// gradient (based on derivatives)
@@ -294,20 +294,20 @@ int main(int argc, char *argv []){
 
         // divergence & image update
 		//#pragma omp parallel for shared(image, c, Nr, Nc, lambda) private(i, j, k, D, cS, cN, cW, cE)
-        for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
+        for (i=0; i<Nr; i++) {												// do for the range of columns in IMAGE
 
 			// printf("NUMBER OF THREADS: %d\n", omp_get_num_threads());
 
-            for (i=0; i<Nr; i++) {											// do for the range of rows in IMAGE
+            for (j=0; j<Nc; j++) {											// do for the range of rows in IMAGE
 
                 // current index
-                k = i + Nr*j;												// get position of current element
+                k = i * Nc+j;												// get position of current element
 
                 // diffusion coefficent
                 cN = c[k];													// north diffusion coefficient
-                cS = c[iS[i] + Nr*j];										// south diffusion coefficient
+                cS = c[iS[i] *Nc + j];										// south diffusion coefficient
                 cW = c[k];													// west diffusion coefficient
-                cE = c[i + Nr*jE[j]];										// east diffusion coefficient
+                cE = c[i *Nc + jE[j]];										// east diffusion coefficient
 
                 // divergence (equ 58)
                 D = cN*dN[k] + cS*dS[k] + cW*dW[k] + cE*dE[k];				// divergence
@@ -366,7 +366,10 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
-	printf("Time spent in different stages of the application:\n");
+	printf("input size : %d x %d\n", Nr, Nc);
+	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
+
+	/*printf("Time spent in different stages of the application:\n");
 	printf("%.12f s, %.12f %% : SETUP VARIABLES\n", 									(float) (time1-time0) / 1000000, (float) (time1-time0) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : READ COMMAND LINE PARAMETERS\n", 	(float) (time2-time1) / 1000000, (float) (time2-time1) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : READ IMAGE FROM FILE\n", 						(float) (time3-time2) / 1000000, (float) (time3-time2) / (float) (time10-time0) * 100);
@@ -378,7 +381,7 @@ int main(int argc, char *argv []){
 	printf("%.12f s, %.12f %% : SAVE IMAGE INTO FILE\n", 							(float) (time9-time8) / 1000000, (float) (time9-time8) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : FREE MEMORY\n", 										(float) (time10-time9) / 1000000, (float) (time10-time9) / (float) (time10-time0) * 100);
 	printf("Total time:\n");
-	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);
+	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);*/
 
 //====================================================================================================100
 //	END OF FILE

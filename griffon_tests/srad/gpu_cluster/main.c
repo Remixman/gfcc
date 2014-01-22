@@ -348,9 +348,10 @@ int main(int argc, char *argv []){
 		}
 	}
 
+} /* end acc data */
+
 	time8 = get_time();
 
-} /* end acc data */
 	//================================================================================80
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
@@ -382,7 +383,10 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
-	printf("Time spent in different stages of the application:\n");
+	printf("input size : %d x %d\n", Nr, Nc);
+	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
+
+	/*printf("Time spent in different stages of the application:\n");
 	printf("%.12f s, %.12f %% : SETUP VARIABLES\n", 									(float) (time1-time0) / 1000000, (float) (time1-time0) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : READ COMMAND LINE PARAMETERS\n", 	(float) (time2-time1) / 1000000, (float) (time2-time1) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : READ IMAGE FROM FILE\n", 						(float) (time3-time2) / 1000000, (float) (time3-time2) / (float) (time10-time0) * 100);
@@ -394,7 +398,7 @@ int main(int argc, char *argv []){
 	printf("%.12f s, %.12f %% : SAVE IMAGE INTO FILE\n", 							(float) (time9-time8) / 1000000, (float) (time9-time8) / (float) (time10-time0) * 100);
 	printf("%.12f s, %.12f %% : FREE MEMORY\n", 										(float) (time10-time9) / 1000000, (float) (time10-time9) / (float) (time10-time0) * 100);
 	printf("Total time:\n");
-	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);
+	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);*/
 
 //====================================================================================================100
 //	END OF FILE
