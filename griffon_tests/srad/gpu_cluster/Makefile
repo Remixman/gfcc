@@ -9,8 +9,8 @@ CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --gfn --keep-files $(CFLAGS) -c -D_GRIFFON main.c -lrt -D_GFN
-	rm main.o
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c main.c -lrt -D_GFN
+	@rm main.o
 	
 master: trans
 	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL
@@ -27,5 +27,5 @@ modify:
 clean:
 	@rm *.o srad image_out.pgm worker* plaincc_main.c main.c.kerdecl.c
 
-rtest:
+test:
 	diff expected_image_out.pgm image_out.pgm
