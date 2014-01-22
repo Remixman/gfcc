@@ -125,7 +125,7 @@ int main(int argc, char *argv []){
 		filename = argv[5];
 		strcpy(fileinname,"../");
 		strcat(fileinname, filename);
-		strcpy(fileoutname, "../out_");
+		strcpy(fileoutname, "../expected_out_");
 		strcat(fileoutname, filename);
 	}
 
