@@ -342,9 +342,6 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	printf("image[20][20] = %lf\n", image[20 * Nc + 20]);
-	printf("image[100][654] = %lf\n", image[100 * Nc + 654]);
-	printf("image[921][23] = %lf\n", image[921 * Nc + 23]);
 	write_graphics(	fileoutname,
 								image,
 								Nr,
@@ -371,7 +368,7 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
-	printf("sum = %.4lf , sum2 = %.4lf\n", sum, sum2);
+	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
 

@@ -305,13 +305,12 @@ int main(int argc, char *argv []){
                 // saturate diffusion coefficent to 0-1 range
                 if (cij < 0)												// if diffusion coefficient < 0
 					{c[i][j] = 0;}												// ... set to 0
-                else													// if diffusion coefficient > 1
+                else if (cij > 1)													// if diffusion coefficient > 1
 					{c[i][j] = 1;}												// ... set to 1
+				else
+					{c[i][j] = cij;}
 			}
         }
-        
-        printf("dN[20][20] = %lf, dN[100][654] = %lf\n", dN[20][20], dN[100][654]);
-        printf("dE[0][20] = %lf, dE[100][0] = %lf\n", dE[0][20], dE[100][0]);
 
         // divergence & image update
 		for (j=0; j<Nc; j++) {	
@@ -367,9 +366,6 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	printf("image[20][20] = %lf\n", image[20][20]);
-	printf("image[100][654] = %lf\n", image[100][654]);
-	printf("image[921][23] = %lf\n", image[921][23]);
 	write_graphics(	fileoutname,
 								image[0],
 								Nr,
@@ -398,7 +394,7 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
-	printf("sum = %.4lf , sum2 = %.4lf\n", sum, sum2);
+	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
 
