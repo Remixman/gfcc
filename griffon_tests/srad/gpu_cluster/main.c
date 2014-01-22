@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#ifdef _GRIFFON
+#ifdef _GFN
 #include <gfn.h>
 #endif
 

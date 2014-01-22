@@ -25,7 +25,5 @@ modify:
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
 clean:
-	@rm *.o srad image_out.pgm worker* plaincc_main.c main.c.kerdecl.c
+	@rm *.o srad worker* plaincc_main.c main.c.kerdecl.c
 
-test:
-	diff expected_image_out.pgm image_out.pgm
