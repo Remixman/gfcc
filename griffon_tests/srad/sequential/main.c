@@ -252,9 +252,9 @@ int main(int argc, char *argv []){
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
 
         // directional derivatives, ICOV, diffusion coefficent
-		for (i=0; i<Nr; i++) {												// do for the range of columns in IMAGE
+		for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
 
-            for (j=0; j<Nc; j++) {											// do for the range of rows in IMAGE 
+            for (i=0; i<Nr; i++) {											// do for the range of rows in IMAGE 
 
                 // current index/pixel
                 k = i * Nc + j;												// get position of current element
@@ -291,14 +291,16 @@ int main(int argc, char *argv []){
             }
 
         }
+        
+        printf("dN[20][20] = %lf, dN[100][654] = %lf\n", dN[20 * Nc + 20], dN[100 * Nc + 654]);
+        printf("dE[0][20] = %lf, dE[100][0] = %lf\n", dE[0 * Nc + 20], dE[100  * Nc + 0]);
 
         // divergence & image update
-		//#pragma omp parallel for shared(image, c, Nr, Nc, lambda) private(i, j, k, D, cS, cN, cW, cE)
-        for (i=0; i<Nr; i++) {												// do for the range of columns in IMAGE
+        for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
 
 			// printf("NUMBER OF THREADS: %d\n", omp_get_num_threads());
 
-            for (j=0; j<Nc; j++) {											// do for the range of rows in IMAGE
+            for (i=0; i<Nr; i++) {											// do for the range of rows in IMAGE
 
                 // current index
                 k = i * Nc+j;												// get position of current element
@@ -340,6 +342,9 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
+	printf("image[20][20] = %lf\n", image[20 * Nc + 20]);
+	printf("image[100][654] = %lf\n", image[100 * Nc + 654]);
+	printf("image[921][23] = %lf\n", image[921 * Nc + 23]);
 	write_graphics(	fileoutname,
 								image,
 								Nr,

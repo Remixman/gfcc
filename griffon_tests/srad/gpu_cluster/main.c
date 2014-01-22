@@ -86,7 +86,7 @@ int main(int argc, char *argv []){
     fp Jc;
 
 	// directional derivatives
-	fp *dN,*dS,*dW,*dE;
+	fp **dN,**dS,**dW,**dE;
     
     // calculation variables
     fp tmp,sum,sum2;
@@ -185,10 +185,20 @@ int main(int argc, char *argv []){
     NeROI = (r2-r1+1)*(c2-c1+1);											// number of elements in ROI, ROI size
     
 	// allocate variables for directional derivatives
-	dN = malloc(sizeof(fp)*Ne) ;											// north direction derivative
-    dS = malloc(sizeof(fp)*Ne) ;											// south direction derivative
-    dW = malloc(sizeof(fp)*Ne) ;											// west direction derivative
-    dE = malloc(sizeof(fp)*Ne) ;											// east direction derivative
+	dN = (fp**)malloc(sizeof(fp*)*Nr) ;
+    dN[0] = (fp*)malloc(sizeof(fp)*Ne);
+    dS = (fp**)malloc(sizeof(fp*)*Nr) ;
+    dS[0] = (fp*)malloc(sizeof(fp)*Ne);
+    dW = (fp**)malloc(sizeof(fp*)*Nr) ;
+    dW[0] = (fp*)malloc(sizeof(fp)*Ne);
+    dE = (fp**)malloc(sizeof(fp*)*Nr) ;
+    dE[0] = (fp*)malloc(sizeof(fp)*Ne);
+    for (i = 1; i < Nr; ++i) {
+    	dN[i] = dN[i-1] + Nc;
+    	dS[i] = dS[i-1] + Nc;
+    	dW[i] = dW[i-1] + Nc;
+    	dE[i] = dE[i-1] + Nc;
+    }
 
 	// allocate variable for diffusion coefficient
     c  = (fp**)malloc(sizeof(fp*)*Nr) ;											// diffusion coefficient
@@ -199,15 +209,16 @@ int main(int argc, char *argv []){
 	time5 = get_time();
 
 #pragma gfn data copy(image[0:Nr{partition}][0:Nc]) \
-	create(c[0:Nr{partition}][0:Nc]) \
-	create(dN[0:Ne],dS[0:Ne],dW[0:Ne],dE[0:Ne])
+	create(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
+	create(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+	create(c[0:Nr{partition}][0:Nc])
 {
 
 	//================================================================================80
 	// 	SCALE IMAGE DOWN FROM 0-255 TO 0-1 AND EXTRACT
 	//================================================================================80
 
-	#pragma gfn parallel_for pcopy(image[0:Nr{partition}][0:Nc])
+	#pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc])
 	for (i=0; i<Nr; i++) {
 		#pragma gfn loop		
 		for (j=0; j<Nc; j++) {
@@ -232,7 +243,7 @@ int main(int argc, char *argv []){
         // ROI statistics for entire ROI (single number for ROI)
         sum=0; 
 		sum2=0;
-		#pragma gfn parallel_for pcopyin(image[0:Nr{partition}][0:Nc]) \
+		#pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc]) \
 			reduction(+:sum,sum2)
 		for (i=0; i<Nr; i++) {
 			#pragma gfn loop
@@ -247,16 +258,14 @@ int main(int argc, char *argv []){
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
 
         // directional derivatives, ICOV, diffusion coefficent		
-		#pragma gfn parallel_for pcopy(c[0:Nr{partition}][0:Nc]) \
-			present(dN[0:Ne],dS[0:Ne],dW[0:Ne],dE[0:Ne]) \
-			pcopy(image[0:Nr{partition}][0:Nc]) in_pattern(image:[-1,1][-1,1]) \
-			private(k, iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
-		for (i=0; i<Nr; i++) {
-			#pragma gfn loop
-			for (j=0; j<Nc; j++) {
+		for (j=0; j<Nc; j++) {
+			#pragma gfn parallel_for present(c[0:Nr{partition}][0:Nc]) \
+			present(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
+			present(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+			present(image[0:Nr{partition}][0:Nc]) in_pattern(image:[-1,1][-1,1]) \
+			private(iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
+			for (i=0; i<Nr; i++) {
 
-                // current index/pixel
-                k = i * Nc + j;
                 Jc = image[i][j];													// get value of the current element
                 
                 iN = (i==0)? 0 : i-1;
@@ -264,7 +273,7 @@ int main(int argc, char *argv []){
                 jW = (j==0)? 0 : j-1;
                 jE = (j==Nc-1)? Nc-1 : j+1;
                 
-                fp tdN, tdS, tdW, tdE, ck;
+                fp tdN, tdS, tdW, tdE, cij;
 
                 // directional derivates (every element of IMAGE)
                 tdN = image[iN][j] - Jc;								// north direction derivative
@@ -279,10 +288,10 @@ int main(int argc, char *argv []){
                 // normalized discrete laplacian (equ 54)
                 L = (tdN + tdS + tdW + tdE) / Jc;					// laplacian (based on derivatives)
                 
-                dN[k] = tdN;
-                dS[k] = tdS;
-                dW[k] = tdW;
-                dE[k] = tdE;
+                dN[i][j] = tdN;
+                dS[i][j] = tdS;
+                dW[i][j] = tdW;
+                dE[i][j] = tdE;
 
                 // ICOV (equ 31/35)
                 num  = (0.5*G2) - ((1.0/16.0)*(L*L)) ;						// num (based on gradient and laplacian)
@@ -291,27 +300,28 @@ int main(int argc, char *argv []){
  
                 // diffusion coefficent (equ 33) (every element of IMAGE)
                 den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;					// den (based on qsqr and q0sqr)
-                ck = 1.0 / (1.0+den) ;									// diffusion coefficient (based on den)
+                cij = 1.0 / (1.0+den) ;									// diffusion coefficient (based on den)
 
                 // saturate diffusion coefficent to 0-1 range
-                if (ck < 0)												// if diffusion coefficient < 0
+                if (cij < 0)												// if diffusion coefficient < 0
 					{c[i][j] = 0;}												// ... set to 0
                 else													// if diffusion coefficient > 1
 					{c[i][j] = 1;}												// ... set to 1
 			}
         }
+        
+        printf("dN[20][20] = %lf, dN[100][654] = %lf\n", dN[20][20], dN[100][654]);
+        printf("dE[0][20] = %lf, dE[100][0] = %lf\n", dE[0][20], dE[100][0]);
 
         // divergence & image update
-		#pragma gfn parallel_for pcopy(image[0:Nr{partition}][0:Nc]) \
-			pcopyin(dN[0:Ne],dS[0:Ne],dW[0:Ne],dE[0:Ne]) \
-			pcopyin(c[0:Nr{partition}][0:Nc]) in_pattern(c:[-1,1][-1,1]) \
-			private(k, iS, jE, D, cS, cN, cW, cE)    
-		for (i=0; i<Nr; i++) {
-			#pragma gfn loop
-			for (j=0; j<Nc; j++) {
+		for (j=0; j<Nc; j++) {	
+		#pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc]) \
+			present(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
+			present(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+			present(c[0:Nr{partition}][0:Nc]) in_pattern(c:[-1,1][-1,1]) \
+			private(iS, jE, D, cS, cN, cW, cE)  
+			for (i=0; i<Nr; i++) {	
 
-				// current index
-				k = i * Nc + j;
                 iS = (i==Nr-1)? Nr-1 : i+1;
                 jE = (j==Nc-1)? Nc-1 : j+1;
 
@@ -322,7 +332,7 @@ int main(int argc, char *argv []){
                 cE = c[i][jE];										// east diffusion coefficient
 
                 // divergence (equ 58)
-                D = cN*dN[k] + cS*dS[k] + cW*dW[k] + cE*dE[k];				// divergence
+                D = cN*dN[i][j] + cS*dS[i][j] + cW*dW[i][j] + cE*dE[i][j];				// divergence
 
                 // image update (equ 61) (every element of IMAGE)
                 image[i][j] = image[i][j] + 0.25*lambda*D;								// updates image (based on input time step and divergence)
@@ -341,7 +351,7 @@ int main(int argc, char *argv []){
 	// 	SCALE IMAGE UP FROM 0-1 TO 0-255 AND COMPRESS
 	//================================================================================80
 
-	#pragma gfn parallel_for pcopy(image[0:Nr{partition}][0:Nc])
+	#pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc])
 	for (i=0; i<Nr; i++) {													// do for the number of elements in IMAGE
 		#pragma gfn loop		
 		for (j=0; j<Nc; j++) {		
@@ -357,6 +367,9 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
+	printf("image[20][20] = %lf\n", image[20][20]);
+	printf("image[100][654] = %lf\n", image[100][654]);
+	printf("image[921][23] = %lf\n", image[921][23]);
 	write_graphics(	fileoutname,
 								image[0],
 								Nr,
@@ -374,6 +387,7 @@ int main(int argc, char *argv []){
 	free(image[0]);
 	free(image);
 
+	free(dN[0]); free(dS[0]); free(dW[0]); free(dE[0]);
     free(dN); free(dS); free(dW); free(dE);									// deallocate directional derivative memory
     free(c[0]);
     free(c);																// deallocate diffusion coefficient memory
