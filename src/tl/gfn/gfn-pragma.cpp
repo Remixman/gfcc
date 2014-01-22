@@ -375,6 +375,7 @@ TL::Source create_new_parallel_loop(std::string construct_str,
 
 void GFNPragmaPhase::fission_loop(PragmaCustomConstruct construct)
 {
+    return;
     std::cerr << "=== CALL FISSION LOOP\n";
     Statement statement = construct.get_statement();
     std::string construct_str = construct.get_construct();
