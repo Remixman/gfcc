@@ -292,9 +292,6 @@ int main(int argc, char *argv []){
 
         }
         
-        printf("dN[20][20] = %lf, dN[100][654] = %lf\n", dN[20 * Nc + 20], dN[100 * Nc + 654]);
-        printf("dE[0][20] = %lf, dE[100][0] = %lf\n", dE[0 * Nc + 20], dE[100  * Nc + 0]);
-
         // divergence & image update
         for (j=0; j<Nc; j++) {												// do for the range of columns in IMAGE
 
