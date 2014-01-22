@@ -366,6 +366,7 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
+	printf("sum = %.4lf , sum2 = %.4lf\n", sum, sum2);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
 

@@ -343,6 +343,7 @@ int main(int argc, char *argv []){
 
 	#pragma gfn parallel_for pcopy(image[0:Nr{partition}][0:Nc])
 	for (i=0; i<Nr; i++) {													// do for the number of elements in IMAGE
+		#pragma gfn loop		
 		for (j=0; j<Nc; j++) {		
 			image[i][j] = log(image[i][j])*255;													// take logarithm of image, log compress
 		}
@@ -383,6 +384,7 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
+	printf("sum = %.4lf , sum2 = %.4lf\n", sum, sum2);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
 
