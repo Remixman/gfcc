@@ -1193,6 +1193,7 @@ void GFNPragmaPhase::get_pattern_clause(PragmaCustomClause &pattern_clause,
                 // TODO: in_pattern 
                 kernel_info->_var_info[idx]._in_pattern_type = pattern_type_list[i];
                 kernel_info->_var_info[idx]._in_pattern_array = pattern_array_list[i];
+                kernel_info->_var_info[idx]._is_input = true;
                 
                 // Debug print
                 std::cout << "IN PATTERN FOR " << var_list[i] << " is " 
@@ -1208,6 +1209,7 @@ void GFNPragmaPhase::get_pattern_clause(PragmaCustomClause &pattern_clause,
                 // TODO: out_pattern 
                 kernel_info->_var_info[idx]._out_pattern_type = pattern_type_list[i];
                 kernel_info->_var_info[idx]._out_pattern_array = pattern_array_list[i];
+                kernel_info->_var_info[idx]._is_output = true;
                 
                 // Debug print
                 std::cout << "IN PATTERN FOR " << var_list[i] << " is " 
