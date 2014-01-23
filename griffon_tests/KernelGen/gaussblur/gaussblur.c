@@ -130,14 +130,9 @@ int main(int argc, char* argv[])
 	}
 	printf("initial mean = %f\n", mean / (nx * ny) / 2);
 
-	// warm up
-	#pragma gfn data copy(w0[0:nx{partition}][0:ny]) \
-        create(w1[0:nx{partition}][0:ny])
-	gaussblur(nx, ny, s0, s1, s2, s4, s5, s8, w0, w1);
-
     time0 = get_time();
     #pragma gfn data copy(w0[0:nx{partition}][0:ny]) \
-        create(w1[0:nx{partition}][0:ny])
+        copyin(w1[0:nx{partition}][0:ny])
 	{
 		for (it = 0; it < nt; it++)
 			gaussblur(nx, ny, s0, s1, s2, s4, s5, s8, w0, w1);
