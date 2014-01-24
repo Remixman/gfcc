@@ -26,11 +26,11 @@ modify:
 	
 	
 hand:
-	mpicc -o mpicl_gaussblur mpicl_gaussblur.c -lrt -lOpenCL
+	mpicc -o gaussblur_hand gaussblur_hand.c -lrt -lOpenCL
 
 seq:
 	gcc -o gaussblur gaussblur.c 
 
 clean:
-	@rm -rf plaincc_gaussblur.c gaussblur.c.kerdecl.c gaussblur worker* mpicl_gaussblur
+	@rm -rf plaincc_gaussblur.c gaussblur.c.kerdecl.c gaussblur worker* gaussblur_hand
 

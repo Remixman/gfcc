@@ -26,11 +26,11 @@ modify:
 	
 	
 hand:
-	mpicc -o mpicl_matmul mpicl_matmul.c -lrt -lOpenCL
+	mpicc -o matmul_hand matmul_hand.c -lrt -lOpenCL
 
 seq:
 	gcc -o matmul matmul.c 
 
 clean:
-	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker* mpicl_matmul
+	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker* matmul_hand
 

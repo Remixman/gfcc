@@ -24,6 +24,9 @@ modify:
 	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
+hand:
+	mpicc -o srad_hand main_hand.c -lrt -lOpenCL
+	
 clean:
-	@rm *.o srad worker* plaincc_main.c main.c.kerdecl.c
+	@rm *.o srad worker* plaincc_main.c main.c.kerdecl.c srad_hand
 
