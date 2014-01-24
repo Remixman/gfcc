@@ -171,10 +171,11 @@ const char *prog_src =
 "                        __global double *dS,							\n"
 "                        __global double *dW,							\n"
 "                        __global double *dE,							\n"
-"							   int Nr,									\n"
-"							   int Nc,									\n"
-"							   int start,								\n"
-"							   int end) 								\n"
+"							double q0sqr,								\n"
+"							int Nr,										\n"
+"							int Nc,										\n"
+"							int start,									\n"
+"							int end) 									\n"
 "{																		\n"
 "	int tid = get_global_id(0) + start;									\n"
 "	double tdN, tdS, tdW, tdE, cij, G2, Jc, L;							\n"
@@ -210,9 +211,9 @@ const char *prog_src =
 "		den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)) ;						\n"
 "		cij = 1.0 / (1.0+den) ;											\n"
 "																		\n"
-"		if (cij < 0) {c[i][j] = 0;}										\n"
-"		else if (cij > 1) {c[i][j] = 1;}								\n"
-"		else {c[i][j] = cij;}											\n"
+"		if (cij < 0) {c[i*Nc+j] = 0;}										\n"
+"		else if (cij > 1) {c[i*Nc+j] = 1;}								\n"
+"		else {c[i*Nc+j] = cij;}											\n"
 "	}																	\n"
 "}																		\n"
 "																		\n"
@@ -230,6 +231,7 @@ const char *prog_src =
 "{																		\n"
 "	int tid = get_global_id(0) + start;									\n"
 "	int i, j, iS, jE;													\n"
+"	double D;															\n"
 "	if (tid < end) {													\n"
 "		i = tid / Nc;													\n"
 "		j = tid % Nc;													\n"
@@ -664,14 +666,16 @@ int main(int argc, char *argv []){
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 4");
 	status = clSetKernelArg(kernel1, 5, sizeof(cl_mem), &cl_dE);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 5");
-	status = clSetKernelArg(kernel1, 6, sizeof(int), (void*)&Nr);
+	status = clSetKernelArg(kernel1, 6, sizeof(double), (void*)&q0sqr);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 6");
-	status = clSetKernelArg(kernel1, 7, sizeof(int), (void*)&Nc);
+	status = clSetKernelArg(kernel1, 7, sizeof(int), (void*)&Nr);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 7");
-	status = clSetKernelArg(kernel1, 8, sizeof(int), (void*)&local_start);
+	status = clSetKernelArg(kernel1, 8, sizeof(int), (void*)&Nc);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 8");
-	status = clSetKernelArg(kernel1, 9, sizeof(int), (void*)&local_end);
+	status = clSetKernelArg(kernel1, 9, sizeof(int), (void*)&local_start);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 9");
+	status = clSetKernelArg(kernel1, 10, sizeof(int), (void*)&local_end);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 10");
 	
 	// set kernel 2 arguments
 	status = clSetKernelArg(kernel2, 0, sizeof(cl_mem), &cl_image);
