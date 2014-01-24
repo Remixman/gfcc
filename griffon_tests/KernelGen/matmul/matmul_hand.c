@@ -129,10 +129,9 @@ const char *prog_src =
 "		j = tid % n;													\n"
 "		double tmp = 0.0;												\n"
 "		for (k = 0; k < ny; ++k) {										\n"
-"			tmp += A[i*n+k] * B[k*n+j];									\n"
+"			tmp += A[i*ny+k] * B[k*nz+j];								\n"
 "		}																\n"
-//"		printf(\"Set C[%d][%d] = %.5f\\n\", i, j, tmp);					\n"
-"		C[i*n+j] = tmp;													\n"
+"		C[i*nz+j] = tmp;												\n"
 "	}																	\n"
 "}																		\n"
 ;
