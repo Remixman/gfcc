@@ -129,12 +129,13 @@ const char *prog_src =
 "							   int ny,									\n"
 "							   int start,								\n"
 "							   int end, 								\n"
-"							   int s0, 									\n"
-"							   int s1, 									\n"
-"							   int s2, 									\n"
-"							   int s4, 									\n"
-"							   int s5, 									\n"
-"							   int s8) 									\n"
+"							   double s0, 								\n"
+"							   double s1, 								\n"
+"							   double s2, 								\n"
+"							   double s4, 								\n"
+"							   double s5, 								\n"
+"							   double s8, 								\n"
+"							   double f) 								\n"
 "{																		\n"
 "	int tid = get_global_id(0) + start;									\n"
 "	int i, j;															\n"
@@ -282,7 +283,6 @@ void gaussblur(int nx, int ny,
 	}
 
 	// launch kernel
-	//t2 = get_time();
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH CONVOLUTION KERNEL");
@@ -305,6 +305,7 @@ int main(int argc, char* argv[])
     double mean = 0.0f;
     long long time0, time1;
     int local_start, local_end;
+    double f;
 
 	int rank, node_size;
 
@@ -461,6 +462,8 @@ int main(int argc, char* argv[])
 		(w0[0])+disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	
+	f = 1. / (s0 + 4 * (s1 + s2 + s4 + s8) + 8 * s5);
+	
 	// set kernel arguments
 	status = clSetKernelArg(kernel, 0, sizeof(cl_mem), &cl_w0);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 0");
@@ -474,18 +477,20 @@ int main(int argc, char* argv[])
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 4");
 	status = clSetKernelArg(kernel, 5, sizeof(int), (void*)&local_end);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 5");
-	status = clSetKernelArg(kernel, 6, sizeof(int), (void*)&s0);
+	status = clSetKernelArg(kernel, 6, sizeof(double), (void*)&s0);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 6");
-	status = clSetKernelArg(kernel, 7, sizeof(int), (void*)&s1);
+	status = clSetKernelArg(kernel, 7, sizeof(double), (void*)&s1);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 7");
-	status = clSetKernelArg(kernel, 8, sizeof(int), (void*)&s2);
+	status = clSetKernelArg(kernel, 8, sizeof(double), (void*)&s2);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 8");
-	status = clSetKernelArg(kernel, 9, sizeof(int), (void*)&s4);
+	status = clSetKernelArg(kernel, 9, sizeof(double), (void*)&s4);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 9");
-	status = clSetKernelArg(kernel, 10, sizeof(int), (void*)&s5);
+	status = clSetKernelArg(kernel, 10, sizeof(double), (void*)&s5);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 10");
-	status = clSetKernelArg(kernel, 11, sizeof(int), (void*)&s8);
+	status = clSetKernelArg(kernel, 11, sizeof(double), (void*)&s8);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 11");
+	status = clSetKernelArg(kernel, 12, sizeof(double), (void*)&f);
+	_GfnCheckCLStatus(status, "SET KERNEL ARG 12");
 	
 	// set copy kernel arguments
 	status = clSetKernelArg(cpy_kernel, 0, sizeof(cl_mem), &cl_w0);
