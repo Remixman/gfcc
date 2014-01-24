@@ -153,10 +153,6 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	cl_mem cl_C_buf;
 	cl_mem cl_subA, cl_subC;
 	
-	/* A = nx x ny */
-	/* B = ny x nz */
-	/* C = nx x nz */
-	
 	// calculate counts and displacements for C
 	for (i = 0; i < node_size; ++i)
 		C_disp[i] = (i * ceil(nx/(float)node_size)) * nz;
@@ -186,24 +182,24 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	
 	MPI_Bcast(B, (ny * nz), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
-    cl_A_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, nx * ny * sizeof(float), NULL, &status);
-	cl_B_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, ny * nz * sizeof(float), NULL, &status);
-	cl_C_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, nx * nz * sizeof(float), NULL, &status);
+    cl_A_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, nx * ny * sizeof(double), NULL, &status);
+	cl_B_buf = clCreateBuffer(context, CL_MEM_READ_ONLY, ny * nz * sizeof(double), NULL, &status);
+	cl_C_buf = clCreateBuffer(context, CL_MEM_WRITE_ONLY, nx * nz * sizeof(double), NULL, &status);
 	
 	cl_buffer_region A_info;
-	A_info.origin = (size_t)(A_disp[rank] * sizeof(float));
-	A_info.size = (size_t)(A_cnts[rank] * sizeof(float));
+	A_info.origin = (size_t)(A_disp[rank] * sizeof(double));
+	A_info.size = (size_t)(A_cnts[rank] * sizeof(double));
 	cl_buffer_region C_info;
-	C_info.origin = (size_t)(C_disp[rank] * sizeof(float));
-	C_info.size = (size_t)(C_cnts[rank] * sizeof(float));
+	C_info.origin = (size_t)(C_disp[rank] * sizeof(double));
+	C_info.size = (size_t)(C_cnts[rank] * sizeof(double));
     
     cl_subA = clCreateSubBuffer(cl_A_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &A_info, &status);
 	cl_subC = clCreateSubBuffer(cl_C_buf, CL_MEM_WRITE_ONLY, CL_BUFFER_CREATE_TYPE_REGION, &C_info, &status);
 	
-	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, A_cnts[rank] * sizeof(float), 
+	status = clEnqueueWriteBuffer(queue, cl_subA, CL_TRUE, 0, A_cnts[rank] * sizeof(double), 
 								  A + A_disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_B_buf, CL_TRUE, 0, 
-	                              ny * nz * sizeof(float), B, 0, NULL, NULL);
+	                              ny * nz * sizeof(double), B, 0, NULL, NULL);
 	clFinish(queue);
 	
 	// set kernel arguments
@@ -227,6 +223,10 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	status = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH KERNEL");
+	clFinish(queue);
+	
+	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, C_cnts[rank] * sizeof(double), 
+							     C + C_disp[rank], 0, NULL, NULL);
 	clFinish(queue);
     
     MPI_Gatherv((void*)(C+C_disp[rank]), C_cnts[rank], MPI_DOUBLE,
