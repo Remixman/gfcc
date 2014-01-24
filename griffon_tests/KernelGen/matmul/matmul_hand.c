@@ -121,7 +121,7 @@ const char *prog_src =
 "                         int start,									\n"
 "                         int end)										\n"
 "{																		\n"
-"	int tid = get_global_id(0) + (start * nz);							\n"
+"	int tid = get_global_id(0) + start;									\n"
 "	int i, j, k;														\n"
 "																		\n"
 "	if (tid < end) {													\n"
@@ -168,12 +168,12 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	A_cnts[node_size-1] = (nx * ny) - A_disp[node_size-1];
 	
 	// calculate local start and end
-	local_start = rank * ceil(nx/(float)node_size);
-	local_end = (rank+1) * ceil(nx/(float)node_size);
-	if (local_end > nx) local_end = nx;
+	local_start = rank * ceil(nx/(float)node_size) * nz;
+	local_end = (rank+1) * ceil(nx/(float)node_size) * nz;
+	if (local_end > nx*nz) local_end = nx*nz;
     
     const size_t work_group_size = 64;
-	const size_t global_work_size = round_to((local_end - local_start + 1) * nz, 
+	const size_t global_work_size = round_to((local_end - local_start + 1), 
 	                                         work_group_size);	
 	const size_t group_num = global_work_size/work_group_size;
 	
