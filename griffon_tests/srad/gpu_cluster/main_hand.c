@@ -359,9 +359,8 @@ int main(int argc, char *argv []){
 	
 	cl_mem cl_image, cl_c;
 	cl_mem cl_dN, cl_dS, cl_dW, cl_dE;
-	cl_mem cl_sub_img, cl_sub_c;
+	cl_mem cl_sub_img;
 	cl_mem cl_sub_dN, cl_sub_dS;
-	cl_mem cl_sub_dW, cl_sub_dE;
 	
 	cl_mem cl_h2d_lower, cl_h2d_c_lower;
 	cl_mem cl_h2d_upper, cl_h2d_c_upper;
@@ -544,16 +543,6 @@ int main(int argc, char *argv []){
 	
 	cl_sub_img = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE, 
 		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
-	cl_sub_dN = clCreateSubBuffer(cl_dN, CL_MEM_READ_WRITE, 
-		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
-	cl_sub_dS = clCreateSubBuffer(cl_dS, CL_MEM_READ_WRITE, 
-		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
-	cl_sub_dW = clCreateSubBuffer(cl_dW, CL_MEM_READ_WRITE, 
-		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
-	cl_sub_dE = clCreateSubBuffer(cl_dE, CL_MEM_READ_WRITE, 
-		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
-	cl_sub_c = clCreateSubBuffer(cl_c, CL_MEM_READ_WRITE, 
-		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
 		
 	// send data to GPU
 	status = clEnqueueWriteBuffer(queue, cl_sub_img, CL_FALSE, 0, cnts[rank] * sizeof(double),
@@ -564,9 +553,9 @@ int main(int argc, char *argv []){
 	if (rank != 0) {
 		d2h_upper_info.origin = (size_t)(disp[rank] * sizeof(double));
 		d2h_upper_info.size = (size_t)(1 * Nc * sizeof(double));
-		cl_d2h_upper = clCreateSubBuffer(cl_sub_img, CL_MEM_READ_WRITE,
+		cl_d2h_upper = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &d2h_upper_info, &status);
-		cl_d2h_c_upper = clCreateSubBuffer(cl_sub_c, CL_MEM_READ_WRITE,
+		cl_d2h_c_upper = clCreateSubBuffer(cl_c, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &d2h_upper_info, &status);
 	}
 
@@ -575,9 +564,9 @@ int main(int argc, char *argv []){
 	if (rank != (node_size-1)) {
 		d2h_lower_info.origin = (size_t)((disp[rank+1]-(1 * Nc)) * sizeof(double));
 		d2h_lower_info.size = (size_t)(1 * Nc * sizeof(double));
-		cl_d2h_lower = clCreateSubBuffer(cl_sub_img, CL_MEM_READ_WRITE,
+		cl_d2h_lower = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &d2h_lower_info, &status);
-		cl_d2h_c_lower = clCreateSubBuffer(cl_sub_c, CL_MEM_READ_WRITE,
+		cl_d2h_c_lower = clCreateSubBuffer(cl_c, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &d2h_lower_info, &status);
 	}
 
@@ -586,9 +575,9 @@ int main(int argc, char *argv []){
 	if (rank != 0) {
 		h2d_upper_info.origin = (size_t)((disp[rank]-(1 * Nc)) * sizeof(double));
 		h2d_upper_info.size = (size_t)(1 * Nc * sizeof(double));
-		cl_h2d_upper = clCreateSubBuffer(cl_sub_img, CL_MEM_READ_WRITE,
+		cl_h2d_upper = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &h2d_upper_info, &status);
-		cl_h2d_c_upper = clCreateSubBuffer(cl_sub_c, CL_MEM_READ_WRITE,
+		cl_h2d_c_upper = clCreateSubBuffer(cl_c, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &h2d_upper_info, &status);
 	}
 
@@ -597,9 +586,9 @@ int main(int argc, char *argv []){
 	if (rank != (node_size-1)) {
 		h2d_lower_info.origin = (size_t)(disp[rank+1] * sizeof(double));
 		h2d_lower_info.size = (size_t)(1 * Nc * sizeof(double));
-		cl_h2d_lower = clCreateSubBuffer(cl_sub_img, CL_MEM_READ_WRITE,
+		cl_h2d_lower = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &h2d_lower_info, &status);
-		cl_h2d_c_lower = clCreateSubBuffer(cl_sub_c, CL_MEM_READ_WRITE,
+		cl_h2d_c_lower = clCreateSubBuffer(cl_c, CL_MEM_READ_WRITE,
 			CL_BUFFER_CREATE_TYPE_REGION, &h2d_lower_info, &status);
 	}
 
@@ -739,8 +728,8 @@ int main(int argc, char *argv []){
 			sum2 += host_sum2_buffer[i];
 		}
 		
-		MPI_Reduce(&sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Reduce(&sum2, &global_sum2, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Allreduce(&sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+		MPI_Allreduce(&sum2, &global_sum2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 		
 		sum = global_sum;
 		sum2 = global_sum2;
@@ -752,16 +741,18 @@ int main(int argc, char *argv []){
         // directional derivatives, ICOV, diffusion coefficent
         // download lower bound from GPU
 		if (rank != (node_size-1)) {
-			status = clEnqueueReadBuffer(queue, cl_d2h_lower, CL_TRUE, 0, 1 * Nc * sizeof(double), 
+			status = clEnqueueReadBuffer(queue, cl_d2h_lower, CL_FALSE, 0, 1 * Nc * sizeof(double), 
 				(image[0])+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
 		}
 
 		// download upper bound from GPU
 		if (rank != 0) {
-			status = clEnqueueReadBuffer(queue, cl_d2h_upper, CL_TRUE, 0, 1 * Nc * sizeof(double), 
+			status = clEnqueueReadBuffer(queue, cl_d2h_upper, CL_FALSE, 0, 1 * Nc * sizeof(double), 
 				(image[0])+disp[rank], 0, NULL, NULL);
 		}
-
+		
+		clFinish(queue);
+		
 		// exchange image bound
 		if (rank != (node_size-1))
 			MPI_Isend((void*)((image[0])+disp[rank+1]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank+1, 
@@ -783,16 +774,18 @@ int main(int argc, char *argv []){
 
 		// upload upper bound to GPU
 		if (rank != 0) {
-			status = clEnqueueWriteBuffer(queue, cl_h2d_upper, CL_TRUE, 0, 1 * Nc * sizeof(double),
+			status = clEnqueueWriteBuffer(queue, cl_h2d_upper, CL_FALSE, 0, 1 * Nc * sizeof(double),
 				(image[0])+disp[rank]-(1 * Nc), 0, NULL, NULL);
 		}
 
 		// upload lower bound to GPU
 		if (rank != (node_size-1)) {
-			status = clEnqueueWriteBuffer(queue, cl_h2d_lower, CL_TRUE, 0, 1 * Nc * sizeof(double),
+			status = clEnqueueWriteBuffer(queue, cl_h2d_lower, CL_FALSE, 0, 1 * Nc * sizeof(double),
 				(image[0])+disp[rank+1], 0, NULL, NULL);
 		}
 		
+		clFinish(queue);
+
 		status = clSetKernelArg(kernel1, 6, sizeof(double), (void*)&q0sqr);
 	    _GfnCheckCLStatus(status, "SET KERNEL ARG 6");
 		
@@ -804,15 +797,17 @@ int main(int argc, char *argv []){
         // divergence & image update
         // download lower bound from GPU
 		if (rank != (node_size-1)) {
-			status = clEnqueueReadBuffer(queue, cl_d2h_c_lower, CL_TRUE, 0, 1 * Nc * sizeof(double), 
+			status = clEnqueueReadBuffer(queue, cl_d2h_c_lower, CL_FALSE, 0, 1 * Nc * sizeof(double), 
 				(c[0])+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
 		}
 
 		// download upper bound from GPU
 		if (rank != 0) {
-			status = clEnqueueReadBuffer(queue, cl_d2h_c_upper, CL_TRUE, 0, 1 * Nc * sizeof(double), 
+			status = clEnqueueReadBuffer(queue, cl_d2h_c_upper, CL_FALSE, 0, 1 * Nc * sizeof(double), 
 				(c[0])+disp[rank], 0, NULL, NULL);
 		}
+		
+		clFinish(queue);
 
 		// exchange image bound
 		if (rank != (node_size-1))
@@ -835,16 +830,18 @@ int main(int argc, char *argv []){
 
 		// upload upper bound to GPU
 		if (rank != 0) {
-			status = clEnqueueWriteBuffer(queue, cl_h2d_c_upper, CL_TRUE, 0, 1 * Nc * sizeof(double),
+			status = clEnqueueWriteBuffer(queue, cl_h2d_c_upper, CL_FALSE, 0, 1 * Nc * sizeof(double),
 				(c[0])+disp[rank]-(1 * Nc), 0, NULL, NULL);
 		}
 
 		// upload lower bound to GPU
 		if (rank != (node_size-1)) {
-			status = clEnqueueWriteBuffer(queue, cl_h2d_c_lower, CL_TRUE, 0, 1 * Nc * sizeof(double),
+			status = clEnqueueWriteBuffer(queue, cl_h2d_c_lower, CL_FALSE, 0, 1 * Nc * sizeof(double),
 				(c[0])+disp[rank+1], 0, NULL, NULL);
 		}
 		
+		clFinish(queue);
+
 		status = clEnqueueNDRangeKernel(queue, kernel2, 1, NULL, &global_work_size,
 			&work_group_size, 0, NULL, NULL);
 		_GfnCheckCLStatus(status, "LAUNCH SRAD KERNEL 2");
@@ -864,7 +861,7 @@ int main(int argc, char *argv []){
 } /* end acc data */
 
 	// copy back image
-	status = clEnqueueReadBuffer(queue, cl_image, CL_TRUE, 0, cnts[rank] * sizeof(double), 
+	status = clEnqueueReadBuffer(queue, cl_sub_img, CL_TRUE, 0, cnts[rank] * sizeof(double), 
 		(image[0])+disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	
@@ -944,5 +941,3 @@ int main(int argc, char *argv []){
 	
 	return 0;
 }
-
-
