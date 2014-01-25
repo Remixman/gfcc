@@ -271,6 +271,11 @@ char param_value[LOG_SIZE];
 int main(int argc, char *argv []){
 
 	int rank, node_size;
+	
+	// initial cluster
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &node_size);
 
 	cl_int status = CL_SUCCESS;
 	cl_platform_id platform;
@@ -322,9 +327,6 @@ int main(int argc, char *argv []){
 	long long time7;
 	long long time8;
 	long long time9;
-	long long time10;
-
-	time0 = get_time();
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -374,13 +376,6 @@ int main(int argc, char *argv []){
 
 	int iN, iS, jW, jE;
 	
-	// initial cluster
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &node_size);
-
-	time1 = get_time();
-
 	//================================================================================80
 	// 	GET INPUT PARAMETERS
 	//================================================================================80
@@ -408,8 +403,6 @@ int main(int argc, char *argv []){
 	MPI_Bcast(&Nr, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&Nc, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	time2 = get_time();
-
 	//================================================================================80
 	// 	READ IMAGE (SIZE OF IMAGE HAS TO BE KNOWN)
 	//================================================================================80
@@ -429,7 +422,7 @@ int main(int argc, char *argv []){
 								1);
 	}
 
-	time3 = get_time();
+	time0 = get_time();
 	
 	// initial GPU
 	status = clGetPlatformIDs(1, &platform, NULL);
@@ -480,8 +473,6 @@ int main(int argc, char *argv []){
 				Nr,
 				Nc,
 				1);
-
-	time4 = get_time();
 
 	//================================================================================80
 	// 	SETUP
@@ -545,8 +536,6 @@ int main(int argc, char *argv []){
 	host_sum_buffer = (double*) malloc(group_num * sizeof(double));
 	cl_sum2_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, group_num * sizeof(double), NULL, &status);
 	host_sum2_buffer = (double*) malloc(group_num * sizeof(double));
-	
-	time5 = get_time();
 	
 	// scatter image
 	MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
@@ -723,8 +712,6 @@ int main(int argc, char *argv []){
 	_GfnCheckCLStatus(status, "LAUNCH EXP KERNEL");
 	clFinish(queue);
 
-	time6 = get_time();
-
 	//================================================================================80
 	// 	COMPUTATION
 	//================================================================================80
@@ -866,10 +853,6 @@ int main(int argc, char *argv []){
 
 	}
 
-	// printf("\n");
-
-	time7 = get_time();
-
 	//================================================================================80
 	// 	SCALE IMAGE UP FROM 0-1 TO 0-255 AND COMPRESS
 	//================================================================================80
@@ -889,7 +872,7 @@ int main(int argc, char *argv []){
 	MPI_Gatherv((void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
 		(void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-	time8 = get_time();
+	time1 = get_time();
 
 	//================================================================================80
 	// 	WRITE IMAGE AFTER PROCESSING
@@ -901,9 +884,7 @@ int main(int argc, char *argv []){
 								Nc,
 								1,
 								255);
-
-	time9 = get_time();
-
+								
 	//================================================================================80
 	// 	DEALLOCATE
 	//================================================================================80
@@ -953,26 +934,14 @@ int main(int argc, char *argv []){
 	printf("final mean : %3.3lf\n", sum/Ne);
 	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
-	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
-
-	/*printf("Time spent in different stages of the application:\n");
-	printf("%.12f s, %.12f %% : SETUP VARIABLES\n", 									(float) (time1-time0) / 1000000, (float) (time1-time0) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : READ COMMAND LINE PARAMETERS\n", 	(float) (time2-time1) / 1000000, (float) (time2-time1) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : READ IMAGE FROM FILE\n", 						(float) (time3-time2) / 1000000, (float) (time3-time2) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : RESIZE IMAGE\n", 										(float) (time4-time3) / 1000000, (float) (time4-time3) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : SETUP, MEMORY ALLOCATION\n", 				(float) (time5-time4) / 1000000, (float) (time5-time4) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : EXTRACT IMAGE\n", 									(float) (time6-time5) / 1000000, (float) (time6-time5) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : COMPUTE\n", 												(float) (time7-time6) / 1000000, (float) (time7-time6) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : COMPRESS IMAGE\n", 									(float) (time8-time7) / 1000000, (float) (time8-time7) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : SAVE IMAGE INTO FILE\n", 							(float) (time9-time8) / 1000000, (float) (time9-time8) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : FREE MEMORY\n", 										(float) (time10-time9) / 1000000, (float) (time10-time9) / (float) (time10-time0) * 100);
-	printf("Total time:\n");
-	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);*/
+	printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
 
 //====================================================================================================100
 //	END OF FILE
 //====================================================================================================100
 	MPI_Finalize();
+	
+	return 0;
 }
 
 
