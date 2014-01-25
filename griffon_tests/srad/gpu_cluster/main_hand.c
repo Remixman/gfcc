@@ -319,14 +319,6 @@ int main(int argc, char *argv []){
 	// time
 	long long time0;
 	long long time1;
-	long long time2;
-	long long time3;
-	long long time4;
-	long long time5;
-	long long time6;
-	long long time7;
-	long long time8;
-	long long time9;
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -924,8 +916,6 @@ int main(int argc, char *argv []){
 	clReleaseProgram(program);
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
-
-	time10 = get_time();
 
 	//================================================================================80
 	//		DISPLAY TIMING
