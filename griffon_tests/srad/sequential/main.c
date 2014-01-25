@@ -352,6 +352,9 @@ int main(int argc, char *argv []){
 	// 	DEALLOCATE
 	//================================================================================80
 
+	sum = 0.0;
+	for (i=0;i<Ne;i++) sum += image[i];
+
 	free(image_ori);
 	free(image);
 
@@ -365,6 +368,7 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
+	printf("final mean : %3.3lf\n", sum/Ne);
 	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
