@@ -276,25 +276,6 @@ int main(int argc, char *argv []){
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &node_size);
-
-	cl_int status = CL_SUCCESS;
-	cl_platform_id platform;
-	cl_context context;
-	cl_command_queue queue;
-	cl_device_id device;
-	cl_program program;
-	cl_kernel kernel1, kernel2, exp_kernel, log_kernel, reduce_kernel;
-	
-	cl_mem cl_image, cl_c;
-	cl_mem cl_dN, cl_dS, cl_dW, cl_dE;
-	cl_mem cl_sub_img, cl_sub_c;
-	cl_mem cl_sub_dN, cl_sub_dS;
-	cl_mem cl_sub_dW, cl_sub_dE;
-	
-	cl_mem cl_h2d_lower, cl_h2d_c_lower;
-	cl_mem cl_h2d_upper, cl_h2d_c_upper;
-	cl_mem cl_d2h_lower, cl_d2h_c_lower;
-	cl_mem cl_d2h_upper, cl_d2h_c_upper;
 	
 	double global_sum = 0;
 	double global_sum2 = 0;
@@ -368,6 +349,25 @@ int main(int argc, char *argv []){
 
 	int iN, iS, jW, jE;
 	
+	cl_int status = CL_SUCCESS;
+	cl_platform_id platform;
+	cl_context context;
+	cl_command_queue queue;
+	cl_device_id device;
+	cl_program program;
+	cl_kernel kernel1, kernel2, exp_kernel, log_kernel, reduce_kernel;
+	
+	cl_mem cl_image, cl_c;
+	cl_mem cl_dN, cl_dS, cl_dW, cl_dE;
+	cl_mem cl_sub_img, cl_sub_c;
+	cl_mem cl_sub_dN, cl_sub_dS;
+	cl_mem cl_sub_dW, cl_sub_dE;
+	
+	cl_mem cl_h2d_lower, cl_h2d_c_lower;
+	cl_mem cl_h2d_upper, cl_h2d_c_upper;
+	cl_mem cl_d2h_lower, cl_d2h_c_lower;
+	cl_mem cl_d2h_upper, cl_d2h_c_upper;
+
 	//================================================================================80
 	// 	GET INPUT PARAMETERS
 	//================================================================================80
@@ -389,6 +389,8 @@ int main(int argc, char *argv []){
 			strcat(fileoutname, filename);
 		}
 	}
+	
+	MPI_Barrier(MPI_COMM_WORLD);
 	
 	MPI_Bcast(&niter, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&lambda, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -458,13 +460,15 @@ int main(int argc, char *argv []){
 	for (i = 1; i < Nr; ++i)
 		image[i] = image[i-1] + Nc;
 
-	resize(	image_ori,
+	if (rank == 0) {
+		resize(	image_ori,
 				image_ori_rows,
 				image_ori_cols,
 				image[0],
 				Nr,
 				Nc,
 				1);
+	}
 
 	//================================================================================80
 	// 	SETUP
@@ -873,21 +877,23 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	write_graphics(	fileoutname,
+	if (rank == 0) {
+		write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
 								1,
 								255);
+		sum = 0.0;
+		for (i=0;i<Nr;i++) 
+			for (j=0;j<Nc;j++)
+				sum += image[i][j];
+	}
 								
 	//================================================================================80
 	// 	DEALLOCATE
 	//================================================================================80
 
-	sum = 0.0;
-	for (i=0;i<Nr;i++) 
-		for (j=0;j<Nc;j++)
-			sum += image[i][j];
 
 	free(image_ori);
 	free(image[0]);
@@ -924,10 +930,12 @@ int main(int argc, char *argv []){
 	//		DISPLAY TIMING
 	//================================================================================80
 
-	printf("final mean : %3.3lf\n", sum/Ne);
-	printf("iteration : %d\n", niter);
-	printf("input size : %d x %d\n", Nr, Nc);
-	printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
+	if (rank == 0) {
+		printf("final mean : %3.3lf\n", sum/Ne);
+		printf("iteration : %d\n", niter);
+		printf("input size : %d x %d\n", Nr, Nc);
+		printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
+	}
 
 //====================================================================================================100
 //	END OF FILE
