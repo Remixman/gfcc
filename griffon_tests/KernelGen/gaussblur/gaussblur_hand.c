@@ -287,7 +287,6 @@ void gaussblur(int nx, int ny,
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH CONVOLUTION KERNEL");
 	clFinish(queue);
-	//t3 = get_time();
 	
 	// launch copy kernel
 	status = clEnqueueNDRangeKernel(queue, cpy_kernel, 1, NULL, &global_work_size,
@@ -459,7 +458,7 @@ int main(int argc, char* argv[])
 	status = clEnqueueWriteBuffer(queue, cl_sub_w0, CL_FALSE, 0, cnts[rank] * sizeof(double),
 		(w0[0])+disp[rank], 0, NULL, NULL);
 	status = clEnqueueWriteBuffer(queue, cl_sub_w1, CL_FALSE, 0, cnts[rank] * sizeof(double),
-		(w0[0])+disp[rank], 0, NULL, NULL);
+		(w1[0])+disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	
 	f = 1. / (s0 + 4 * (s1 + s2 + s4 + s8) + 8 * s5);
