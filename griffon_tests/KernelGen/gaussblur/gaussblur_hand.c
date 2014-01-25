@@ -454,6 +454,8 @@ int main(int argc, char* argv[])
 	cl_sub_w1 = clCreateSubBuffer(cl_w1, CL_MEM_READ_WRITE, 
 		CL_BUFFER_CREATE_TYPE_REGION, &sub_w_info, &status);
 		
+	time0 = get_time();
+		
 	// send data to GPU
 	status = clEnqueueWriteBuffer(queue, cl_sub_w0, CL_FALSE, 0, cnts[rank] * sizeof(double),
 		(w0[0])+disp[rank], 0, NULL, NULL);
@@ -501,12 +503,10 @@ int main(int argc, char* argv[])
 	status = clSetKernelArg(cpy_kernel, 3, sizeof(int), (void*)&local_end);
 	_GfnCheckCLStatus(status, "SET KERNEL ARG 3");
 
-    time0 = get_time();
 	for (it = 0; it < nt; it++)
 		gaussblur(nx, ny, s0, s1, s2, s4, s5, s8, w0, w1,
 			rank, node_size, queue, kernel, cpy_kernel, context,
 			local_start, local_end, disp, cnts);
-	time1 = get_time();
 	
 	// copy back sum buffer
 	status = clEnqueueReadBuffer(queue, cl_sub_w0, CL_TRUE, 0, cnts[rank] * sizeof(double), 
@@ -514,6 +514,8 @@ int main(int argc, char* argv[])
 
 	MPI_Gatherv((void*)((w0[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
 		(void*)(w0[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+	time1 = get_time();
 
 	// For the final mean - account only the norm of the top
 	// most level (tracked by swapping idxs array of indexes).

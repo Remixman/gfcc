@@ -517,8 +517,6 @@ int main(int argc, char *argv []){
     for (i = 1; i < Nr; ++i)
     	c[i] = c[i-1] + Nc;
 
-	time5 = get_time();
-
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
 		disp[i] = i * ceil(Nr/(double)node_size) * Nc;
@@ -547,6 +545,8 @@ int main(int argc, char *argv []){
 	host_sum_buffer = (double*) malloc(group_num * sizeof(double));
 	cl_sum2_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, group_num * sizeof(double), NULL, &status);
 	host_sum2_buffer = (double*) malloc(group_num * sizeof(double));
+	
+	time5 = get_time();
 	
 	// scatter image
 	MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
