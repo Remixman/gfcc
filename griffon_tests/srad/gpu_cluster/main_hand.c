@@ -789,6 +789,9 @@ int main(int argc, char *argv []){
 				(image[0])+disp[rank+1], 0, NULL, NULL);
 		}
 		
+		status = clSetKernelArg(kernel1, 6, sizeof(double), (void*)&q0sqr);
+	    _GfnCheckCLStatus(status, "SET KERNEL ARG 6");
+		
 		status = clEnqueueNDRangeKernel(queue, kernel1, 1, NULL, &global_work_size,
 			&work_group_size, 0, NULL, NULL);
 		_GfnCheckCLStatus(status, "LAUNCH SRAD KERNEL 1");
