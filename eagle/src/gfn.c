@@ -279,7 +279,7 @@ do { \
 	} \
 	for (i = 1; i < group_num; ++i) \
 		tmp_reduce_var[0] += tmp_reduce_var[i]; \
-	MPI_Reduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, 0 /* root */, MPI_COMM_WORLD); \
+	MPI_Allreduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, MPI_COMM_WORLD); \
 	free(tmp_reduce_var); \
 } while(0)
 
