@@ -24,7 +24,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-//#include <omp.h>
 
 #include "define.c"
 #include "graphics.c"
@@ -46,17 +45,6 @@ int main(int argc, char *argv []){
 	// time
 	long long time0;
 	long long time1;
-	long long time2;
-	long long time3;
-	long long time4;
-	long long time5;
-	long long time6;
-	long long time7;
-	long long time8;
-	long long time9;
-	long long time10;
-
-	time0 = get_time();
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -107,8 +95,6 @@ int main(int argc, char *argv []){
 	char fileinname[100];
 	char fileoutname[100];
 
-	time1 = get_time();
-
 	//================================================================================80
 	// 	GET INPUT PARAMETERS
 	//================================================================================80
@@ -131,8 +117,6 @@ int main(int argc, char *argv []){
 
 	//omp_set_num_threads(threads);
 
-	time2 = get_time();
-
 	//================================================================================80
 	// 	READ IMAGE (SIZE OF IMAGE HAS TO BE KNOWN)
 	//================================================================================80
@@ -150,8 +134,6 @@ int main(int argc, char *argv []){
 								image_ori_cols,
 								1);
 
-	time3 = get_time();
-
 	//================================================================================80
 	// 	RESIZE IMAGE (ASSUMING COLUMN MAJOR STORAGE OF image_orig)
 	//================================================================================80
@@ -167,8 +149,6 @@ int main(int argc, char *argv []){
 				Nr,
 				Nc,
 				1);
-
-	time4 = get_time();
 
 	//================================================================================80
 	// 	SETUP
@@ -212,18 +192,15 @@ int main(int argc, char *argv []){
     jW[0]    = 0;															// changes IMAGE leftmost column index from -1 to 0
     jE[Nc-1] = Nc-1;														// changes IMAGE rightmost column index from Nc to Nc-1
 
-	time5 = get_time();
+	time0 = get_time();
 
 	//================================================================================80
 	// 	SCALE IMAGE DOWN FROM 0-255 TO 0-1 AND EXTRACT
 	//================================================================================80
 
-	// #pragma omp parallel
 	for (i=0; i<Ne; i++) {													// do for the number of elements in input IMAGE
 		image[i] = exp(image[i]/255);											// exponentiate input IMAGE and copy to output image
     }
-
-	time6 = get_time();
 
 	//================================================================================80
 	// 	COMPUTATION
@@ -322,18 +299,15 @@ int main(int argc, char *argv []){
 
 	// printf("\n");
 
-	time7 = get_time();
-
 	//================================================================================80
 	// 	SCALE IMAGE UP FROM 0-1 TO 0-255 AND COMPRESS
 	//================================================================================80
 
-	// #pragma omp parallel
 	for (i=0; i<Ne; i++) {													// do for the number of elements in IMAGE
 		image[i] = log(image[i])*255;													// take logarithm of image, log compress
 	}
 
-	time8 = get_time();
+	time1 = get_time();
 
 	//================================================================================80
 	// 	WRITE IMAGE AFTER PROCESSING
@@ -345,8 +319,6 @@ int main(int argc, char *argv []){
 								Nc,
 								1,
 								255);
-
-	time9 = get_time();
 
 	//================================================================================80
 	// 	DEALLOCATE
@@ -362,8 +334,6 @@ int main(int argc, char *argv []){
     free(dN); free(dS); free(dW); free(dE);									// deallocate directional derivative memory
     free(c);																// deallocate diffusion coefficient memory
 
-	time10 = get_time();
-
 	//================================================================================80
 	//		DISPLAY TIMING
 	//================================================================================80
@@ -371,26 +341,12 @@ int main(int argc, char *argv []){
 	printf("final mean : %3.3lf\n", sum/Ne);
 	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
-	printf("compute time : %.12f s\n", (float)(time8-time5)/1000000);
-
-	/*printf("Time spent in different stages of the application:\n");
-	printf("%.12f s, %.12f %% : SETUP VARIABLES\n", 									(float) (time1-time0) / 1000000, (float) (time1-time0) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : READ COMMAND LINE PARAMETERS\n", 	(float) (time2-time1) / 1000000, (float) (time2-time1) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : READ IMAGE FROM FILE\n", 						(float) (time3-time2) / 1000000, (float) (time3-time2) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : RESIZE IMAGE\n", 										(float) (time4-time3) / 1000000, (float) (time4-time3) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : SETUP, MEMORY ALLOCATION\n", 				(float) (time5-time4) / 1000000, (float) (time5-time4) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : EXTRACT IMAGE\n", 									(float) (time6-time5) / 1000000, (float) (time6-time5) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : COMPUTE\n", 												(float) (time7-time6) / 1000000, (float) (time7-time6) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : COMPRESS IMAGE\n", 									(float) (time8-time7) / 1000000, (float) (time8-time7) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : SAVE IMAGE INTO FILE\n", 							(float) (time9-time8) / 1000000, (float) (time9-time8) / (float) (time10-time0) * 100);
-	printf("%.12f s, %.12f %% : FREE MEMORY\n", 										(float) (time10-time9) / 1000000, (float) (time10-time9) / (float) (time10-time0) * 100);
-	printf("Total time:\n");
-	printf("%.12f s\n", 																					(float) (time10-time0) / 1000000);*/
+	printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
 
 //====================================================================================================100
 //	END OF FILE
 //====================================================================================================100
 
+	return 0;
 }
-
 
