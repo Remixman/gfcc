@@ -300,6 +300,10 @@ int main(int argc, char *argv []){
 	// time
 	long long time0;
 	long long time1;
+	long long time2;
+	long long time3;
+	long long time4;
+	long long time5;
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -408,11 +412,13 @@ int main(int argc, char *argv []){
 	image_ori = (fp*)malloc(sizeof(fp) * image_ori_elem);
 
 	if (rank == 0) {
+		time2 = get_time();
 		read_graphics(	fileinname,
 								image_ori,
 								image_ori_rows,
 								image_ori_cols,
 								1);
+		time3 = get_time();
 	}
 
 	time0 = get_time();
@@ -875,12 +881,14 @@ int main(int argc, char *argv []){
 	//================================================================================80
 
 	if (rank == 0) {
+		time4 = get_time();
 		write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
 								1,
 								255);
+		time5 = get_time();
 		sum = 0.0;
 		for (i=0;i<Nr;i++) 
 			for (j=0;j<Nc;j++)
@@ -932,6 +940,8 @@ int main(int argc, char *argv []){
 		printf("iteration : %d\n", niter);
 		printf("input size : %d x %d\n", Nr, Nc);
 		printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
+		printf("read file time : %.6f s\n", (float)(time3-time2)/1000000);
+		printf("write file time : %.6f s\n", (float)(time5-time4)/1000000);
 	}
 
 //====================================================================================================100

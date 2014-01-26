@@ -128,11 +128,13 @@ int main(int argc, char *argv []){
 
 	image_ori = (fp*)malloc(sizeof(fp) * image_ori_elem);
 
+	time2 = get_time();
 	read_graphics(	fileinname,
 								image_ori,
 								image_ori_rows,
 								image_ori_cols,
 								1);
+	time3 = get_time();
 
 	//================================================================================80
 	// 	RESIZE IMAGE (ASSUMING COLUMN MAJOR STORAGE OF image_orig)
@@ -345,12 +347,14 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
+	time4 = get_time();
 	write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
 								1,
 								255);
+	time5 = get_time();
 
 	//================================================================================80
 	// 	DEALLOCATE
@@ -378,6 +382,8 @@ int main(int argc, char *argv []){
 	printf("iteration : %d\n", niter);
 	printf("input size : %d x %d\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
+	printf("read file time : %.6f s\n", (float)(time3-time2)/1000000);
+	printf("write file time : %.6f s\n", (float)(time5-time4)/1000000);
 
 //====================================================================================================100
 //	END OF FILE
