@@ -48,6 +48,10 @@ int main(int argc, char *argv []){
 	// time
 	long long time0;
 	long long time1;
+	long long time2;
+	long long time3;
+	long long time4;
+	long long time5;
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -192,8 +196,8 @@ int main(int argc, char *argv []){
 	time0 = get_time();
 
 #pragma gfn data copy(image[0:Nr{partition}][0:Nc]) \
-	create(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
-	create(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+	create(dN[0:Nr][0:Nc],dS[0:Nr][0:Nc]) \
+	create(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 	create(c[0:Nr{partition}][0:Nc])
 {
 
@@ -240,8 +244,8 @@ int main(int argc, char *argv []){
 
         // directional derivatives, ICOV, diffusion coefficent
         #pragma gfn parallel_for present(c[0:Nr{partition}][0:Nc]) \
-			present(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
-			present(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+			present(dN[0:Nr][0:Nc],dS[0:Nr][0:Nc]) \
+			present(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 			present(image[0:Nr{partition}][0:Nc]) in_pattern(image:[-1,1][-1,1]) \
 			private(iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
 		for (j=0; j<Nc; j++) {
@@ -296,8 +300,8 @@ int main(int argc, char *argv []){
 
         // divergence & image update
         #pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc]) \
-			present(dN[0:Nr{partition}][0:Nc],dS[0:Nr{partition}][0:Nc]) \
-			present(dW[0:Nr{partition}][0:Nc],dE[0:Nr{partition}][0:Nc]) \
+			present(dN[0:Nr][0:Nc],dS[0:Nr][0:Nc]) \
+			present(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 			present(c[0:Nr{partition}][0:Nc]) in_pattern(c:[-1,1][-1,1]) \
 			private(iS, jE, D, cS, cN, cW, cE)  
 		for (j=0; j<Nc; j++) {	
@@ -310,7 +314,7 @@ int main(int argc, char *argv []){
                 // diffusion coefficent
                 cN = c[i][j];													// north diffusion coefficient
                 cS = c[iS][j];										// south diffusion coefficient
-                cW = c[i][j];													// west diffusion coefficient
+                cW = cN;													// west diffusion coefficient
                 cE = c[i][jE];										// east diffusion coefficient
 
                 // divergence (equ 58)
