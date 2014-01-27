@@ -261,9 +261,9 @@ int main(int argc, char *argv []){
 			present(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 			present(image[0:Nr{partition}][0:Nc]) in_pattern(image:[-1,1][-1,1]) \
 			private(iN, iS, jW, jE, Jc, G2, L, num, den, qsqr)
-		for (j=0; j<Nc; j++) {
+		for (i=0; i<Nr; i++) {
 			#pragma gfn loop
-			for (i=0; i<Nr; i++) {
+			for (j=0; j<Nc; j++) {
 
                 Jc = image[i][j];													// get value of the current element
                 
@@ -319,9 +319,9 @@ int main(int argc, char *argv []){
 			present(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 			present(c[0:Nr{partition}][0:Nc]) in_pattern(c:[-1,1][-1,1]) \
 			private(iS, jE, D, cS, cN, cW, cE)  
-		for (j=0; j<Nc; j++) {	
+		for (i=0; i<Nr; i++) {	
 		    #pragma gfn loop
-			for (i=0; i<Nr; i++) {	
+			for (j=0; j<Nc; j++) {	
 
                 iS = (i==Nr-1)? Nr-1 : i+1;
                 jE = (j==Nc-1)? Nc-1 : j+1;

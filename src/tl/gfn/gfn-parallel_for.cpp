@@ -606,6 +606,11 @@ TL::Source ParallelFor::do_parallel_for()
             << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_loop_step_var);
         cl_actual_params.append_with_separator(("int " + inner_loop_step_var), ",");*/
         
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_loop_size_var);
+        cl_actual_params.append_with_separator(("int " + inner_loop_size_var), ",");
+        
+        
         worker_initialize_generated_variables_src
             << local_start_idx_var << " = " << local_start_idx_var << " * (("
             << inner_end_idx_var << " - " << inner_start_idx_var << " + 1) / "
@@ -630,19 +635,12 @@ TL::Source ParallelFor::do_parallel_for()
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
     cl_actual_params.append_with_separator(("int " + loop_step_var), ",");
 
-    if (false /* TODO: */)
+    if (_kernel_info->_has_inner_loop)
     {
         cl_kernel_var_decl
-            << "int outer_loop_size = ((" << local_end_idx_var << " - " << local_start_idx_var << ") + 1)"
-            << " / " << loop_step_var << ";" << CL_EOL
-            << "int inner_loop_size = ((" << inner_end_idx_var << " - " << inner_start_idx_var << ") + 1)"
-            << " / " << inner_loop_step_var << ";" << CL_EOL
-            << "int " << loop_size_var << " = outer_loop_size * inner_loop_size;" << CL_EOL
-            
-            << "int " << induction_var << " = ((get_global_id(0) / inner_loop_size) * " 
-                << loop_step_var << ") + " << local_start_idx_var << ";" << CL_EOL
-            << inner_induction_var_name << " = ((get_global_id(0) % inner_loop_size) * "
-                << inner_loop_step_var << ") + " << inner_start_idx_var << ";"<< CL_EOL;
+            << "int _tid = get_global_id(0) + " << local_start_idx_var << ";\n"
+            << "int " << induction_var << " = _tid / " << inner_loop_size_var << ";\n"
+            << "int " << _kernel_info->_inner_induction_var << " = _tid % " << inner_loop_size_var << ";\n";
     }
     else
     {
@@ -666,9 +664,14 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source cl_kernel_reduction;
     if (_kernel_info->_has_reduction_clause)
     {
+        // [Reduction Step] -
+        if (_kernel_info->_has_inner_loop)
+            cl_kernel_reduction
+                << "if (_tid <= " << local_end_idx_var << ") {" << CL_EOL;
+        else
+            cl_kernel_reduction
+                << "if (get_global_id(0) < " << loop_size_var << ") {" << CL_EOL;
         cl_kernel_reduction
-            // [Reduction Step] -
-            << "if (get_global_id(0) < " << loop_size_var << ") {" << CL_EOL
             << cl_kernel_reduce_init_if
             << "} else {" << CL_EOL
             << cl_kernel_reduce_init_else
