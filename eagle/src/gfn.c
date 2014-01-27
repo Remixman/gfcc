@@ -16,6 +16,20 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
+/* buffer for reduction */
+char *char_sum_buffer;
+unsigned char *unsigned_char_sum_buffer;
+short *short_sum_buffer;
+unsigned short *unsigned_short_sum_buffer;
+int *int_sum_buffer;
+unsigned *unsigned_sum_buffer;
+long *long_sum_buffer;
+unsigned long *unsigned_long_sum_buffer;
+float *float_sum_buffer;
+double *double_sum_buffer;
+long double *long_double_sum_buffer;
+long long int *long_long_int_sum_buffer;
+
 long long _gfn_last_kernel_time;
 int is_overlap_node_dev_trans;
 int optimize_chunk_size;
@@ -113,6 +127,11 @@ int _GfnInit(int *argc, char **argv[])
 	if (_gfn_rank == 0) printf("GFN_OPT_CHUNK_SIZE = %d\n", optimize_chunk_size);
 
 
+	/* Reduction buffer */
+	double_sum_buffer = NULL;
+	int_sum_buffer = NULL;
+	float_sum_buffer = NULL;
+
 	/* Trace timing */
 	_cluster_malloc_time    = FALSE;
 	_cluster_scatter_time   = FALSE;
@@ -172,6 +191,10 @@ int _GfnFinalize()
 	IF_TIMING (_mm_overhead_time) clear_vtab_start_t = get_time();
 	_free_mem_and_clear_var_table();
 	IF_TIMING (_mm_overhead_time) clear_vtab_end_t = get_time();
+
+	if (double_sum_buffer) free(double_sum_buffer);
+	if (int_sum_buffer) free(int_sum_buffer);
+	if (float_sum_buffer) free(float_sum_buffer);
 
 	_clear_lock_table();
 
@@ -270,33 +293,33 @@ int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id,
 
 	// TOD0: MPI pack and bcast at _GfnFinishReduceScalar
 
-#define SWITCH_REDUCE(type,mpi_type) \
+#define SWITCH_REDUCE(type,mpi_type,reduce_buf) \
 do { \
-	type *tmp_reduce_var = (type*) malloc(group_num * sizeof(type)); \
+	if (reduce_buf == NULL) reduce_buf = (type*) malloc(group_num * sizeof(type)); \
+	type rv = 0; \
 	if (level2_cond) { \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * group_num, tmp_reduce_var, 0, 0, 0); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * group_num, reduce_buf, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
 	} \
-	for (i = 1; i < group_num; ++i) \
-		tmp_reduce_var[0] += tmp_reduce_var[i]; \
-	MPI_Allreduce(&(tmp_reduce_var[0]), ptr, 1, mpi_type, op_id, MPI_COMM_WORLD); \
-	free(tmp_reduce_var); \
+	for (i = 0; i < group_num; ++i) \
+		rv += reduce_buf[i]; \
+	MPI_Allreduce(&rv, ptr, 1, mpi_type, op_id, MPI_COMM_WORLD); \
 } while(0)
 
 	switch(type_id)
 	{
-	case TYPE_CHAR:           SWITCH_REDUCE(char,MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_REDUCE(unsigned char,MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_REDUCE(short,MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_REDUCE(unsigned short,MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_REDUCE(int,MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_REDUCE(unsigned,MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_REDUCE(long,MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_REDUCE(unsigned long,MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_REDUCE(float,MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_REDUCE(double,MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_REDUCE(long double,MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(long long int,MPI_LONG_LONG_INT); break;
+	case TYPE_CHAR:           SWITCH_REDUCE(char,MPI_CHAR,char_sum_buffer); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_REDUCE(unsigned char,MPI_UNSIGNED_CHAR,unsigned_char_sum_buffer); break;
+	case TYPE_SHORT:          SWITCH_REDUCE(short,MPI_SHORT,short_sum_buffer); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_REDUCE(unsigned short,MPI_UNSIGNED_SHORT,unsigned_short_sum_buffer); break;
+	case TYPE_INT:            SWITCH_REDUCE(int,MPI_INT,int_sum_buffer); break;
+	case TYPE_UNSIGNED:       SWITCH_REDUCE(unsigned,MPI_UNSIGNED,unsigned_sum_buffer); break;
+	case TYPE_LONG:           SWITCH_REDUCE(long,MPI_LONG,long_sum_buffer); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_REDUCE(unsigned long,MPI_UNSIGNED_LONG,unsigned_long_sum_buffer); break;
+	case TYPE_FLOAT:          SWITCH_REDUCE(float,MPI_FLOAT,float_sum_buffer); break;
+	case TYPE_DOUBLE:         SWITCH_REDUCE(double,MPI_DOUBLE,double_sum_buffer); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_REDUCE(long double,MPI_LONG_DOUBLE,long_double_sum_buffer); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(long long int,MPI_LONG_LONG_INT,long_long_int_sum_buffer); break;
 	}
 
 	if (_gfn_rank == 0) _SendOutputMsg(ptr, _CalcTypeSize(type_id));
