@@ -48,17 +48,14 @@ int main(int argc, char *argv []){
 	// time
 	long long time0;
 	long long time1;
-	long long time2;
-	long long time3;
-	long long time4;
-	long long time5;
-
+#ifdef _DEBUG
 	long long time6;
 	long long time7;
 	long long time8;
 	long long time9;
 	long long time10;
 	long long time11;
+#endif
 
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
@@ -139,13 +136,11 @@ int main(int argc, char *argv []){
 
 	image_ori = (fp*)malloc(sizeof(fp) * image_ori_elem);
 
-	time2 = get_time();
 	read_graphics(	fileinname,
 								image_ori,
 								image_ori_rows,
 								image_ori_cols,
 								1);
-	time3 = get_time();
 
 	//================================================================================80
 	// 	RESIZE IMAGE (ASSUMING COLUMN MAJOR STORAGE OF image_orig)
@@ -207,8 +202,9 @@ int main(int argc, char *argv []){
 	create(dW[0:Nr][0:Nc],dE[0:Nr][0:Nc]) \
 	create(c[0:Nr{partition}][0:Nc])
 {
-
+#ifdef _DEBUG
 	time6 = get_time();
+#endif
 
 	//================================================================================80
 	// 	SCALE IMAGE DOWN FROM 0-255 TO 0-1 AND EXTRACT
@@ -222,7 +218,9 @@ int main(int argc, char *argv []){
 		}
     }
 
+#ifdef _DEBUG
     time7 = get_time();
+#endif
 
 	//================================================================================80
 	// 	COMPUTATION
@@ -253,7 +251,9 @@ int main(int argc, char *argv []){
         varROI  = (sum2 / NeROI) - meanROI*meanROI;							// gets variance of ROI
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
 
+#ifdef _DEBUG
         time8 = get_time();
+#endif
 
         // directional derivatives, ICOV, diffusion coefficent
         #pragma gfn parallel_for present(c[0:Nr{partition}][0:Nc]) \
@@ -311,7 +311,9 @@ int main(int argc, char *argv []){
 			}
         }
 
+#ifdef _DEBUG
         time9 = get_time();
+#endif
 
         // divergence & image update
         #pragma gfn parallel_for present(image[0:Nr{partition}][0:Nc]) \
@@ -342,7 +344,9 @@ int main(int argc, char *argv []){
 
         }
 
+#ifdef _DEBUG
         time10 = get_time();
+#endif
 
 	}
 
@@ -360,7 +364,9 @@ int main(int argc, char *argv []){
 		}
 	}
 
+#ifdef _DEBUG
 	time11 = get_time();
+#endif
 
 } /* end acc data */
 
@@ -370,14 +376,12 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	time4 = get_time();
 	write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
 								1,
 								255);
-	time5 = get_time();
 
 	//================================================================================80
 	// 	DEALLOCATE
@@ -403,11 +407,10 @@ int main(int argc, char *argv []){
 
 	printf("final mean : %3.3lf\n", sum/Ne);
 	printf("iteration : %d\n", niter);
-	printf("input size : %d x %d\n", Nr, Nc);
+	printf("input size : %ld x %ld\n", Nr, Nc);
 	printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
-	printf("read file time : %.6f s\n", (float)(time3-time2)/1000000);
-	printf("write file time : %.6f s\n", (float)(time5-time4)/1000000);
 
+#ifdef _DEBUG
 	printf("\n");
 	printf("copyin time : %.12f s\n", (float)(time6-time0)/1000000);
 	printf("exp time : %.12f s\n", (float)(time7-time6)/1000000);
@@ -416,6 +419,7 @@ int main(int argc, char *argv []){
 	printf("kernel 2 time : %.12f s\n", (float)(time10-time9)/1000000);
 	printf("log time : %.12f s\n", (float)(time11-time10)/1000000);
 	printf("copyout time : %.12f s\n", (float)(time1-time11)/1000000);
+#endif
 
 //====================================================================================================100
 //	END OF FILE

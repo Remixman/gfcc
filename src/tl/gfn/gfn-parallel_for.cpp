@@ -612,12 +612,8 @@ TL::Source ParallelFor::do_parallel_for()
         
         
         worker_initialize_generated_variables_src
-            << local_start_idx_var << " = " << local_start_idx_var << " * (("
-            << inner_end_idx_var << " - " << inner_start_idx_var << " + 1) / "
-            << inner_loop_step_var << ");"
-            << local_end_idx_var << " = " << local_end_idx_var << " * (("
-            << inner_end_idx_var << " - " << inner_start_idx_var << " + 1) / "
-            << inner_loop_step_var << ");";
+            << local_start_idx_var << " = " << local_start_idx_var << " * _inner_loop_size;"
+            << local_end_idx_var << " = " << local_end_idx_var << " * _inner_loop_size;";
             // TODO: step
     }
     
@@ -640,14 +636,14 @@ TL::Source ParallelFor::do_parallel_for()
         cl_kernel_var_decl
             << "int _tid = get_global_id(0) + " << local_start_idx_var << ";\n"
             << "int " << induction_var << " = _tid / " << inner_loop_size_var << ";\n"
-            << "int " << _kernel_info->_inner_induction_var << " = _tid % " << inner_loop_size_var << ";\n";
+            << inner_induction_var_name << " = _tid % " << inner_loop_size_var << ";\n";
     }
     else
     {
         cl_kernel_var_decl
-            << "int " << loop_size_var << " = ("
+            /*<< "int " << loop_size_var << " = ("
                 << local_end_idx_var << " - " << local_start_idx_var
-                << ") / " << loop_step_var << ";" << CL_EOL
+                << ") / " << loop_step_var << ";" << CL_EOL*/
             << "int " << new_induction_var_name << " = "
             << "get_global_id(0) * " << loop_step_var << ";" << CL_EOL
             << "int " << induction_var << " = " << new_induction_var_name 
@@ -664,14 +660,9 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source cl_kernel_reduction;
     if (_kernel_info->_has_reduction_clause)
     {
-        // [Reduction Step] -
-        if (_kernel_info->_has_inner_loop)
-            cl_kernel_reduction
-                << "if (_tid <= " << local_end_idx_var << ") {" << CL_EOL;
-        else
-            cl_kernel_reduction
-                << "if (get_global_id(0) < " << loop_size_var << ") {" << CL_EOL;
         cl_kernel_reduction
+            << "if (" << induction_var << " <= " << loop_end << ") {" << CL_EOL
+            // [Reduction Step] -
             << cl_kernel_reduce_init_if
             << "} else {" << CL_EOL
             << cl_kernel_reduce_init_else
