@@ -305,6 +305,13 @@ int main(int argc, char *argv []){
 	long long time4;
 	long long time5;
 
+	long long time6;
+	long long time7;
+	long long time8;
+	long long time9;
+	long long time10;
+	long long time11;
+
     // inputs image, input paramenters
     fp* image_ori;																// originalinput image
 	int image_ori_rows;
@@ -420,8 +427,6 @@ int main(int argc, char *argv []){
 								1);
 		time3 = get_time();
 	}
-
-	time0 = get_time();
 	
 	// initial GPU
 	status = clGetPlatformIDs(1, &platform, NULL);
@@ -508,6 +513,8 @@ int main(int argc, char *argv []){
     c[0] = (fp*)malloc(sizeof(fp)*Ne);
     for (i = 1; i < Nr; ++i)
     	c[i] = c[i-1] + Nc;
+
+    time0 = get_time();
 
 	// calculate counts and displacements
 	for (i = 0; i < node_size; ++i)
@@ -600,6 +607,8 @@ int main(int argc, char *argv []){
 
 	// wait write buffer
 	clFinish(queue);
+
+	time6 = get_time();
 	
 	// set exp kernel arguments
 	status = clSetKernelArg(exp_kernel, 0, sizeof(cl_mem), &cl_image);
@@ -703,6 +712,8 @@ int main(int argc, char *argv []){
 	_GfnCheckCLStatus(status, "LAUNCH EXP KERNEL");
 	clFinish(queue);
 
+	time7 = get_time();
+
 	//================================================================================80
 	// 	COMPUTATION
 	//================================================================================80
@@ -743,6 +754,8 @@ int main(int argc, char *argv []){
         meanROI = sum / NeROI;												// gets mean (average) value of element in ROI
         varROI  = (sum2 / NeROI) - meanROI*meanROI;							// gets variance of ROI
         q0sqr   = varROI / (meanROI*meanROI);								// gets standard deviation of ROI
+
+        time8 = get_time();
 
         // directional derivatives, ICOV, diffusion coefficent
         // download lower bound from GPU
@@ -800,6 +813,8 @@ int main(int argc, char *argv []){
 		_GfnCheckCLStatus(status, "LAUNCH SRAD KERNEL 1");
 		clFinish(queue);
 
+		time9 = get_time();
+
         // divergence & image update
         // download lower bound from GPU
 		if (rank != (node_size-1)) {
@@ -853,6 +868,7 @@ int main(int argc, char *argv []){
 		_GfnCheckCLStatus(status, "LAUNCH SRAD KERNEL 2");
 		clFinish(queue);
 
+		time10 = get_time();
 	}
 
 	//================================================================================80
@@ -863,6 +879,8 @@ int main(int argc, char *argv []){
 		&work_group_size, 0, NULL, NULL);
 	_GfnCheckCLStatus(status, "LAUNCH EXP KERNEL");
 	clFinish(queue);
+
+	time11 = get_time();
 
 } /* end acc data */
 
@@ -942,6 +960,15 @@ int main(int argc, char *argv []){
 		printf("compute time : %.12f s\n", (float)(time1-time0)/1000000);
 		printf("read file time : %.6f s\n", (float)(time3-time2)/1000000);
 		printf("write file time : %.6f s\n", (float)(time5-time4)/1000000);
+
+		printf("\n");
+		printf("copyin time : %.12f s\n", (float)(time6-time0)/1000000);
+		printf("exp time : %.12f s\n", (float)(time7-time6)/1000000);
+		printf("reduce time : %.12f s\n", (float)(time8-time7)/1000000);
+		printf("kernel 1 time : %.12f s\n", (float)(time9-time8)/1000000);
+		printf("kernel 2 time : %.12f s\n", (float)(time10-time9)/1000000);
+		printf("log time : %.12f s\n", (float)(time11-time10)/1000000);
+		printf("copyout time : %.12f s\n", (float)(time1-time11)/1000000);
 	}
 
 //====================================================================================================100
