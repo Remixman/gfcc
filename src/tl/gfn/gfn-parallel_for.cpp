@@ -594,6 +594,28 @@ TL::Source ParallelFor::do_parallel_for()
     replace_parallel_loop_body(gpu_loop_body, cl_replace_types, induction_var_name, new_induction_var_name);
     //std::cout << "After replace\n";
 
+    if (_kernel_info->_has_inner_loop)
+    {
+        /*cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_start_idx_var);
+        cl_actual_params.append_with_separator(("int " + inner_start_idx_var), ",");
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_end_idx_var);
+        cl_actual_params.append_with_separator(("int " + inner_end_idx_var), ",");
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_loop_step_var);
+        cl_actual_params.append_with_separator(("int " + inner_loop_step_var), ",");*/
+        
+        worker_initialize_generated_variables_src
+            << local_start_idx_var << " = " << local_start_idx_var << " * (("
+            << inner_end_idx_var << " - " << inner_start_idx_var << " + 1) / "
+            << inner_loop_step_var << ");"
+            << local_end_idx_var << " = " << local_end_idx_var << " * (("
+            << inner_end_idx_var << " - " << inner_start_idx_var << " + 1) / "
+            << inner_loop_step_var << ");";
+            // TODO: step
+    }
+    
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
     // Current local loop start
     cl_set_kernel_arg
@@ -607,20 +629,8 @@ TL::Source ParallelFor::do_parallel_for()
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
     cl_actual_params.append_with_separator(("int " + loop_step_var), ",");
-    if (_kernel_info->_has_inner_loop)
-    {
-        cl_set_kernel_arg
-            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_start_idx_var);
-        cl_actual_params.append_with_separator(("int " + inner_start_idx_var), ",");
-        cl_set_kernel_arg
-            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_end_idx_var);
-        cl_actual_params.append_with_separator(("int " + inner_end_idx_var), ",");
-        cl_set_kernel_arg
-            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", inner_loop_step_var);
-        cl_actual_params.append_with_separator(("int " + inner_loop_step_var), ",");
-    }
 
-    if (_kernel_info->_has_inner_loop)
+    if (false /* TODO: */)
     {
         cl_kernel_var_decl
             << "int outer_loop_size = ((" << local_end_idx_var << " - " << local_start_idx_var << ") + 1)"
