@@ -904,18 +904,18 @@ int main(int argc, char *argv []){
 	// 	WRITE IMAGE AFTER PROCESSING
 	//================================================================================80
 
-	/*if (rank == 0) {
-		write_graphics(	fileoutname,
+	if (rank == 0) {
+		/*write_graphics(	fileoutname,
 								image[0],
 								Nr,
 								Nc,
 								1,
-								255);
+								255);*/
 		sum = 0.0;
 		for (i=0;i<Nr;i++) 
 			for (j=0;j<Nc;j++)
 				sum += image[i][j];
-	}*/
+	}
 								
 	//================================================================================80
 	// 	DEALLOCATE
