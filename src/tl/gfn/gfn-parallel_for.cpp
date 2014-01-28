@@ -627,9 +627,13 @@ TL::Source ParallelFor::do_parallel_for()
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_end_idx_var);
     cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     // Current loop step
-    cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
-    cl_actual_params.append_with_separator(("int " + loop_step_var), ",");
+    if (loop_step != "1")
+    {
+        cl_set_kernel_arg
+            << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
+        cl_actual_params.append_with_separator(("int " + loop_step_var), ",");
+    }
+    
 
     if (_kernel_info->_has_inner_loop)
     {
