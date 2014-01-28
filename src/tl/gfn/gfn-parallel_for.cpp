@@ -765,6 +765,8 @@ TL::Source ParallelFor::do_parallel_for()
             
             << comment("Deallocate Array Memory")
             << worker_free_array_memory_src
+            
+            << "_SyncMaster();"
         << "}";
 
     if(debug){
@@ -786,7 +788,8 @@ TL::Source ParallelFor::do_parallel_for()
         << send_loop_size
         << master_send_scalar_input
         << master_send_array_input
-        << master_recv_output;
+        << master_recv_output
+        << "_SyncWorker();";
 
     return send_call_func;
 }

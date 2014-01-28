@@ -315,12 +315,14 @@ TL::Source Data::do_data()
         << master_send_scalar_src
         << master_send_array_src
         << master_lock_transfer_src
+        << "_SyncWorker();"
         << _stmt
         << comment("Send call recieve function message")
         << master_send_call_function_recv
         << master_send_scalar_recv_src
         << master_unlock_transfer_src
-        << master_recv_src;
+        << master_recv_src
+        << "_SyncWorker();";
         
     /* Create send function source */
     if (debug) std::cout << "Geneated worker send function code for data construct\n";
@@ -349,6 +351,7 @@ TL::Source Data::do_data()
             << comment("Deallocate Array Memory")
             << worker_free_src
             
+            << "_SyncMaster();"
         << "}";
         
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_send_function);
@@ -380,6 +383,7 @@ TL::Source Data::do_data()
             << comment("Deallocate Array Memory")
             << worker_free_src
             
+            << "_SyncMaster();"
         << "}";
         
     print_to_kernel_decl_file(_scope_link, _translation_unit, _kernel_decl_file, worker_recv_function);

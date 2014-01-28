@@ -45,6 +45,7 @@ static int _gpu_kernel_time;
 static int _gpu_transfer_h2d_time;
 static int _gpu_transfer_d2h_time;
 static int _mm_overhead_time;           /* Overhead time for memory management */	
+static int _sync_task;
 
 static FILE * _trace_f;
 
@@ -142,6 +143,7 @@ int _GfnInit(int *argc, char **argv[])
 	_gpu_transfer_h2d_time  = FALSE;
 	_gpu_transfer_d2h_time  = FALSE;
 	_mm_overhead_time       = FALSE;
+	_sync_task				= FALSE;
 
 	char trace_level = '0';
 	char *trace_env = getenv("GFN_TRACE");
@@ -152,19 +154,21 @@ int _GfnInit(int *argc, char **argv[])
 
 	if (trace_level != '0') {
 	switch (trace_level) {
-	case '4':
+	case '5':
 		_mm_overhead_time        = TRUE;
-	case '3':
+	case '4':
 		_cluster_malloc_time     = TRUE;
 		_gpu_malloc_time         = TRUE;
-	case '2':
+	case '3':
 		_cluster_scatter_time    = TRUE;
 		_cluster_bcast_time      = TRUE;
 		_cluster_gather_time     = TRUE;
 		_gpu_transfer_h2d_time   = TRUE;
 		_gpu_transfer_d2h_time   = TRUE;
-	case '1':
+	case '2':
 		_gpu_kernel_time         = TRUE;
+	case '1':
+		_sync_task				 = TRUE;
 	case '0':
 		break;
 	}
@@ -1750,6 +1754,18 @@ void _GfnMasterFinish()
 	_CloseMasterMsgQueue();
 }
 
+void _SyncWorker()
+{
+	if (!_sync_task) return;
+	int dummy;
+	_RecvOutputMsg((void *) &dummy, sizeof(int));
+}
+void _SyncMaster()
+{
+	if (!_sync_task) return;
+	int dummy;
+	_SendOutputMsg((void *) &dummy, sizeof(int));
+}
 
 int _GFN_TYPE_CHAR()           { return TYPE_CHAR; }
 int _GFN_TYPE_UNSIGNED_CHAR()  { return TYPE_UNSIGNED_CHAR; }

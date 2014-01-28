@@ -90,6 +90,9 @@ int _GfnCalcLocalLoopEnd2(int loop_start, int loop_end, int loop_step);
 void _GfnMasterInit();
 void _GfnMasterFinish();
 
+void _SyncWorker();
+void _SyncMaster();
+
 int _CalcLoopSize(int start, int end, int incre);
 int _CalcSubSize(int size, int num_proc, int rank, int block_size);
 int _CalcLocalStartIndex(int old_start, int old_end, int num_proc, int rank);
