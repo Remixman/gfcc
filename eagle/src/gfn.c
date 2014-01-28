@@ -122,7 +122,7 @@ int _GfnInit(int *argc, char **argv[])
 	}
 
 	/* Send scalar list */
-	curr_send_scalar = 0;
+	send_scalar_curr_idx = 0;
 
 	/* Chunk size */
 	optimize_chunk_size = 5000;
