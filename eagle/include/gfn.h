@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <mqueue.h>
+#include <ibcast.h>
 #include <sys/stat.h>
 #include <mpi.h>
 #include <CL/cl.h>
@@ -20,6 +21,8 @@
 /* Constant */
 #define MAX_DIM_SUPPORT 6
 
+#define MAX_IBCAST_HANDLE_LIST 20
+
 extern int _gfn_rank;		/**/
 extern int _gfn_num_proc;	/**/
 extern cl_platform_id _gfn_platform_id;
@@ -32,6 +35,9 @@ extern cl_program _gfn_cl_program;
 extern long long _gfn_last_kernel_time;
 
 extern char current_kernel_name[50];
+
+extern Ibcast_handle *send_scalar_handles[MAX_IBCAST_HANDLE_LIST];
+extern int send_scalar_curr_idx;
 
 // API for user
 int gfn_get_num_process();

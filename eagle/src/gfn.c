@@ -36,6 +36,9 @@ int optimize_chunk_size;
 
 char current_kernel_name[50];
 
+Ibcast_handle *send_scalar_handles[MAX_IBCAST_HANDLE_LIST];
+int send_scalar_curr_idx;
+
 static int _cluster_malloc_time;
 static int _cluster_scatter_time;
 static int _cluster_bcast_time;
@@ -117,6 +120,9 @@ int _GfnInit(int *argc, char **argv[])
 	if (opt_level != '0') {
 		is_overlap_node_dev_trans = TRUE;
 	}
+
+	/* Send scalar list */
+	curr_send_scalar = 0;
 
 	/* Chunk size */
 	optimize_chunk_size = 5000;
@@ -255,22 +261,28 @@ do { \
 	TRACE_LOG ("node-transfer end %lld\n", bcast_end_t); \
 } while(0)
 
+#define SWITCH_IBCAST(mpi_type) \
+do { \
+	Ibcast(ptr, 1, mpi_type, 0, MPI_COMM_WORLD, &(send_scalar_handles[send_scalar_curr_idx])); \
+	send_scalar_curr_idx++; \
+} while(0)
+
 	if (_gfn_rank == 0) _RecvInputMsg(ptr, _CalcTypeSize(type_id));
     
 	switch(type_id)
 	{
-	case TYPE_CHAR:           SWITCH_BCAST(MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST(MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_BCAST(MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_BCAST(MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_BCAST(MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_BCAST(MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_BCAST(MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_BCAST(MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_BCAST(MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_BCAST(MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_BCAST(MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_BCAST(MPI_LONG_LONG_INT); break;
+	case TYPE_CHAR:           SWITCH_IBCAST(MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_IBCAST(MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_IBCAST(MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_IBCAST(MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_IBCAST(MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_IBCAST(MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_IBCAST(MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_IBCAST(MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_IBCAST(MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_IBCAST(MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_IBCAST(MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_IBCAST(MPI_LONG_LONG_INT); break;
 	}
 
 	IF_TIMING (_cluster_bcast_time)
@@ -282,6 +294,11 @@ do { \
 
 int _GfnFinishBroadcastScalar()
 {
+	int i;
+	for (i = 0; i < send_scalar_curr_idx; ++i)
+		Ibcast_wait(&(send_scalar_handles[i]));
+
+	send_scalar_curr_idx = 0;
 	return 0;
 }
 
