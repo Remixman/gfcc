@@ -302,9 +302,18 @@ int _GfnFinishBroadcastScalar()
 	return 0;
 }
 
+/* change to void ** */
+static void *host_reduce_bufs[20];
+static void *host_reduce_ptrs[20];
+static MPI_Op host_reduce_ops[20];
+static MPI_Datatype host_reduce_types[20];
+static int host_reduce_idx = 0;
+static tmp_group_num;
+
 int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id, int group_num, int level1_cond, int level2_cond)
 {
 	int i;
+	tmp_group_num = group_num;
 
 	// TODO: transfer reduce array from device and reduce again in host
 
@@ -312,15 +321,17 @@ int _GfnEnqueueReduceScalar(void *ptr, cl_mem cl_ptr, int type_id, MPI_Op op_id,
 
 #define SWITCH_REDUCE(type,mpi_type,reduce_buf) \
 do { \
-	if (reduce_buf == NULL) reduce_buf = (type*) malloc(group_num * sizeof(type)); \
+	type* reduce_buf = (type*) malloc(group_num * sizeof(type)); \
 	type rv = 0; \
 	if (level2_cond) { \
-		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * group_num, reduce_buf, 0, 0, 0); \
+		_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_FALSE, 0, sizeof(type) * group_num, reduce_buf, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+		host_reduce_bufs[host_reduce_idx] = (void*)reduce_buf; \
+		host_reduce_ptrs[host_reduce_idx] = (void*)ptr; \
+		host_reduce_ops[host_reduce_idx] = op_id; \
+		host_reduce_types[host_reduce_idx] = mpi_type; \
+		++host_reduce_idx; \
 	} \
-	for (i = 0; i < group_num; ++i) \
-		rv += reduce_buf[i]; \
-	MPI_Allreduce(&rv, ptr, 1, mpi_type, op_id, MPI_COMM_WORLD); \
 } while(0)
 
 	switch(type_id)
@@ -339,12 +350,34 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(long long int,MPI_LONG_LONG_INT,long_long_int_sum_buffer); break;
 	}
 
-	if (_gfn_rank == 0) _SendOutputMsg(ptr, _CalcTypeSize(type_id));
 	return 0;
 }
 
 int _GfnFinishReduceScalar()
 { 
+	int i, k;
+	int group_num = tmp_group_num;
+
+	clFinish(_gfn_cmd_queue);
+
+	for (k = 0; k < host_reduce_idx; k++) {
+		double sum = 0.0;
+		double *buf = (double*)host_reduce_bufs[k];
+		for (i = 0; i < group_num; ++i) {
+			sum += buf[i];
+		}
+		MPI_Reduce(&sum, host_reduce_ptrs[k], 1, host_reduce_types[k], 
+			host_reduce_ops[k], 0, MPI_COMM_WORLD);
+		free(host_reduce_bufs[k]);
+	}
+
+	if (_gfn_rank == 0)
+		for (k = 0; k < host_reduce_idx; k++) {
+			_SendWorkerMsg(host_reduce_ptrs[k], sizeof(double));
+		}
+
+	host_reduce_idx = 0;
+
 	return 0;
 }
 
@@ -1143,20 +1176,19 @@ for (r = 0; r < recv_loop_num; ++r) { \
 	
 		// download send lower bound subbuffer from GPU to host
 		if (_gfn_rank != 0 && lower_bound_size > 0) {
-			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_TRUE,
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_FALSE,
 				0, lower_bound_size*type_size, tmp_ptr+disp[_gfn_rank],
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND LOWER BOUND FROM DEVICE");
-			_gfn_status = clFinish(_gfn_cmd_queue);
 		}
 		// download send upper bound subbuffer from GPU to host
 		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
-			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_TRUE,
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_FALSE,
 				0, upper_bound_size*type_size, tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
-			_gfn_status = clFinish(_gfn_cmd_queue);
 		}
+		clFinish(_gfn_cmd_queue);
 	}
 
 
@@ -1213,18 +1245,19 @@ for (r = 0; r < recv_loop_num; ++r) { \
 
 		// upload upper bound to device
 		if (_gfn_rank != 0 && upper_bound_size > 0) {
-			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_TRUE, 
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_FALSE, 
 				0, upper_bound_size*sizeof(double), (tmp_ptr+disp[_gfn_rank]-upper_bound_size),
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE UPPER BOUND FROM HOST");
 		}
 		// upload lower bound to device
 		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
-			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_upper, CL_TRUE, 
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_upper, CL_FALSE, 
 				0, lower_bound_size*sizeof(double), (tmp_ptr+disp[_gfn_rank+1]),
 				0, NULL, NULL);
 			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE LOWER BOUND FROM HOST");
 		}
+		clFinish(_gfn_cmd_queue);
 	}
 
 		return 0;
