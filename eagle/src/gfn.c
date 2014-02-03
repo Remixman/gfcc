@@ -85,6 +85,11 @@ static long long get_time() {
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
+static int round_to(int x, int r) {
+	int d = (x + r - 1) / r;
+	return d * r;
+}
+
 // API for user
 int gfn_get_num_process()
 {
@@ -339,7 +344,7 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_REDUCE(long long int,MPI_LONG_LONG_INT,long_long_int_sum_buffer); break;
 	}
 
-	//if (_gfn_rank == 0) /*_SendOutputMsg*/(ptr, _CalcTypeSize(type_id));
+	if (_gfn_rank == 0) _SendOutputMsg(ptr, _CalcTypeSize(type_id));
 	return 0;
 }
 
@@ -1551,18 +1556,50 @@ int _GfnCalcLocalLoopEnd(int local_data_end, int loop_end)
 	return MIN(local_data_end, loop_end);
 }
 #endif
-int _GfnCalcLocalLoopStart2(int loop_start, int loop_end, int loop_step)
+
+int _GfnCalcLocalLoopStart(int loop_start, int loop_end, int loop_step)
+{
+	return _GfnCalcLocalLoopStartCore(loop_start, loop_end, loop_step,
+		_gfn_num_proc, _gfn_rank);
+}
+
+int _GfnCalcLocalLoopEnd(int loop_start, int loop_end, int loop_step)
+{
+	return _GfnCalcLocalLoopEndCore(loop_start, loop_end, loop_step,
+		_gfn_num_proc, _gfn_rank);
+}
+
+int _GfnCalcLocalLoopStartCore(int loop_start, int loop_end, int loop_step,
+	int num_proc, int rank)
 {
 	int range_size = (loop_end - loop_start + 1) / loop_step;
-	int start = _CalcOffset(range_size, _gfn_num_proc, _gfn_rank) * loop_step;
+	int start = _CalcOffset(range_size, num_proc, rank) * loop_step;
 	return loop_start + start;
 }
 
-int _GfnCalcLocalLoopEnd2(int loop_start, int loop_end, int loop_step)
+int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step,
+	int num_proc, int rank)
 {
 	int range_size = (loop_end - loop_start + 1) / loop_step;
-	int next_start = _CalcOffset(range_size, _gfn_num_proc, _gfn_rank+1) * loop_step;
+	int next_start = _CalcOffset(range_size, num_proc, rank+1) * loop_step;
 	return loop_start + next_start - 1;
+}
+
+int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, 
+	int loop_step, int stream_size, int stream_no, int block_size)
+{
+	// _gfn_num_proc, _gfn_rank
+	int not_round_offset = stream_size * stream_no;
+	return local_start + round_to(not_round_offset, loop_step);
+}
+
+int _GfnStreamSeqLocalLoopEnd(int local_start, int local_end, 
+	int loop_step, int stream_size, int stream_no, int block_size)
+{
+	// _gfn_num_proc, _gfn_rank
+	int stream_local_end = local_start + (stream_size * (stream_no + 1)) - 1;
+	if (stream_local_end > local_end) stream_local_end = local_end;
+	return stream_local_end;
 }
 
 int _CalcLoopSize(int start, int end, int incre)

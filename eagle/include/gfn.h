@@ -86,12 +86,13 @@ void _GfnCheckCLStatus2(cl_int status, const char *phase_name, int arg);
 size_t _GfnCalcGlobalItemNum(size_t work_item_num, size_t work_group_item_num);
 int _GfnCalcLocalDataStart(int data_start, int data_end);    // Use for calculate start step
 int _GfnCalcLocalDataEnd(int data_start, int data_end);
-#if 0
-int _GfnCalcLocalLoopStart(int local_data_start, int loop_start, int loop_step); // New loop start with this
-int _GfnCalcLocalLoopEnd(int local_data_end, int loop_end);                      // New loop end with this
-#endif
-int _GfnCalcLocalLoopStart2(int loop_start, int loop_end, int loop_step);
-int _GfnCalcLocalLoopEnd2(int loop_start, int loop_end, int loop_step);
+
+int _GfnCalcLocalLoopStart(int loop_start, int loop_end, int loop_step);
+int _GfnCalcLocalLoopEnd(int loop_start, int loop_end, int loop_step);
+int _GfnCalcLocalLoopStartCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
+int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
+int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
+int _GfnStreamSeqLocalLoopEnd(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
 
 void _GfnMasterInit();
 void _GfnMasterFinish();

@@ -228,9 +228,9 @@ TL::Source ParallelFor::do_parallel_for()
     }
     
     worker_initialize_generated_variables_src
-        << local_start_idx_var << " = _GfnCalcLocalLoopStart2("
+        << local_start_idx_var << " = _GfnCalcLocalLoopStart("
         << loop_start << ", " << loop_end << ", " << loop_step << ");"
-        << local_end_idx_var << " = _GfnCalcLocalLoopEnd2("
+        << local_end_idx_var << " = _GfnCalcLocalLoopEnd("
         << loop_start << ", " << loop_end << ", " << loop_step << ");"
         << loop_size_var << " = _CalcLoopSize("
         << loop_start << ","

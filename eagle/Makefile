@@ -6,5 +6,10 @@ all:
 	ld -r -o ./lib/gfn.o ./lib/ibcast.o ./lib/ipc.o ./lib/gfn_api.o ./lib/var_table.o
 	rm ./lib/ipc.o ./lib/gfn_api.o ./lib/var_table.o
 	
+test: all
+	mpicc -o ./lib/eagle_test ./src/eagle_test.c ./lib/gfn.o -I./include -lOpenCL
+	./lib/eagle_test
+	@rm ./lib/eagle_test
+
 clean:
 	rm lib/*
