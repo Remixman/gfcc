@@ -91,6 +91,7 @@ namespace TL
                 RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
                 dto.set_object("scope_link", scope);
                 
+                dto.openacc_opt_level = config->openacc_opt_level;
                 dto.kernel_decl_filename = translation_unit->kernel_decl_filename;
 
                 DEBUG_CODE()

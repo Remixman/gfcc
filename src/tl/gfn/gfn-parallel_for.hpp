@@ -59,6 +59,7 @@ namespace TL
                 ScopeLink _scope_link;
                 AST_t _translation_unit;
                 FILE* _kernel_decl_file;
+                int _optimization_level;
 
                 
                 // FIXME: move to file scope
@@ -92,7 +93,8 @@ namespace TL
                             KernelInfo *kernel_info,
                             ScopeLink scope_link,
                             AST_t translation_unit,
-                            FILE *kernel_decl_file);
+                            FILE *kernel_decl_file,
+                            int optimization_level);
         };
 
         //! Creates a ParallelFor object
@@ -104,7 +106,8 @@ namespace TL
                                                KernelInfo *kernel_info,
                                                ScopeLink scope_link,
                                                AST_t translation_unit,
-                                               FILE *kernel_decl_file);
+                                               FILE *kernel_decl_file,
+                                               int optimization_level);
 
         //! @}
     }

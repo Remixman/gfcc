@@ -242,7 +242,24 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
                                    int pattern_type,
                                    std::string level1_cond,
                                    std::string level2_cond);
+TL::Source create_gfn_q_stream_scatter_nd(std::string var_name,
+                                          std::string var_cl_name,
+                                          std::string var_unique_id_name,
+                                          std::string mpi_type,
+                                          std::string loop_start,
+                                          std::string loop_end,
+                                          std::string loop_step,
+                                          std::string stream_no_var,
+                                          int dim_num, TL::ObjectList<TL::Expression> dim_size,
+                                          int partitioned_dim,
+                                          std::string cl_mem_flags,
+                                          TL::ObjectList<std::string> &pattern_array,
+                                          int pattern_array_size,
+                                          int pattern_type,
+                                          std::string level1_cond,
+                                          std::string level2_cond);
 TL::Source create_gfn_f_dist_array();
+TL::Source create_gfn_f_stream_dist_array();
 TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   std::string var_cl_name,
                                   std::string var_unique_id_name,
@@ -258,6 +275,23 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
                                   int pattern_type,
                                   std::string level1_cond,
                                   std::string level2_cond);
+TL::Source create_gfn_q_stream_gather_nd(std::string var_name,
+                                         std::string var_cl_name,
+                                         std::string var_unique_id_name,
+                                         std::string mpi_type,
+                                         std::string loop_start,
+                                         std::string loop_end,
+                                         std::string loop_step,
+                                         std::string stream_no_var,
+                                         int dim_num, TL::ObjectList<TL::Expression> dim_size,
+                                         int partitioned_dim,
+                                         std::string cl_mem_flags,
+                                         TL::ObjectList<std::string> &pattern_array,
+                                         int pattern_array_size,
+                                         int pattern_type,
+                                         std::string level1_cond,
+                                         std::string level2_cond);
 TL::Source create_gfn_f_gather_array();
+TL::Source create_gfn_f_stream_gather_array();
 
 #endif // GFN_COMMON_HPP

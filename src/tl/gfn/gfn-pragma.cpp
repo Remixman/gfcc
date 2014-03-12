@@ -186,6 +186,7 @@ void GFNPragmaPhase::run(TL::DTO& dto)
         
         _scope_link = dto["scope_link"];
         _translation_unit = dto["translation_unit"];
+        _openacc_opt_level = dto.openacc_opt_level;
         
         // Not always open file
         if (dto.kernel_decl_filename.size() > 0)
@@ -231,10 +232,11 @@ static void parallel_for_fun(TL::PragmaCustomConstruct construct,
                              KernelInfo *kernel_info,
                              TL::ScopeLink scope_link,
                              TL::AST_t translation_unit,
-                             FILE *kernel_decl_file)
+                             FILE *kernel_decl_file,
+                             int optimization_level)
 {
     TL::Source kernel_call_src = TL::GFN::parallel_for(construct, for_stmt, kernel_info, scope_link,
-                                                       translation_unit, kernel_decl_file);
+                                                       translation_unit, kernel_decl_file, optimization_level);
     
     TL::AST_t kernel_call_tree = kernel_call_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -344,7 +346,7 @@ void GFNPragmaPhase::parallel_for(PragmaCustomConstruct construct)
     std::cout << "====================================================\n";
     
     parallel_for_fun(construct, for_statement, kernel_info, 
-                     _scope_link, _translation_unit, _kernel_decl_file);
+                     _scope_link, _translation_unit, _kernel_decl_file, _openacc_opt_level);
 
     construct.get_ast().replace(statement.get_ast());
     

@@ -133,6 +133,7 @@ namespace TL
                 AST_t _translation_unit;
                 
                 FILE* _kernel_decl_file;
+                int _openacc_opt_level;
                 
                 std::stack< TransferInfo* > transfer_info_stack;
         };

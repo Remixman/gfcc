@@ -398,6 +398,9 @@ typedef struct compilation_configuration_tag
     
     // Enable gfn
     char enable_gfn;
+    
+    // OpenACC optimization options
+    int openacc_opt_level;
 
     // Enable C++1x
     char enable_cxx1x;

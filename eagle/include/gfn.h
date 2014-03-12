@@ -69,14 +69,24 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishDistributeArray();
+int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
+int _GfnFinishStreamSeqDistributeArray();
 
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishGatherArray();
+int _GfnStreamSeqEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
+int _GfnFinishStreamSeqGatherArray();
 
 int _GfnLockTransfer(long long id);
 int _GfnUnlockTransfer(long long id);
+
+
 
 
 // High Level function for trnsformation
@@ -91,6 +101,7 @@ int _GfnCalcLocalLoopStart(int loop_start, int loop_end, int loop_step);
 int _GfnCalcLocalLoopEnd(int loop_start, int loop_end, int loop_step);
 int _GfnCalcLocalLoopStartCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
 int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
+int _GfnCalcNumberOfStream(int local_start, int local_end);
 int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
 int _GfnStreamSeqLocalLoopEnd(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
 

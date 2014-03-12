@@ -293,6 +293,7 @@ typedef enum
     OPTION_ENABLE_CUDA,
     OPTION_ENABLE_HLT,
     OPTION_ENABLE_GFN,
+    OPTION_ENABLE_ACC_OPT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
     OPTION_ALWAYS_PREPROCESS,
@@ -351,6 +352,7 @@ struct command_line_long_options command_line_long_options[] =
     {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"gfn", CLP_NO_ARGUMENT, OPTION_ENABLE_GFN},
+    {"ao", CLP_REQUIRED_ARGUMENT, OPTION_ENABLE_ACC_OPT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
@@ -1180,6 +1182,13 @@ int parse_arguments(int argc, const char* argv[],
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
                         break;
+                    }
+                case OPTION_ENABLE_ACC_OPT:
+                    {
+                        if (parameter_info.argument != NULL)
+                        {
+                            CURRENT_CONFIGURATION->openacc_opt_level = atoi(parameter_info.argument);
+                        }
                     }
                 case OPTION_ENABLE_CUDA:
                     {
@@ -2100,6 +2109,8 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
+    
+    CURRENT_CONFIGURATION->openacc_opt_level = 0;
 
 #ifdef FORTRAN_SUPPORT
     CURRENT_CONFIGURATION->column_width = 132;
@@ -2411,10 +2422,13 @@ static void enable_hlt_phase(void)
 
 static void enable_gfn_phase(void)
 {
+    char options[100];
+    sprintf(options, "-D_MERCURIUM_GFN -ao=%d", CURRENT_CONFIGURATION->openacc_opt_level);
+    
     // Register '#pragma gfn'
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "gfn");
     
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM_GFN");
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, options);
     
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-gfn-pragma";

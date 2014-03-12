@@ -970,6 +970,8 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
     int recv_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 
+	cl_buffer_region info;
+
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
 	pattern_n += size_n;
@@ -1019,7 +1021,6 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER");
 #else
 #define UPLOAD_TO_GPU(type) \
-	cl_buffer_region info; \
 	info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
 	info.size = (size_t)(sub_size * sizeof(type)); \
 	cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
@@ -1093,23 +1094,16 @@ for (r = 0; r < recv_loop_num; ++r) { \
 	{
 		double * tmp_ptr = (double *) ptr;
 
+		cl_buffer_region send_lower_info, send_upper_info;
+		cl_buffer_region recv_lower_info, recv_upper_info;
+		cl_mem cl_send_lower, cl_send_upper;
+		cl_mem cl_recv_lower, cl_recv_upper;
+		MPI_Status mpi_status;
+		MPI_Request send_lower_req, send_upper_req;
+		MPI_Request recv_lower_req, recv_upper_req;
+
 		int lower_bound = pattern_array[0];
     	int upper_bound = pattern_array[1];
-
-		cl_buffer_region send_lower_info;
-		cl_buffer_region send_upper_info;
-		cl_buffer_region recv_lower_info;
-		cl_buffer_region recv_upper_info;
-		cl_mem cl_send_lower;
-		cl_mem cl_send_upper;
-		cl_mem cl_recv_lower;
-		cl_mem cl_recv_upper;
-		MPI_Status mpi_status;
-		MPI_Request send_lower_req;
-		MPI_Request send_upper_req;
-		MPI_Request recv_lower_req;
-		MPI_Request recv_upper_req;
-
 		int lower_bound_size = abs(lower_bound) * block_size;
 		int upper_bound_size = abs(upper_bound) * block_size;
 
@@ -1293,6 +1287,254 @@ int _GfnFinishDistributeArray()
 	return 0;
 }
 
+int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+{
+	int cnts[_gfn_num_proc];
+    int disp[_gfn_num_proc];
+    int sub_size, scatter_size;
+    int recv_elem_offset = 0;
+    int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+    int recv_loop_num = 1, elem_num = 1, block_size = 1;
+	int size_array[size_n], pattern_array[pattern_n];
+
+	cl_buffer_region info;
+	cl_mem subbuf;
+
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	// Calculate block size and elements number
+	for (i = 0; i < size_n; ++i) {
+		if (i < partitioned_dim)         recv_loop_num *= size_array[i];
+		else if (i == partitioned_dim)   elem_num      *= size_array[i];
+		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+	scatter_size = elem_num * block_size;
+
+	// Calculate size
+
+
+
+	// Not have information case
+	if (size_n == 0) {
+		// TODO: get other information from var table
+		_get_var_info(unique_id, &mem_type, &found);
+		if (!found)
+			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueScatterND");
+	}
+
+	/* Exchange boundary if stream number is -1 */
+	if (stream_no == 0) {
+#define GET_ARRAY_FROM_MASTER(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+	if (_gfn_rank == 0) {
+		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+} while(0)
+
+		switch(type_id)
+		{
+		case TYPE_CHAR:           GET_ARRAY_FROM_MASTER(char,MPI_CHAR); break;
+		case TYPE_UNSIGNED_CHAR:  GET_ARRAY_FROM_MASTER(unsigned char,MPI_UNSIGNED_CHAR); break;
+		case TYPE_SHORT:          GET_ARRAY_FROM_MASTER(short,MPI_SHORT); break;
+		case TYPE_UNSIGNED_SHORT: GET_ARRAY_FROM_MASTER(unsigned short,MPI_UNSIGNED_SHORT); break;
+		case TYPE_INT:            GET_ARRAY_FROM_MASTER(int,MPI_INT); break;
+		case TYPE_UNSIGNED:       GET_ARRAY_FROM_MASTER(unsigned,MPI_UNSIGNED); break;
+		case TYPE_LONG:           GET_ARRAY_FROM_MASTER(long,MPI_LONG); break;
+		case TYPE_UNSIGNED_LONG:  GET_ARRAY_FROM_MASTER(unsigned long,MPI_UNSIGNED_LONG); break;
+		case TYPE_FLOAT:          GET_ARRAY_FROM_MASTER(float,MPI_FLOAT); break;
+		case TYPE_DOUBLE:         GET_ARRAY_FROM_MASTER(double,MPI_DOUBLE); break;
+		case TYPE_LONG_DOUBLE:    GET_ARRAY_FROM_MASTER(long double,MPI_LONG_DOUBLE); break;
+		case TYPE_LONG_LONG_INT:  GET_ARRAY_FROM_MASTER(long long int,MPI_LONG_LONG_INT); break;
+		}
+
+		double * tmp_ptr = (double *) ptr;
+
+		cl_buffer_region send_lower_info, send_upper_info;
+		cl_buffer_region recv_lower_info, recv_upper_info;
+		cl_mem cl_send_lower, cl_send_upper;
+		cl_mem cl_recv_lower, cl_recv_upper;
+		MPI_Status mpi_status;
+		MPI_Request send_lower_req, send_upper_req;
+		MPI_Request recv_lower_req, recv_upper_req;
+
+		int lower_bound = pattern_array[0];
+    	int upper_bound = pattern_array[1];
+		int lower_bound_size = abs(lower_bound) * block_size;
+		int upper_bound_size = abs(upper_bound) * block_size;
+
+		int type_size = _CalcTypeSize(type_id);
+		MPI_Datatype mpi_type = _GetMpiDatatype(type_id);
+
+		// FIXME : remove this constraint
+		if (lower_bound_size != upper_bound_size)
+			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal,"
+				" lower bound size is %d and upper bound size is %d\n",
+				lower_bound, upper_bound);
+
+	if (level2_cond) {
+		// create send lower bound subbuffer
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			send_lower_info.origin = (size_t)(disp[_gfn_rank]*type_size);
+			send_lower_info.size = (size_t)(lower_bound_size*type_size);
+			cl_send_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &send_lower_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE SEND LOWER BOUND");
+		}
+		// create send upper bound subbuffer
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			send_upper_info.origin = (size_t)((disp[_gfn_rank+1]-upper_bound_size)*type_size);
+			send_upper_info.size = (size_t)(upper_bound_size*type_size);
+			cl_send_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &send_upper_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE SEND UPPER BOUND");
+		}
+	
+		// download send lower bound subbuffer from GPU to host
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_lower, CL_FALSE,
+				0, lower_bound_size*type_size, tmp_ptr+disp[_gfn_rank],
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND LOWER BOUND FROM DEVICE");
+			
+		}
+		// download send upper bound subbuffer from GPU to host
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_send_upper, CL_FALSE,
+				0, upper_bound_size*type_size, tmp_ptr+disp[_gfn_rank+1]-upper_bound_size,
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "DOWNLOAD SEND UPPER BOUND FROM DEVICE");
+		}
+		_gfn_status = clFinish(_gfn_cmd_queue);
+	}
+
+				// send lower bound asynchonously
+		if (_gfn_rank != 0 && lower_bound_size > 0) {
+			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank]), lower_bound_size, 
+				mpi_type, _gfn_rank-1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &send_lower_req);
+		}
+		// send upper bound asynchonously
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0) {
+			MPI_Isend((void*)(tmp_ptr+disp[_gfn_rank+1]-upper_bound_size), upper_bound_size, 
+				mpi_type, _gfn_rank+1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &send_upper_req);
+		}
+		// recieve lower bound asynchonously
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank]-upper_bound_size), upper_bound_size,
+				mpi_type, _gfn_rank-1, SEND_UPPER_BOUMD_TAG, MPI_COMM_WORLD, &recv_lower_req);
+		}
+		// recieve upper bound asynchonously
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			MPI_Irecv((void*)(tmp_ptr+disp[_gfn_rank+1]), lower_bound_size, 
+				mpi_type, _gfn_rank+1, SEND_LOWER_BOUND_TAG, MPI_COMM_WORLD, &recv_upper_req);
+		}
+
+
+		// synchonize recieve
+		if (_gfn_rank != (_gfn_num_proc-1) && upper_bound_size > 0)
+			MPI_Wait(&send_upper_req, &mpi_status);
+		if (_gfn_rank != 0 && lower_bound_size > 0)
+			MPI_Wait(&send_lower_req, &mpi_status);
+		if (_gfn_rank != 0 && upper_bound_size > 0)
+			MPI_Wait(&recv_lower_req, &mpi_status);
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0)
+			MPI_Wait(&recv_upper_req, &mpi_status);
+
+
+	if (level2_cond) {
+		// create recieve lower bound subbuffer
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			recv_lower_info.origin = (size_t)((disp[_gfn_rank]-upper_bound_size)*type_size);
+			recv_lower_info.size = (size_t)(upper_bound_size*type_size);
+			cl_recv_lower = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_lower_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE LOWER BOUND");
+		}
+		// create recieve upper bound subbuffer
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			recv_upper_info.origin = (size_t)(disp[_gfn_rank+1]*type_size);
+			recv_upper_info.size = (size_t)(lower_bound_size*type_size);
+			cl_recv_upper = clCreateSubBuffer(cl_ptr, CL_MEM_READ_WRITE,
+				CL_BUFFER_CREATE_TYPE_REGION, &recv_upper_info, &_gfn_status);
+			_GfnCheckCLStatus(_gfn_status, "CREATE RECIEVE UPPER BOUND");
+		}
+
+		// upload upper bound to device
+		if (_gfn_rank != 0 && upper_bound_size > 0) {
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_lower, CL_FALSE, 
+				0, upper_bound_size*sizeof(double), (tmp_ptr+disp[_gfn_rank]-upper_bound_size),
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE UPPER BOUND FROM HOST");
+		}
+		// upload lower bound to device
+		if (_gfn_rank != (_gfn_num_proc-1) && lower_bound_size > 0) {
+			_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_recv_upper, CL_FALSE, 
+				0, lower_bound_size*sizeof(double), (tmp_ptr+disp[_gfn_rank+1]),
+				0, NULL, NULL);
+			_GfnCheckCLStatus(_gfn_status, "UPLOAD RECIEVE LOWER BOUND FROM HOST");
+		}
+		_gfn_status = clFinish(_gfn_cmd_queue);
+	}
+
+	}
+
+#define SWITCH_STREAMSEQ_SCATTER_ND(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+	if (_gfn_rank == 0) { \
+		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+	} \
+for (i = 0; i < recv_loop_num; ++i) { \
+	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
+		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
+	if (level2_cond) { \
+		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
+		info.size = (size_t)(sub_size * sizeof(type)); \
+		subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+		_gfn_status = clReleaseMemObject(subbuf); \
+		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
+	} \
+	recv_it_offset += (elem_num * block_size); \
+} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SWITCH_STREAMSEQ_SCATTER_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAMSEQ_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAMSEQ_SCATTER_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAMSEQ_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAMSEQ_SCATTER_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAMSEQ_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAMSEQ_SCATTER_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAMSEQ_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAMSEQ_SCATTER_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAMSEQ_SCATTER_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
+	}
+
+	return 0;
+}
+
+int _GfnFinishStreamSeqDistributeArray()
+{
+	return 0;
+}
+
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	int send_only_bound = 0;
@@ -1417,6 +1659,19 @@ int _GfnFinishGatherArray()
 {
 	return 0;
 }
+
+int _GfnStreamSeqEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+{
+	return 0;
+}
+
+int _GfnFinishStreamSeqGatherArray()
+{
+	return 0;
+}
+
 
 
 int _GfnLockTransfer(long long id)
@@ -1583,6 +1838,11 @@ int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step,
 	int range_size = (loop_end - loop_start + 1) / loop_step;
 	int next_start = _CalcOffset(range_size, num_proc, rank+1) * loop_step;
 	return loop_start + next_start - 1;
+}
+
+int _GfnCalcNumberOfStream(int local_start, int local_end)
+{
+	return 1;
 }
 
 int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, 

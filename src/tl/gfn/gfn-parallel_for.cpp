@@ -39,10 +39,11 @@ ParallelFor TL::GFN::parallel_for(PragmaCustomConstruct construct,
                                   KernelInfo *kernel_info,
                                   ScopeLink scope_link,
                                   AST_t translation_unit,
-                                  FILE *kernel_decl_file)
+                                  FILE *kernel_decl_file,
+                                  int optimization_level)
 {
     return ParallelFor(construct, for_stmt, kernel_info, scope_link,
-                       translation_unit, kernel_decl_file);
+                       translation_unit, kernel_decl_file, optimization_level);
 }
 
 
@@ -57,13 +58,15 @@ ParallelFor::ParallelFor(PragmaCustomConstruct construct,
                          KernelInfo *kernel_info,
                          ScopeLink scope_link,
                          AST_t translation_unit,
-                         FILE *kernel_decl_file)
+                         FILE *kernel_decl_file,
+                         int optimization_level)
      : _construct(construct), _for_stmt(for_stmt), 
        _function_def(0), _kernel_info(kernel_info),
        _kernel_decl_file(kernel_decl_file)
 {
      _scope_link = scope_link;
      _translation_unit = translation_unit;
+     _optimization_level = optimization_level;
 }
 
 TL::Source ParallelFor::do_parallel_for()
@@ -124,6 +127,13 @@ TL::Source ParallelFor::do_parallel_for()
 
     //
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
+    
+    // Optimization code
+    TL::Source stream_loop_start_src;
+    TL::Source stream_initialize_generated_variables_src;
+    TL::Source stream_distribute_array_src;
+    TL::Source stream_gather_array_src;
+    TL::Source stream_loop_end_src;
 
     /* _function_def is function that call for_stmt */
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
@@ -226,6 +236,16 @@ TL::Source ParallelFor::do_parallel_for()
             << "int " << gen_index << ";"
             << "int " << gen_loop_size << ";";
     }
+    if (_optimization_level > 0)
+    {
+        worker_declare_generated_variables_src
+            << "int _stream_no = -1, _number_of_stream;"
+            << "int _stream_local_start, _stream_local_end;";
+        stream_loop_start_src 
+            << "for (_stream_no = 0; _stream_no < _number_of_stream; ++_stream_no) {";
+        stream_loop_end_src
+            << "}";
+    }
     
     worker_initialize_generated_variables_src
         << local_start_idx_var << " = _GfnCalcLocalLoopStart("
@@ -256,7 +276,17 @@ TL::Source ParallelFor::do_parallel_for()
         << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
         << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
-        
+    if (_optimization_level > 0)
+    {
+        worker_initialize_generated_variables_src
+            << "_number_of_stream = _GfnCalcNumberOfStream(" 
+            << local_start_idx_var << "," << local_end_idx_var << ");";
+        stream_initialize_generated_variables_src
+            << "_stream_local_start = _GfnStreamSeqLocalLoopStart(" << local_start_idx_var << ","
+            << local_end_idx_var << "," << loop_step << ", 1000, _stream_no, 1);"
+            << "_stream_local_end = _GfnStreamSeqLocalLoopEnd(" << local_start_idx_var << ","
+            << local_end_idx_var << "," << loop_step << ", 1000, _stream_no, 1);";
+    }        
         
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (loop_step[0] == '-')? false : true;
@@ -463,12 +493,33 @@ TL::Source ParallelFor::do_parallel_for()
             std::cout << var_name << " IS " << ((is_partition)?"":"NOT ") << "PARTITION\n";
             if (var_info._is_array_or_pointer && is_partition)
             {
-                worker_distribute_array_memory_src
-                    << create_gfn_q_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
-                                               loop_start, loop_end, loop_step, var_info._dimension_num,
-                                               var_info._dim_size, var_info._shared_dimension, 
-                                               var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
-                                               in_pattern_type, level1_cond, level2_cond);
+                if (_optimization_level > 0)
+                {
+                    /* distribute first chunk and boundary */
+                    worker_distribute_array_memory_src
+                        << create_gfn_q_stream_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, "0", var_info._dimension_num,
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
+                                                in_pattern_type, level1_cond, level2_cond);
+                    
+                    /* distribute other chunks */
+                    stream_distribute_array_src
+                        << create_gfn_q_stream_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, "_stream_no + 1", var_info._dimension_num,
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
+                                                in_pattern_type, level1_cond, level2_cond);
+                }
+                else
+                {
+                    worker_distribute_array_memory_src
+                        << create_gfn_q_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, var_info._dimension_num,
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
+                                                in_pattern_type, level1_cond, level2_cond);
+                }
             }
             else if (var_info._is_array_or_pointer)
             {
@@ -618,6 +669,21 @@ TL::Source ParallelFor::do_parallel_for()
     }
     
     // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
+    if (_optimization_level > 0) 
+    {}
+    
+    std::string kernel_start_param, kernel_end_param;
+    if (_optimization_level > 0)
+    {
+        kernel_start_param = "_stream_local_start";
+        kernel_end_param = "_stream_local_end";
+    }
+    else
+    {
+        kernel_start_param = local_start_idx_var;
+        kernel_end_param = local_end_idx_var;
+    }
+    
     // Current local loop start
     cl_set_kernel_arg
         << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_start_idx_var);
@@ -747,6 +813,12 @@ TL::Source ParallelFor::do_parallel_for()
             << worker_distribute_array_memory_src
             << create_gfn_f_dist_array()
             
+                /* Optimization */
+                << stream_loop_start_src 
+                << stream_initialize_generated_variables_src
+                << "if (_stream_no != _number_of_stream-1) {"
+                << stream_distribute_array_src << "}"
+            
             << comment("Compute Workload")
             // GPU or GPU Cluster (depend on level1 condition)
             << "if (" << level2_cond << ") {"
@@ -758,6 +830,10 @@ TL::Source ParallelFor::do_parallel_for()
             << "} else {"
                 << mpi_block_dist_for_stmt
             << "}"
+            
+                /* Optimization */
+                << stream_gather_array_src
+                << stream_loop_end_src
             
             << comment("Gather Array Memory")
             << worker_gather_array_memory_src

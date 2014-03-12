@@ -9,7 +9,7 @@ CFLAGS = -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c matmul.c -lrt -D_GFN
+	plaincc --cuda --gfn --ao=1 --keep-files $(CFLAGS) -c matmul.c -lrt -D_GFN
 	@rm matmul.o
 	
 master: trans
