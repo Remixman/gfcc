@@ -369,7 +369,7 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	}
 
 	if (dim1_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d]\n", dim1_size);
+		fprintf(stdout, "ERROR : Invalid size [%lu]\n", dim1_size);
 	}
 
 #define SWITCH_MALLOC_1D(type,size1) \
@@ -437,7 +437,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d|%d]\n", dim1_size, dim2_size);
+		fprintf(stdout, "ERROR : Invalid size [%lu|%lu]\n", dim1_size, dim2_size);
 	}
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
@@ -506,7 +506,7 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d]\n", dim1_size, dim2_size, dim3_size);
+		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu]\n", dim1_size, dim2_size, dim3_size);
 	}
 
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
@@ -578,7 +578,7 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
 			dim3_size, dim4_size);
 	}
 
@@ -653,7 +653,7 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
 			dim3_size, dim4_size, dim5_size);
 	}
 
@@ -730,7 +730,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0 && dim6_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%d|%d|%d|%d|%d|%d]\n", dim1_size, dim2_size, 
+		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
 			dim3_size, dim4_size, dim5_size, dim6_size);
 	}
 
@@ -1302,6 +1302,9 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 	cl_buffer_region info;
 	cl_mem subbuf;
 
+	int i, found = 0;
+	va_list vl;
+	
 	// We want to pass size_n + pattern_n but it warning,
 	// So pass pattern_n that add with size_n
 	pattern_n += size_n;
@@ -1336,9 +1339,10 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 #define GET_ARRAY_FROM_MASTER(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
-	if (_gfn_rank == 0) {
+	if (_gfn_rank == 0) { \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+	} \
 } while(0)
 
 		switch(type_id)
@@ -1505,7 +1509,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
 		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 		_gfn_status = clReleaseMemObject(subbuf); \
-		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
+		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
