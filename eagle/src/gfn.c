@@ -369,7 +369,7 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	}
 
 	if (dim1_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu]\n", dim1_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu]\n", __FILE__, __LINE__, dim1_size);
 	}
 
 #define SWITCH_MALLOC_1D(type,size1) \
@@ -437,7 +437,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu|%lu]\n", dim1_size, dim2_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu]\n", __FILE__, __LINE__, dim1_size, dim2_size);
 	}
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
@@ -506,7 +506,7 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu]\n", dim1_size, dim2_size, dim3_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu]\n", __FILE__, __LINE__, dim1_size, dim2_size, dim3_size);
 	}
 
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
@@ -578,8 +578,8 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
-			dim3_size, dim4_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu]\n", __FILE__, __LINE__, 
+			dim1_size, dim2_size, dim3_size, dim4_size);
 	}
 
 #define SWITCH_MALLOC_4D(type,size1,size2,size3,size4) \
@@ -653,8 +653,8 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
-			dim3_size, dim4_size, dim5_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu|%lu]\n", __FILE__, __LINE__, 
+			dim1_size, dim2_size, dim3_size, dim4_size, dim5_size);
 	}
 
 #define SWITCH_MALLOC_5D(type,size1,size2,size3,size4,size5) \
@@ -730,7 +730,8 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0 && dim6_size <= 0) {
-		fprintf(stdout, "ERROR : Invalid size [%lu|%lu|%lu|%lu|%lu|%lu]\n", dim1_size, dim2_size, 
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu|%lu|%lu]\n", 
+			__FILE__, __LINE__, dim1_size, dim2_size, 
 			dim3_size, dim4_size, dim5_size, dim6_size);
 	}
 
@@ -841,7 +842,7 @@ int _GfnEnqueueBroadcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 		// TODO: get other information from var table
 		_get_var_info(unique_id, &mem_type, &found);
 		if (!found)
-			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueBroadcastND");
+			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueBroadcastND", __FILE__, __LINE__);
  	}
 
  	_get_var_info(unique_id, &mem_type, &found); /* get mem flags */
@@ -1004,7 +1005,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 		// TODO: get other information from var table
 		_get_var_info(unique_id, &mem_type, &found);
 		if (!found)
-			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueScatterND");
+			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
 	}
 
 	chunk_size = optimize_chunk_size;
@@ -1118,9 +1119,9 @@ for (r = 0; r < recv_loop_num; ++r) { \
 
 		// FIXME : remove this constraint
 		if (lower_bound_size != upper_bound_size)
-			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal,"
+			fprintf(stderr, "ERROR %s:%d : in pattern lower and upper bound are not equal,"
 				" lower bound size is %d and upper bound size is %d\n",
-				lower_bound, upper_bound);
+				__FILE__, __LINE__, lower_bound, upper_bound);
 
 	if (level2_cond) {
 		// create send lower bound subbuffer
@@ -1291,12 +1292,19 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	/*if (_is_lock_transfer(unique_id)) {
+		//send_only_bound = 1;
+
+		if (pattern_n == 0)
+			return 0;
+	}*/
+  
 	int cnts[_gfn_num_proc];
-    int disp[_gfn_num_proc];
-    int sub_size, scatter_size;
-    int recv_elem_offset = 0;
-    int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
-    int recv_loop_num = 1, elem_num = 1, block_size = 1;
+	int disp[_gfn_num_proc];
+	int sub_size, scatter_size;
+	int recv_elem_offset = 0;
+	int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+	int recv_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 
 	cl_buffer_region info;
@@ -1323,7 +1331,7 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 	scatter_size = elem_num * block_size;
 
 	// Calculate size
-
+	// TODO:
 
 
 	// Not have information case
@@ -1331,7 +1339,7 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 		// TODO: get other information from var table
 		_get_var_info(unique_id, &mem_type, &found);
 		if (!found)
-			fprintf(stdout, "Error: cannot get variable info in _GfnEnqueueScatterND");
+			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
 	}
 
 	/* Exchange boundary if stream number is -1 */
@@ -1381,9 +1389,9 @@ do { \
 
 		// FIXME : remove this constraint
 		if (lower_bound_size != upper_bound_size)
-			fprintf(stderr, "ERROR : in pattern lower and upper bound are not equal,"
+			fprintf(stderr, "ERROR %s:%d : in pattern lower and upper bound are not equal,"
 				" lower bound size is %d and upper bound size is %d\n",
-				lower_bound, upper_bound);
+				__FILE__, __LINE__, lower_bound, upper_bound);
 
 	if (level2_cond) {
 		// create send lower bound subbuffer
