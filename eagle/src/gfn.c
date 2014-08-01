@@ -1451,7 +1451,6 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed)
 {
 	int found = 0;
-	int sequence_id = 0;
 	struct _kernel_information *ker_info;
 	
 	_retieve_kernel_table(kernel_id, ker_info, &found);
@@ -1483,7 +1482,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
-	if (sequence_id == 0) {
+	if (ker_info->curr_sequence_id == 0) {
 		// get sequence start and end index
 		ker_info->last_partition_seq_start = ker_info->local_start;
 		ker_info->last_partition_partition_size = 1000;
@@ -1495,7 +1494,9 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			struct _data_information * data_info = data_infos[vit];
 			
 			_set_data_info_cnts_disp(data_info, 
-						 ker_info->last_partition_partition_size, *seq_start_idx, *seq_end_idx);
+						ker_info->last_partition_partition_size, 
+						ker_info->last_partition_seq_start,
+						ker_info->last_partition_seq_end);
 			_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
 	} else {
@@ -1512,22 +1513,24 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		*seq_end_idx = ker_info->last_exec_seq_end;
 		
 		// 2. for variable 2 - last
-			// 2.1 IScatter (part I+1)
-			// 2.2 WriteBuffer (part I)
-		for (vit = 1; vit < var_num; ++vit) {
+		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
+			// 2.1 IScatter (part I+1)
+			_set_data_info_cnts_disp(data_info, 
+						ker_info->last_partition_partition_size, 
+						ker_info->last_partition_seq_start,
+						ker_info->last_partition_seq_end);
 			_GfnStreamSeqIScatter(kernel_id, data_info);
+			// 2.2 WriteBuffer (part I)
+			_set_data_info_cnts_disp(data_info, 
+						ker_info->last_upload_partition_size, 
+						ker_info->last_upload_seq_start,
+						ker_info->last_upload_seq_end);
 			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
-		
-		// 3. IScatter fisrt variable next sequence
-		_GfnStreamSeqIScatter(kernel_id, first_data_info);
-		
-		// 4. WriteBuffer for last variable
-		_GfnStreamSeqWriteBuffer(kernel_id, last_data_info);
 	}
 	
-	*seq_id = sequence_id; // seq_id is output variable
+	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
 	
 	return 0;
 }
@@ -1542,10 +1545,8 @@ int _GfnStreamSeqKernelFinishSequence(long long kernel_id)
 	struct _kernel_information *ker_info;
 	
 	_retieve_kernel_table(kernel_id, ker_info, &found);
-	last_partition_size = 500;
 	
 	// update kernel info
-	//current_start += last_partition_size;
 	ker_info->curr_sequence_id += 1;
 }
 
@@ -2388,7 +2389,7 @@ void _InitOpenCL()
 		NULL, NULL, &_gfn_status);
 	_GfnCheckCLStatus(_gfn_status, "clCreateContext");
 
-	_gfn_cmd_queue = clCreateCommandQueue(_gfn_context, _gfn_device_id, 0, &_gfn_status);
+	_gfn_cmd_queue = clCreateCommandQueue(_gfn_context, _gfn_device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &_gfn_status);
 	_GfnCheckCLStatus(_gfn_status, "clCreateCommandQueue");
 }
 
