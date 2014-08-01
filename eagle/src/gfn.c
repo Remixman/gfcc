@@ -1420,24 +1420,41 @@ int _GfnFinishGatherArray()
 
 
 // Stream sequence
-int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int increment)
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_step)
 {
 	struct _kernel_information *ker_info = (struct _kernel_information *)malloc(sizeof(struct _kernel_information));
+	
+	ker_info->kernel_id = kernel_id;
+	ker_info->local_start = local_start;
+	ker_info->local_end = local_end;
+	ker_info->loop_step = loop_step;
+	
+	ker_info->curr_sequence_id = 0;
+	
+	ker_info->last_exec_seq_start = 0;
+	ker_info->last_exec_seq_end = 0;
+	ker_info->last_exec_partition_size = 0;
+	ker_info->last_upload_seq_start = 0;
+	ker_info->last_upload_seq_end = 0;
+	ker_info->last_upload_partition_size = 0;
+	ker_info->last_partition_seq_start = 0;
+	ker_info->last_partition_seq_end = 0;
+	ker_info->last_partition_partition_size = 0;
+	
+	ker_info->bcast_var_num = 0;
+	ker_info->scatter_var_num = 0;
+	ker_info->gather_var_num = 0;
 	
 	_insert_to_kernel_table(kernel_id, ker_info);
 }
 
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed)
 {
-	int current_start;
-	int local_end;
-	int last_partition_size;
 	int found = 0;
 	int sequence_id = 0;
 	struct _kernel_information *ker_info;
 	
 	_retieve_kernel_table(kernel_id, ker_info, &found);
-	last_partition_size = 500;
 	
 	if (!found) {
 		fprintf(stderr, "ERROR %s:%d : Don't found kernel id %lld\n",
@@ -1446,16 +1463,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	}
 
 	// TODO: calculate increment step
-	if (current_start > local_end) *is_completed = 1;
+	if (ker_info->last_exec_seq_start >= ker_info->last_exec_seq_end) *is_completed = 1;
 	else *is_completed = 0;
 	
 	if (*is_completed) return 0;
-	
-	
-	// get sequence start and end index
-	*seq_start_idx = current_start;
-	*seq_end_idx = current_start + last_partition_size;
-	if (*seq_end_idx > local_end) *seq_end_idx = local_end;
 	
 	
 	size_t var_num;
@@ -1469,16 +1480,37 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		first_data_info = data_infos[0];
 		last_data_info = data_infos[var_num - 1];
 	}
+
 	
 	// ONLY BROADCAST AND SCATTER DATA
 	if (sequence_id == 0) {
+		// get sequence start and end index
+		ker_info->last_partition_seq_start = ker_info->local_start;
+		ker_info->last_partition_partition_size = 1000;
+		ker_info->last_partition_seq_end = ker_info->last_partition_seq_start + ker_info->last_partition_partition_size;
+		if (ker_info->last_partition_seq_end > ker_info->local_end)
+			ker_info->last_partition_seq_end = ker_info->local_end;
+		
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
 			
-			_set_data_info_cnts_disp(data_info, last_partition_size, *seq_start_idx, *seq_end_idx);
+			_set_data_info_cnts_disp(data_info, 
+						 ker_info->last_partition_partition_size, *seq_start_idx, *seq_end_idx);
 			_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
 	} else {
+		_update_kernel_info_seq(ker_info);
+		
+		// get sequence start and end index
+		ker_info->last_partition_seq_start += ker_info->last_partition_partition_size;
+		// ker_info->last_partition_partition_size = 1000;
+		ker_info->last_partition_seq_end = ker_info->last_partition_seq_start + ker_info->last_partition_partition_size;
+		if (ker_info->last_partition_seq_end > ker_info->local_end)
+			ker_info->last_partition_seq_end = ker_info->local_end;
+		
+		*seq_start_idx = ker_info->last_exec_seq_start;
+		*seq_end_idx = ker_info->last_exec_seq_end;
+		
 		// 2. for variable 2 - last
 			// 2.1 IScatter (part I+1)
 			// 2.2 WriteBuffer (part I)
