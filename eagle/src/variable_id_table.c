@@ -25,13 +25,13 @@ int _var_compare(const void *l, const void *r) {
 
 void _var_free_action(const void *nodep, const VISIT which, const int depth) {
 	var_record *datap = *((var_record **)nodep);
-    int dim_num = datap->dimension_num;
+	int dim_num = datap->dimension_num;
     
 	switch(which) {
 		case preorder:
 		case postorder:
 		case endorder:
-        case leaf:
+		case leaf:
 
 #ifdef DEBUG_AUTO_ALLOCATE
 	printf("[DEBUG]: Deallocate : xxx : %p\n", datap->host_ptr1);
@@ -49,11 +49,11 @@ void _var_free_action(const void *nodep, const VISIT which, const int depth) {
 			free(datap->host_ptr1);
 
 			_gfn_status = clReleaseMemObject(datap->device_ptr);
-    		_GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER");
+			_GfnCheckCLStatus(_gfn_status, "RELEASE BUFFER");
 
-    		datap->host_ptr1 = NULL;
+			datap->host_ptr1 = NULL;
 			break;
-    }
+	}
 }
 
 void * _var_tab_root;

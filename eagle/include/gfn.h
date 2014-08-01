@@ -39,6 +39,44 @@ extern char current_kernel_name[50];
 extern Ibcast_handle *send_scalar_handles[MAX_IBCAST_HANDLE_LIST];
 extern int send_scalar_curr_idx;
 
+struct _data_information {
+	long long unique_id;
+	void *ptr;
+	cl_mem cl_ptr;
+	cl_mem_flags mem_type;
+	int type_id;
+	
+	size_t dim_n;
+	size_t dim_size[7];
+	
+	size_t elem_num;
+	size_t block_size;
+	
+	int loop_start;
+	int loop_end;
+	int loop_step;
+	
+	int pattern_type;
+	int pattern_array[20];
+	int pattern_num;
+	
+	int last_cnts[20]; // TODO: change to cluster size
+	int last_disp[20]; // TODO: change to cluster size
+	
+	MPI_Request last_iscatter_req;
+	MPI_Request last_igather_req;
+};
+
+void _set_data_info_variable(struct _data_information *data_info,
+			long long unique_id, void *ptr, cl_mem cl_ptr,
+			cl_map_flags mem_type, int type_id);
+void _set_data_info_loop(struct _data_information *data_info, 
+			int loop_start, int loop_end, int loop_step);
+void _set_data_info_pattern(struct _data_information *data_info,
+			int pattern_type, int pattern_num, int *pattern_array);
+void _set_data_info_last_cnts_disp(struct _data_information *data_info,
+			int *cnts, int *disp);
+
 // API for user
 int gfn_get_num_process();
 int gfn_get_process_num();
@@ -69,24 +107,29 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishDistributeArray();
-int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
-						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
-int _GfnFinishStreamSeqDistributeArray();
 
 int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnFinishGatherArray();
-int _GfnStreamSeqEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
-						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
-int _GfnFinishStreamSeqGatherArray();
 
 int _GfnLockTransfer(long long id);
 int _GfnUnlockTransfer(long long id);
 
 
+
+// Stream Sequence Optimization
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int increment);
+int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *is_completed);
+int _GfnStreamSeqKernelGetDependData(long long kernel_id, int start_idx, int end_idx);
+int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
+int _GfnStreamSeqFinishDistributeArray();
+int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
+int _GfnStreamSeqFinishGatherArray(); // TODO: clear var_table
 
 
 // High Level function for trnsformation
@@ -101,9 +144,6 @@ int _GfnCalcLocalLoopStart(int loop_start, int loop_end, int loop_step);
 int _GfnCalcLocalLoopEnd(int loop_start, int loop_end, int loop_step);
 int _GfnCalcLocalLoopStartCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
 int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step, int num_proc, int rank);
-int _GfnCalcNumberOfStream(int local_start, int local_end);
-int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
-int _GfnStreamSeqLocalLoopEnd(int local_start, int local_end, int loop_step, int stream_size, int stream_no, int block_size);
 
 void _GfnMasterInit();
 void _GfnMasterFinish();

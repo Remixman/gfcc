@@ -3,6 +3,7 @@
 #include <stdlib.h>						/* getenv, */
 #include <time.h>
 #include <string.h>
+#include "kernel_id_table.h"
 #include "variable_id_table.h"
 #include "gfn.h"
 
@@ -964,11 +965,11 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	int found = 0;
 
 	int cnts[_gfn_num_proc];
-    int disp[_gfn_num_proc];
-    int sub_size, scatter_size;
-    int recv_elem_offset = 0;
-    int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
-    int recv_loop_num = 1, elem_num = 1, block_size = 1;
+	int disp[_gfn_num_proc];
+	int sub_size, scatter_size;
+	int recv_elem_offset = 0;
+	int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+	int recv_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 
 	cl_buffer_region info;
@@ -1288,27 +1289,219 @@ int _GfnFinishDistributeArray()
 	return 0;
 }
 
-int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
-						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
-	/*if (_is_lock_transfer(unique_id)) {
-		//send_only_bound = 1;
+	int send_only_bound = 0;
+	if (_is_lock_transfer(unique_id)) {
+		//printf("gather only bound\n");
+		send_only_bound = 1;
 
 		if (pattern_n == 0)
 			return 0;
-	}*/
-  
+	}
+
+	long long gpu_trans_start_t, gpu_trans_end_t;
+	long long gather_start_t, gather_end_t;
+
+	int i, value;
+	va_list vl;
+
 	int cnts[_gfn_num_proc];
 	int disp[_gfn_num_proc];
-	int sub_size, scatter_size;
-	int recv_elem_offset = 0;
-	int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
-	int recv_loop_num = 1, elem_num = 1, block_size = 1;
+	int sub_size;
+	int send_elem_offset = 0;
+	int send_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+	int send_loop_num = 1, elem_num = 1, block_size = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 
-	cl_buffer_region info;
-	cl_mem subbuf;
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	// Calculate block size and elements number
+	for (i = 0; i < size_n; ++i) {
+		if (i < partitioned_dim)         send_loop_num *= size_array[i];
+		else if (i == partitioned_dim)   elem_num      *= size_array[i];
+		else /* i > partitioned_dim */   block_size    *= size_array[i];
+	}
+
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim] - 1;
+		loop_step = 1;
+	}
+
+    _CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
+    	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
+
+#ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
+#define DOWNLOAD_FROM_GPU(type) \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + send_it_offset, 0, 0, 0); \
+    _GfnCheckCLStatus(_gfn_status, "READ BUFFER");
+#else
+#define DOWNLOAD_FROM_GPU(type) \
+	cl_buffer_region info; \
+	info.origin = (size_t)(send_elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_it_offset + send_elem_offset, 0, 0, 0); \
+    _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+    _gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
+#endif
+
+#define SWITCH_GATHER_ND(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+for (i = 0; i < send_loop_num; ++i) { \
+	if (level2_cond) { \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
+		TRACE_LOG ("device-transfer start %lld\n", gpu_trans_start_t); \
+		DOWNLOAD_FROM_GPU(type) \
+		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
+		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
+	} \
+	IF_TIMING (_cluster_gather_time) gather_start_t = get_time(); \
+	TRACE_LOG ("node-transfer start %lld\n", gather_start_t); \
+	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
+		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	IF_TIMING (_cluster_gather_time) gather_end_t = get_time(); \
+	TRACE_LOG ("node-transfer end %lld\n", gather_end_t); \
+	send_it_offset += (elem_num * block_size); \
+} \
+	if (_gfn_rank == 0) { \
+		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+						 partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+	} \
+} while (0)
+
+	switch(type_id)
+	{
+	case TYPE_CHAR:           SWITCH_GATHER_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_GATHER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_GATHER_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_GATHER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_GATHER_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_GATHER_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_GATHER_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_GATHER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_GATHER_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_GATHER_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_GATHER_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_GATHER_ND(long long int,MPI_LONG_LONG_INT); break;
+	}
+
+	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
+		printf("[%d] Transfer %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
+
+	IF_TIMING (_cluster_gather_time)
+		printf("[%d] Gather %p : %.10f s.\n", _gfn_rank, ptr, 
+			(float)(gather_end_t-gather_start_t)/1000000);
+
+	return 0;
+}
+
+int _GfnFinishGatherArray()
+{
+	return 0;
+}
+
+
+// Stream sequence
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int increment)
+{
+	_insert_to_kernel_table(kernel_id, local_start, local_end, increment);
+}
+
+int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *is_completed)
+{
+	int current_start;
+	int local_end;
+	int last_partition_size;
+	int found = 0;
+	
+	_retieve_kernel_table(kernel_id, &current_start, &local_end, &last_partition_size, &found);
+	last_partition_size = 500;
+	
+	if (!found) {
+		fprintf(stderr, "ERROR %s:%d : Don't found kernel id %lld\n",
+			__FILE__, __LINE__, kernel_id);
+		return -11;
+	}
+
+	// TODO: calculate increment step
+	if (current_start > local_end) *is_completed = 1;
+	else *is_completed = 0;
+	
+	if (*is_completed) return 0;
+	
+	
+	// get sequence start and end index
+	*seq_start_idx = current_start;
+	*seq_end_idx = current_start + last_partition_size;
+	if (*seq_end_idx > local_end) *seq_end_idx = local_end;
+	
+	// update kernel info
+	current_start += last_partition_size;
+	_save_kernel_info(kernel_id, current_start, last_partition_size, &found);
+	
+	
+	size_t var_num;
+	int vit;
+	struct _data_information ** data_infos;
+	_get_scatter_var_ids(kernel_id, data_infos, &var_num);
+	struct _data_information *first_data_info = NULL;
+	struct _data_information *last_data_info = NULL;
+	
+	if (var_num > 0) {
+		first_data_info = data_infos[0];
+		last_data_info = data_infos[var_num - 1];
+	}
+	
+	// resolve depend data
+	// 1. Scatter first variable (part I)
+	if (/*ite == 0*/ 0) {
+		_GfnStreamSeqIScatter(kernel_id, first_data_info);
+	}
+	
+	// 2. for variable 2 - last
+		// 2.1 IScatter (part I+1)
+		// 2.2 WriteBuffer (part I)
+	for (vit = 1; vit < var_num; ++vit) {
+		struct _data_information * data_info = data_infos[vit];
+		_GfnStreamSeqIScatter(kernel_id, data_info);
+		//_GfnStreamSeqWriteBuffer()
+	}
+	
+	// 3. IScatter fisrt variable next sequence
+	// 4. WriteBuffer for last variable
+	
+	return 0;
+}
+
+int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
+{
+	if (_is_lock_transfer(unique_id)) {
+		//send_only_bound = 1;
+		if (pattern_n == 0) // no dependency
+			return 0;
+	}
+  
+	int scatter_size;
+	int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+	int recv_loop_num = 1;
+	int size_array[size_n], pattern_array[pattern_n];
+	struct _data_information *data_info = (struct _data_information *) malloc(sizeof(struct _data_information));
 
 	int i, found = 0;
 	va_list vl;
@@ -1321,18 +1514,28 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
 	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
 	va_end(vl);
+	_set_data_info_pattern(data_info, pattern_type, pattern_n, pattern_array);
 
 	// Calculate block size and elements number
+	data_info->elem_num = 1;
+	data_info->block_size = 1;
 	for (i = 0; i < size_n; ++i) {
 		if (i < partitioned_dim)         recv_loop_num *= size_array[i];
-		else if (i == partitioned_dim)   elem_num      *= size_array[i];
-		else /* i > partitioned_dim */   block_size    *= size_array[i];
+		else if (i == partitioned_dim)   data_info->elem_num    *= size_array[i];
+		else /* i > partitioned_dim */   data_info->block_size  *= size_array[i];
 	}
-	scatter_size = elem_num * block_size;
+	scatter_size = data_info->elem_num * data_info->block_size;
 
-	// Calculate size
-	// TODO:
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim] - 1;
+		loop_step = 1;
+	}
+	_set_data_info_loop(data_info, loop_start, loop_end, loop_step);
 
+	//_CalcPartitionInfo(data_info->elem_num, data_info->block_size, loop_start, loop_end, loop_step, 
+	//	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
 
 	// Not have information case
 	if (size_n == 0) {
@@ -1341,6 +1544,36 @@ int _GfnStreamSeqEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id
 		if (!found)
 			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
 	}
+
+	// Send data from worker root to others
+	switch(type_id)
+	{
+#define SWITCH_STREAMSEQ_MASTER_SEND(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+	if (_gfn_rank == 0) { \
+		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+			partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+	} \
+} while (0)
+	case TYPE_CHAR:           SWITCH_STREAMSEQ_MASTER_SEND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAMSEQ_MASTER_SEND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAMSEQ_MASTER_SEND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAMSEQ_MASTER_SEND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAMSEQ_MASTER_SEND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAMSEQ_MASTER_SEND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAMSEQ_MASTER_SEND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAMSEQ_MASTER_SEND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAMSEQ_MASTER_SEND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAMSEQ_MASTER_SEND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_MASTER_SEND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_MASTER_SEND(long long int,MPI_LONG_LONG_INT); break;
+	}
+	
+	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
+	
+	_add_scatter_var_id( kernel_id, data_info ); // Register to kernel
+#if 0
 
 	/* Exchange boundary if stream number is -1 */
 	if (stream_no == 0) {
@@ -1380,7 +1613,7 @@ do { \
 		MPI_Request recv_lower_req, recv_upper_req;
 
 		int lower_bound = pattern_array[0];
-    	int upper_bound = pattern_array[1];
+		int upper_bound = pattern_array[1];
 		int lower_bound_size = abs(lower_bound) * block_size;
 		int upper_bound_size = abs(upper_bound) * block_size;
 
@@ -1499,7 +1732,7 @@ do { \
 
 	}
 
-#define SWITCH_STREAMSEQ_SCATTER_ND(type,mpi_type) \
+	#define SWITCH_STREAMSEQ_SCATTER_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) { \
@@ -1538,148 +1771,126 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
-
-	return 0;
-}
-
-int _GfnFinishStreamSeqDistributeArray()
-{
-	return 0;
-}
-
-int _GfnEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
-{
-	int send_only_bound = 0;
-	if (_is_lock_transfer(unique_id)) {
-		//printf("gather only bound\n");
-		send_only_bound = 1;
-
-		if (pattern_n == 0)
-			return 0;
-	}
-
-	long long gpu_trans_start_t, gpu_trans_end_t;
-	long long gather_start_t, gather_end_t;
-
-	int i, value;
-	va_list vl;
-
-	int cnts[_gfn_num_proc];
-    int disp[_gfn_num_proc];
-    int sub_size;
-    int send_elem_offset = 0;
-    int send_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
-    int send_loop_num = 1, elem_num = 1, block_size = 1;
-	int size_array[size_n], pattern_array[pattern_n];
-
-	// We want to pass size_n + pattern_n but it warning,
-	// So pass pattern_n that add with size_n
-	pattern_n += size_n;
-	va_start(vl, pattern_n);
-	pattern_n -= size_n;
-	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
-	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
-	va_end(vl);
-
-	// Calculate block size and elements number
-	for (i = 0; i < size_n; ++i) {
-		if (i < partitioned_dim)         send_loop_num *= size_array[i];
-		else if (i == partitioned_dim)   elem_num      *= size_array[i];
-		else /* i > partitioned_dim */   block_size    *= size_array[i];
-	}
-
-	// FIXME: this quick fix for partition of loop and data isnot match
-	if (partitioned_dim >= 0) {
-		loop_start = 0;
-		loop_end = size_array[partitioned_dim] - 1;
-		loop_step = 1;
-	}
-
-    _CalcPartitionInfo(elem_num, block_size, loop_start, loop_end, loop_step, 
-    	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &send_elem_offset);
-
-#ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
-#define DOWNLOAD_FROM_GPU(type) \
-	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + send_it_offset, 0, 0, 0); \
-    _GfnCheckCLStatus(_gfn_status, "READ BUFFER");
-#else
-#define DOWNLOAD_FROM_GPU(type) \
-	cl_buffer_region info; \
-	info.origin = (size_t)(send_elem_offset * sizeof(type)); \
-	info.size = (size_t)(sub_size * sizeof(type)); \
-	cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
-	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + send_it_offset + send_elem_offset, 0, 0, 0); \
-    _GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
-    _gfn_status = clReleaseMemObject(subbuf); \
-	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER");
 #endif
 
-#define SWITCH_GATHER_ND(type,mpi_type) \
-do { \
-	type * tmp_ptr = (type *) ptr; \
-for (i = 0; i < send_loop_num; ++i) { \
-	if (level2_cond) { \
-		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_start_t = get_time(); \
-		TRACE_LOG ("device-transfer start %lld\n", gpu_trans_start_t); \
-		DOWNLOAD_FROM_GPU(type) \
-		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
-		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
-	} \
-	IF_TIMING (_cluster_gather_time) gather_start_t = get_time(); \
-	TRACE_LOG ("node-transfer start %lld\n", gather_start_t); \
-	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
-		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
-	IF_TIMING (_cluster_gather_time) gather_end_t = get_time(); \
-	TRACE_LOG ("node-transfer end %lld\n", gather_end_t); \
-	send_it_offset += (elem_num * block_size); \
-} \
-	if (_gfn_rank == 0) { \
-		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-						 partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
-	} \
-} while (0)
-
-	switch(type_id)
-	{
-	case TYPE_CHAR:           SWITCH_GATHER_ND(char,MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_GATHER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_GATHER_ND(short,MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_GATHER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_GATHER_ND(int,MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_GATHER_ND(unsigned,MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_GATHER_ND(long,MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_GATHER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_GATHER_ND(float,MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_GATHER_ND(double,MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_GATHER_ND(long double,MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_GATHER_ND(long long int,MPI_LONG_LONG_INT); break;
-	}
-
-	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
-		printf("[%d] Transfer %p from device to host : %.10f s.\n", _gfn_rank, ptr, 
-			(float)(gpu_trans_end_t-gpu_trans_start_t)/1000000);
-
-	IF_TIMING (_cluster_gather_time)
-		printf("[%d] Gather %p : %.10f s.\n", _gfn_rank, ptr, 
-			(float)(gather_end_t-gather_start_t)/1000000);
-
 	return 0;
 }
 
-int _GfnFinishGatherArray()
+int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_info)
+{
+	int cnts[_gfn_num_proc];
+	int disp[_gfn_num_proc];
+	int sub_size, recv_elem_offset;
+	
+	// TODO: calculate cnts & disp
+	_CalcPartitionInfo(
+		data_info->elem_num, 
+		data_info->block_size, 
+		data_info->loop_start, 
+		data_info->loop_end, 
+		data_info->loop_step, 
+		data_info->pattern_array, 
+		data_info->pattern_num, 
+		data_info->pattern_type, 
+		cnts, disp, &sub_size, &recv_elem_offset);
+	
+	_set_data_info_last_cnts_disp(data_info, cnts, disp);
+	
+#define SWITCH_STREAM_SCATTER(type, mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	MPI_Iscatterv(tmp_ptr, cnts, disp, mpi_type, \
+		tmp_ptr + disp[_gfn_rank], cnts[_gfn_rank], mpi_type, 0, MPI_COMM_WORLD, \
+		&(data_info->last_iscatter_req)); \
+} while (0)
+
+	switch(data_info->type_id)
+	{
+	case TYPE_CHAR:           SWITCH_STREAM_SCATTER(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAM_SCATTER(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAM_SCATTER(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAM_SCATTER(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAM_SCATTER(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAM_SCATTER(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAM_SCATTER(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAM_SCATTER(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAM_SCATTER(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAM_SCATTER(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_SCATTER(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_SCATTER(long long int,MPI_LONG_LONG_INT); break;
+	}
+}
+
+// write sub buffer to accelerator
+int _GfnStreamSeqWriteBuffer(long long kernel_id, struct _data_information *data_info)
+{
+	cl_buffer_region info;
+	cl_mem subbuf;
+	
+	int sub_size = data_info->last_cnts[_gfn_rank];
+	int elem_offset = data_info->last_disp[_gfn_rank];
+	
+#define SWITCH_STREAM_WRITE_BUFFER(type, mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	info.origin = (size_t)(elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	subbuf = clCreateSubBuffer(data_info->cl_ptr, data_info->mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, 0); \
+	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+	_gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
+} while (0)
+	
+#if 0
+#define SWITCH_STREAMSEQ_SCATTER_ND(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	for (i = 0; i < recv_loop_num; ++i) { \
+		info.origin = (size_t)(recv_elem_offset * sizeof(type)); \
+		info.size = (size_t)(sub_size * sizeof(type)); \
+		subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + recv_it_offset + recv_elem_offset, 0, 0, 0); \
+		_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
+		_gfn_status = clReleaseMemObject(subbuf); \
+		_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
+		recv_it_offset += (elem_num * block_size); \
+	} \
+} while (0)
+#endif
+
+	switch(data_info->type_id)
+	{
+	case TYPE_CHAR:           SWITCH_STREAM_WRITE_BUFFER(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAM_WRITE_BUFFER(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAM_WRITE_BUFFER(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAM_WRITE_BUFFER(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAM_WRITE_BUFFER(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAM_WRITE_BUFFER(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAM_WRITE_BUFFER(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAM_WRITE_BUFFER(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAM_WRITE_BUFFER(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAM_WRITE_BUFFER(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_WRITE_BUFFER(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_WRITE_BUFFER(long long int,MPI_LONG_LONG_INT); break;
+	}
+}
+
+int _GfnStreamSeqFinishDistributeArray()
 {
 	return 0;
 }
 
-int _GfnStreamSeqEnqueueGatherND(void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	return 0;
 }
 
-int _GfnFinishStreamSeqGatherArray()
+int _GfnStreamSeqFinishGatherArray()
 {
 	return 0;
 }
@@ -1852,28 +2063,6 @@ int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step,
 	return loop_start + next_start - 1;
 }
 
-int _GfnCalcNumberOfStream(int local_start, int local_end)
-{
-	return 1;
-}
-
-int _GfnStreamSeqLocalLoopStart(int local_start, int local_end, 
-	int loop_step, int stream_size, int stream_no, int block_size)
-{
-	// _gfn_num_proc, _gfn_rank
-	int not_round_offset = stream_size * stream_no;
-	return local_start + round_to(not_round_offset, loop_step);
-}
-
-int _GfnStreamSeqLocalLoopEnd(int local_start, int local_end, 
-	int loop_step, int stream_size, int stream_no, int block_size)
-{
-	// _gfn_num_proc, _gfn_rank
-	int stream_local_end = local_start + (stream_size * (stream_no + 1)) - 1;
-	if (stream_local_end > local_end) stream_local_end = local_end;
-	return stream_local_end;
-}
-
 int _CalcLoopSize(int start, int end, int incre)
 {
 	return ceil((float)(end - start + 1) / (float)incre);
@@ -1981,9 +2170,9 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
     pattern_array_size = 0;
 
 	_CalcCnts(size, _gfn_num_proc, cnts, 1);
-    _CalcDisp(size, _gfn_num_proc, disp, 1);
+	_CalcDisp(size, _gfn_num_proc, disp, 1);
 
-    /* Constraint
+	/* Constraint
 		1. disp[i] >= loop_start
 		2. disp[i] + cnts[i] <= loop_end
 	*/
@@ -2275,4 +2464,48 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 			(double)_gfn_last_kernel_time/1000000.0, *global_size, *local_size);
 	}
 
+}
+
+
+
+
+//// Function for data information
+void _set_data_info_loop(struct _data_information *data_info, 
+			int loop_start, int loop_end, int loop_step)
+{
+	data_info->loop_start = loop_start;
+	data_info->loop_end = loop_end;
+	data_info->loop_step = loop_step;
+}
+
+void _set_data_info_pattern(struct _data_information *data_info,
+			int pattern_type, int pattern_num, int *pattern_array)
+{
+	int i;
+	
+	data_info->pattern_type = pattern_type;
+	data_info->pattern_num = pattern_num;
+	for (i = 0; i < pattern_num; ++i)
+		data_info->pattern_array[i] = pattern_array[i];
+}
+
+void _set_data_info_variable(struct _data_information *data_info,
+			long long unique_id, void *ptr, cl_mem cl_ptr,
+			cl_map_flags mem_type, int type_id)
+{
+	data_info->unique_id = unique_id;
+	data_info->ptr = ptr;
+	data_info->cl_ptr = cl_ptr;
+	data_info->mem_type = mem_type;
+	data_info->type_id = type_id;
+}
+
+void _set_data_info_last_cnts_disp(struct _data_information *data_info,
+			int *cnts, int *disp)
+{
+	int i;
+	for (i = 0; i < _gfn_num_proc; ++i) {
+		data_info->last_cnts[i] = cnts[i];
+		data_info->last_disp[i] = disp[i];
+	}
 }
