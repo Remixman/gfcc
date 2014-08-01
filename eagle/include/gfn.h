@@ -74,8 +74,48 @@ void _set_data_info_loop(struct _data_information *data_info,
 			int loop_start, int loop_end, int loop_step);
 void _set_data_info_pattern(struct _data_information *data_info,
 			int pattern_type, int pattern_num, int *pattern_array);
-void _set_data_info_last_cnts_disp(struct _data_information *data_info,
-			int *cnts, int *disp);
+void _set_data_info_cnts_disp(struct _data_information *data_info, int partition_size, int seq_start, int seq_end);
+
+struct _kernel_information {
+	
+	long long kernel_id;
+	int local_start;
+	int local_end;
+	int loop_step;
+	
+	int curr_sequence_id;
+	
+	// For kernel execution
+	int last_exec_seq_start;
+	int last_exec_seq_end;
+	int last_exec_partition_size;
+	
+	// For write buffer
+	int last_upload_seq_start;
+	int last_upload_seq_end;
+	int last_upload_partition_size;
+	
+	// For broadcast and scatter
+	int last_partition_seq_start;
+	int last_partition_seq_end;
+	int last_partition_partition_size;
+	
+	// TODO: Boardcast
+	size_t bcast_var_num;
+	struct _data_information *bcast_var_datas[15]; // TODO: Don't fix array size
+	// Scatter 
+	size_t scatter_var_num;
+	struct _data_information *scatter_var_datas[15]; // TODO: Don't fix array size
+	// Gather
+	size_t gather_var_num;
+	struct _data_information *gather_var_datas[15]; // TODO: Don't fix array size
+};
+
+void _update_kernel_info_seq(struct _kernel_information *ker_info);
+void _add_scatter_var_id( struct _kernel_information *ker_info, struct _data_information *var_data );
+void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num );
+void _add_gather_var_id( struct _kernel_information *ker_info, struct _data_information *var_data );
+void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num );
 
 // API for user
 int gfn_get_num_process();
@@ -164,8 +204,7 @@ size_t _CalcTypeSize(int type_id);
 
 void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, int loop_step,
 						int *pattern_array, int pattern_array_size, int pattern_type,
-                        int *cnts /* OUTS */, int *disp /* OUTS */, 
-                        int *sub_size /* OUTS */, int *elem_offset /* OUTS */);
+                        int *cnts /* OUTS */, int *disp /* OUTS */);
 
 // Function for fix preprocessing of mcxx
 int _GFN_TYPE_CHAR();
