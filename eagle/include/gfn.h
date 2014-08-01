@@ -120,7 +120,7 @@ int _GfnUnlockTransfer(long long id);
 
 // Stream Sequence Optimization
 int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int increment);
-int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *is_completed);
+int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed);
 int _GfnStreamSeqKernelGetDependData(long long kernel_id, int start_idx, int end_idx);
 int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 

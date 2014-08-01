@@ -1421,14 +1421,15 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	_insert_to_kernel_table(kernel_id, local_start, local_end, increment);
 }
 
-int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *is_completed)
+int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed)
 {
 	int current_start;
 	int local_end;
 	int last_partition_size;
 	int found = 0;
+	int sequence_id = 0;
 	
-	_retieve_kernel_table(kernel_id, &current_start, &local_end, &last_partition_size, &found);
+	_retieve_kernel_table(kernel_id, &current_start, &local_end, &last_partition_size, &sequence_id, &found);
 	last_partition_size = 500;
 	
 	if (!found) {
@@ -1449,10 +1450,6 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	*seq_end_idx = current_start + last_partition_size;
 	if (*seq_end_idx > local_end) *seq_end_idx = local_end;
 	
-	// update kernel info
-	current_start += last_partition_size;
-	_save_kernel_info(kernel_id, current_start, last_partition_size, &found);
-	
 	
 	size_t var_num;
 	int vit;
@@ -1468,7 +1465,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	
 	// resolve depend data
 	// 1. Scatter first variable (part I)
-	if (/*ite == 0*/ 0) {
+	if (sequence_id == 0) {
 		_GfnStreamSeqIScatter(kernel_id, first_data_info);
 	}
 	
@@ -1478,13 +1475,35 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	for (vit = 1; vit < var_num; ++vit) {
 		struct _data_information * data_info = data_infos[vit];
 		_GfnStreamSeqIScatter(kernel_id, data_info);
-		//_GfnStreamSeqWriteBuffer()
+		_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 	}
 	
 	// 3. IScatter fisrt variable next sequence
+	_GfnStreamSeqIScatter(kernel_id, first_data_info);
+	
 	// 4. WriteBuffer for last variable
+	_GfnStreamSeqWriteBuffer(kernel_id, last_data_info);
+	
+	*seq_id = sequence_id;
 	
 	return 0;
+}
+
+int _GfnStreamSeqKernelFinishSequence(long long kernel_id)
+{
+	int current_start;
+	int local_end;
+	int last_partition_size;
+	int found = 0;
+	int sequence_id = 0;
+	
+	_retieve_kernel_table(kernel_id, &current_start, &local_end, &last_partition_size, &sequence_id, &found);
+	last_partition_size = 500;
+	
+	// update kernel info
+	current_start += last_partition_size;
+	sequence_id += 1;
+	_save_kernel_info(kernel_id, current_start, last_partition_size, sequence_id, &found);
 }
 
 int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
@@ -1534,9 +1553,6 @@ int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr
 	}
 	_set_data_info_loop(data_info, loop_start, loop_end, loop_step);
 
-	//_CalcPartitionInfo(data_info->elem_num, data_info->block_size, loop_start, loop_end, loop_step, 
-	//	pattern_array, pattern_n, pattern_type, cnts, disp, &sub_size, &recv_elem_offset);
-
 	// Not have information case
 	if (size_n == 0) {
 		// TODO: get other information from var table
@@ -1544,6 +1560,8 @@ int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr
 		if (!found)
 			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
 	}
+	
+	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
 
 	// Send data from worker root to others
 	switch(type_id)
@@ -1569,8 +1587,6 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_MASTER_SEND(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_MASTER_SEND(long long int,MPI_LONG_LONG_INT); break;
 	}
-	
-	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
 	
 	_add_scatter_var_id( kernel_id, data_info ); // Register to kernel
 #if 0
@@ -1782,7 +1798,6 @@ int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_in
 	int disp[_gfn_num_proc];
 	int sub_size, recv_elem_offset;
 	
-	// TODO: calculate cnts & disp
 	_CalcPartitionInfo(
 		data_info->elem_num, 
 		data_info->block_size, 
@@ -2163,11 +2178,11 @@ void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, 
 {
 	int i;
 	int lower_bound;
-    int upper_bound;
+	int upper_bound;
 
-    // FIXME: remove pattern array
-    pattern_type = PATTERN_NONE;
-    pattern_array_size = 0;
+	// FIXME: remove pattern array
+	pattern_type = PATTERN_NONE;
+	pattern_array_size = 0;
 
 	_CalcCnts(size, _gfn_num_proc, cnts, 1);
 	_CalcDisp(size, _gfn_num_proc, disp, 1);
