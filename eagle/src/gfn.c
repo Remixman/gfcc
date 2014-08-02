@@ -17,6 +17,8 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
+int _debug_stream_seq = 1;
+
 /* buffer for reduction */
 char *char_sum_buffer;
 unsigned char *unsigned_char_sum_buffer;
@@ -1479,6 +1481,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		first_data_info = data_infos[0];
 		last_data_info = data_infos[var_num - 1];
 	}
+	
+	if (_debug_stream_seq && _gfn_rank == 0) {
+		printf("SS: SEQUENCE NUMBER : %d\n", ker_info->curr_sequence_id);
+	}
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
@@ -1497,6 +1503,12 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 						ker_info->last_partition_partition_size, 
 						ker_info->last_partition_seq_start,
 						ker_info->last_partition_seq_end);
+			if (_debug_stream_seq && _gfn_rank == 0) {
+				int r;
+				for (r = 0; r < _gfn_num_proc; ++r)
+					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
+					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+			}
 			_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
 	} else {
@@ -1520,14 +1532,34 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 						ker_info->last_partition_partition_size, 
 						ker_info->last_partition_seq_start,
 						ker_info->last_partition_seq_end);
+			if (_debug_stream_seq && _gfn_rank == 0) {
+				int r;
+				for (r = 0; r < _gfn_num_proc; ++r)
+					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
+					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+			}
 			_GfnStreamSeqIScatter(kernel_id, data_info);
 			// 2.2 WriteBuffer (part I)
 			_set_data_info_cnts_disp(data_info, 
 						ker_info->last_upload_partition_size, 
 						ker_info->last_upload_seq_start,
 						ker_info->last_upload_seq_end);
+			if (_debug_stream_seq && _gfn_rank == 0) {
+				int r;
+				for (r = 0; r < _gfn_num_proc; ++r)
+					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
+					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+			}
 			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
+		
+		if (_debug_stream_seq && _gfn_rank == 0 && ker_info->curr_sequence_id >= 2) {
+			printf("SS: EXECUTION START = %d , END = %d\n", *seq_start_idx, *seq_end_idx);
+		}
+	}
+	
+	if (_debug_stream_seq && _gfn_rank == 0) {
+		printf("========================================\n\n");
 	}
 	
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
