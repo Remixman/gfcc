@@ -165,11 +165,11 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed);
 int _GfnStreamSeqKernelGetDependData(long long kernel_id, int start_idx, int end_idx);
 int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnStreamSeqFinishDistributeArray();
 int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnStreamSeqFinishGatherArray(); // TODO: clear var_table
 

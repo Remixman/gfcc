@@ -1455,7 +1455,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	int found = 0;
 	struct _kernel_information *ker_info;
 	
-	_retieve_kernel_table(kernel_id, ker_info, &found);
+	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	
 	if (!found) {
 		fprintf(stderr, "ERROR %s:%d : Don't found kernel id %lld\n",
@@ -1509,7 +1509,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
 			}
-			_GfnStreamSeqIScatter(kernel_id, data_info);
+			//_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
 	} else {
 		_update_kernel_info_seq(ker_info);
@@ -1538,7 +1538,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
 			}
-			_GfnStreamSeqIScatter(kernel_id, data_info);
+			//_GfnStreamSeqIScatter(kernel_id, data_info);
 			// 2.2 WriteBuffer (part I)
 			_set_data_info_cnts_disp(data_info, 
 						ker_info->last_upload_partition_size, 
@@ -1550,7 +1550,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
 			}
-			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
+			//_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
 		
 		if (_debug_stream_seq && _gfn_rank == 0 && ker_info->curr_sequence_id >= 2) {
@@ -1576,14 +1576,14 @@ int _GfnStreamSeqKernelFinishSequence(long long kernel_id)
 	int sequence_id = 0;
 	struct _kernel_information *ker_info;
 	
-	_retieve_kernel_table(kernel_id, ker_info, &found);
+	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	
 	// update kernel info
 	ker_info->curr_sequence_id += 1;
 }
 
 int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	if (_is_lock_transfer(unique_id)) {
@@ -1664,7 +1664,7 @@ do { \
 	}
 	
 	struct _kernel_information *ker_info;
-	_retieve_kernel_table(kernel_id, ker_info, &found);
+	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	_add_scatter_var_id( ker_info, data_info ); // Register to kernel
 #if 0
 
@@ -1959,7 +1959,7 @@ int _GfnStreamSeqFinishDistributeArray()
 }
 
 int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
-						int loop_start, int loop_end, int loop_step, int stream_no, int partitioned_dim, int pattern_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
 	return 0;

@@ -28,7 +28,7 @@ int _insert_to_kernel_table( long long id, struct _kernel_information *ker_info 
 	return 0;
 }
 
-int _retieve_kernel_table( long long id, struct _kernel_information *ker_info, int *found ) {
+int _retieve_kernel_table( long long id, struct _kernel_information **ker_info, int *found ) {
 	void *retieved_rec = NULL;
 	kernel_record find_rec;
 	find_rec.id = id;
@@ -36,7 +36,7 @@ int _retieve_kernel_table( long long id, struct _kernel_information *ker_info, i
 	retieved_rec = tfind((void *)&find_rec, &_kernel_tab_root, _kernel_compare);
 	
 	if (retieved_rec) {
-		ker_info = (*(kernel_record**)retieved_rec)->ker_info;
+		*ker_info = (*(kernel_record**)retieved_rec)->ker_info;
 		*found = 1 /* TRUE */;
 	} else {
 		*found = 0 /* FALSE */;
