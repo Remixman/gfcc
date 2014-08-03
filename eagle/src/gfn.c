@@ -372,7 +372,7 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	}
 
 	if (dim1_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu]\n", __FILE__, __LINE__, dim1_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu]\n", __FILE__, __LINE__, dim1_size);
 	}
 
 #define SWITCH_MALLOC_1D(type,size1) \
@@ -440,7 +440,7 @@ int _GfnMalloc2D(void *** ptr, cl_mem *cl_ptr, long long unique_id, int type_id,
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu]\n", __FILE__, __LINE__, dim1_size, dim2_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu|%zu]\n", __FILE__, __LINE__, dim1_size, dim2_size);
 	}
 
 #define SWITCH_MALLOC_2D(type,size1,size2) \
@@ -509,7 +509,7 @@ int _GfnMalloc3D(void **** ptr, cl_mem *cl_ptr, long long unique_id, int type_id
 	}
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu]\n", __FILE__, __LINE__, dim1_size, dim2_size, dim3_size);
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu|%zu|%zu]\n", __FILE__, __LINE__, dim1_size, dim2_size, dim3_size);
 	}
 
 #define SWITCH_MALLOC_3D(type,size1,size2,size3) \
@@ -581,7 +581,7 @@ int _GfnMalloc4D(void ***** ptr, cl_mem *cl_ptr, long long unique_id, int type_i
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu]\n", __FILE__, __LINE__, 
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu|%zu|%zu|%zu]\n", __FILE__, __LINE__, 
 			dim1_size, dim2_size, dim3_size, dim4_size);
 	}
 
@@ -656,7 +656,7 @@ int _GfnMalloc5D(void ****** ptr, cl_mem *cl_ptr, long long unique_id, int type_
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu|%lu]\n", __FILE__, __LINE__, 
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu|%zu|%zu|%zu|%zu]\n", __FILE__, __LINE__, 
 			dim1_size, dim2_size, dim3_size, dim4_size, dim5_size);
 	}
 
@@ -733,7 +733,7 @@ int _GfnMalloc6D(void ******* ptr, cl_mem *cl_ptr, long long unique_id, int type
 
 	if (dim1_size <= 0 && dim2_size <= 0 && dim3_size <= 0 &&
 		dim4_size <= 0 && dim5_size <= 0 && dim6_size <= 0) {
-		fprintf(stdout, "ERROR %s:%d : Invalid size [%lu|%lu|%lu|%lu|%lu|%lu]\n", 
+		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu|%zu|%zu|%zu|%zu|%zu]\n", 
 			__FILE__, __LINE__, dim1_size, dim2_size, 
 			dim3_size, dim4_size, dim5_size, dim6_size);
 	}
