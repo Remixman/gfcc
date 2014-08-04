@@ -276,8 +276,12 @@ TL::Source ParallelFor::do_parallel_for()
         << ((_kernel_info->_has_inner_loop)? gen_loop_size : loop_size_var)
         << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
-        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
-        << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_size);"; 
+        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
+    if (_optimization_level > 0) 
+    {
+        worker_initialize_generated_variables_src
+            << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_size);"; 
+    }
         
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (loop_step[0] == '-')? false : true;
@@ -805,14 +809,19 @@ TL::Source ParallelFor::do_parallel_for()
             
             << comment("Distribute Array Memory")
             << worker_distribute_array_memory_src
-            << create_gfn_f_dist_array()
+            << create_gfn_f_dist_array();
             
-                /* Optimization */
-                << "while (1) {"
-                << stream_loop_variable
-                << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_completed);"
-                << "if (!_stream_completed && (_sequence_id >= 2)) {"
+            /* Optimization */
+            if (_optimization_level > 0) 
+            {
+                worker_func_def
+                    << "while (1) {"
+                    << stream_loop_variable
+                    << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_completed);"
+                    << "if (!_stream_completed && (_sequence_id >= 2)) {";
+            }
             
+        worker_func_def
             << comment("Compute Workload")
             // GPU or GPU Cluster (depend on level1 condition)
             << "if (" << level2_cond << ") {"
@@ -823,14 +832,19 @@ TL::Source ParallelFor::do_parallel_for()
             // Cluster only
             << "} else {"
                 << mpi_block_dist_for_stmt
-            << "}"
+            << "}";
             
-                /* Optimization */
-                << "}"
-                << "_GfnStreamSeqKernelFinishSequence(_kernel_id);"
-                << "if (_stream_completed) break;"
-                << "}"
+            /* Optimization */
+            if (_optimization_level > 0) 
+            {
+                worker_func_def
+                    << "}"
+                    << "_GfnStreamSeqKernelFinishSequence(_kernel_id);"
+                    << "if (_stream_completed) break;"
+                    << "}";
+            }
             
+        worker_func_def
             << comment("Gather Array Memory")
             << worker_gather_array_memory_src
             << create_gfn_f_gather_array()
