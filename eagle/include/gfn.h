@@ -62,8 +62,17 @@ struct _data_information {
 	int pattern_array[20];
 	int pattern_num;
 	
-	int last_cnts[20]; // TODO: change to cluster size
-	int last_disp[20]; // TODO: change to cluster size
+	// For kernel execution
+	int last_exec_cnts[8];
+	int last_exec_disp[8];
+	
+	// For write buffer
+	int last_upload_cnts[8];
+	int last_upload_disp[8];
+	
+	// For broadcast and scatter
+	int last_partition_cnts[8];
+	int last_partition_disp[8];
 	
 	MPI_Request last_iscatter_req;
 	MPI_Request last_igather_req;
@@ -76,7 +85,7 @@ void _set_data_info_loop(struct _data_information *data_info,
 			int loop_start, int loop_end, int loop_step);
 void _set_data_info_pattern(struct _data_information *data_info,
 			int pattern_type, int pattern_num, int *pattern_array);
-void _set_data_info_cnts_disp(struct _data_information *data_info, int partition_size, int seq_start, int seq_end);
+void _update_data_info_cnts_disp(struct _data_information *data_info);
 
 struct _kernel_information {
 	
@@ -102,7 +111,7 @@ struct _kernel_information {
 	int last_partition_seq_end;
 	int last_partition_partition_size;
 	
-	// TODO: Boardcast
+	// TODO: Broadcast
 	size_t bcast_var_num;
 	struct _data_information *bcast_var_datas[15]; // TODO: Don't fix array size
 	// Scatter 
@@ -115,9 +124,9 @@ struct _kernel_information {
 
 void _update_kernel_info_seq(struct _kernel_information *ker_info);
 void _add_scatter_var_id( struct _kernel_information *ker_info, struct _data_information *var_data );
-void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num );
+void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num );
 void _add_gather_var_id( struct _kernel_information *ker_info, struct _data_information *var_data );
-void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num );
+void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num );
 
 // API for user
 int gfn_get_num_process();

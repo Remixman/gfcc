@@ -1462,18 +1462,12 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			__FILE__, __LINE__, kernel_id);
 		return -11;
 	}
-
-	// TODO: calculate increment step
-	if (ker_info->last_exec_seq_start >= ker_info->last_exec_seq_end) *is_completed = 1;
-	else *is_completed = 0;
-	
-	if (*is_completed) return 0;
 	
 	
 	size_t var_num;
-	int vit;
+	int vit, i;
 	struct _data_information ** data_infos;
-	_get_scatter_var_ids(ker_info, data_infos, &var_num);
+	_get_scatter_var_ids(ker_info, &data_infos, &var_num);
 	struct _data_information *first_data_info = NULL;
 	struct _data_information *last_data_info = NULL;
 	
@@ -1485,13 +1479,16 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("SS: SEQUENCE NUMBER : %d\n", ker_info->curr_sequence_id);
 	}
+	
+	// TODO: calculate partition size dynamically
+	int curr_ite_partition_size = 500;
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
 	if (ker_info->curr_sequence_id == 0) {
 		// get sequence start and end index
 		ker_info->last_partition_seq_start = ker_info->local_start;
-		ker_info->last_partition_partition_size = 1000;
+		ker_info->last_partition_partition_size = curr_ite_partition_size;
 		ker_info->last_partition_seq_end = ker_info->last_partition_seq_start + ker_info->last_partition_partition_size;
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
@@ -1499,15 +1496,23 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
 			
-			_set_data_info_cnts_disp(data_info, 
-						ker_info->last_partition_partition_size, 
-						ker_info->last_partition_seq_start,
-						ker_info->last_partition_seq_end);
+			if (_debug_stream_seq && _gfn_rank == 0) {
+				printf("last_partition_partition_size = %d\n", ker_info->last_partition_partition_size);
+				printf("last_partition_seq_start = %d\n", ker_info->last_partition_seq_start);
+				printf("last_partition_seq_end = %d\n", ker_info->last_partition_seq_end);
+			}
+			
+			// Initialize cnts for first partition
+			for (i = 0; i < _gfn_num_proc; ++i) {
+				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size * data_info->block_size;
+				// TODO: if data_info->last_partition_disp[i] + data_info->last_partition_cnts[i] > bound
+			}
+			
 			if (_debug_stream_seq && _gfn_rank == 0) {
 				int r;
 				for (r = 0; r < _gfn_num_proc; ++r)
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
 			//_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
@@ -1527,28 +1532,29 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		// 2. for variable 2 - last
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
+			
+			// Update cnts and disp
+			for (i = 0; i < _gfn_num_proc; ++i) {
+				data_info->last_partition_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
+				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size;
+				// TODO: if data_info->last_partition_disp[i] + data_info->last_partition_cnts[i] > bound
+				_update_data_info_cnts_disp(data_info);
+			}
+			
 			// 2.1 IScatter (part I+1)
-			_set_data_info_cnts_disp(data_info, 
-						ker_info->last_partition_partition_size, 
-						ker_info->last_partition_seq_start,
-						ker_info->last_partition_seq_end);
 			if (_debug_stream_seq && _gfn_rank == 0) {
 				int r;
 				for (r = 0; r < _gfn_num_proc; ++r)
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
 			//_GfnStreamSeqIScatter(kernel_id, data_info);
 			// 2.2 WriteBuffer (part I)
-			_set_data_info_cnts_disp(data_info, 
-						ker_info->last_upload_partition_size, 
-						ker_info->last_upload_seq_start,
-						ker_info->last_upload_seq_end);
 			if (_debug_stream_seq && _gfn_rank == 0) {
 				int r;
 				for (r = 0; r < _gfn_num_proc; ++r)
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_cnts[r], r, data_info->last_disp[r]);
+					       r, data_info->last_upload_disp[r], r, data_info->last_upload_disp[r]);
 			}
 			//_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
@@ -1561,6 +1567,11 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("========================================\n\n");
 	}
+	
+	// TODO: calculate increment step
+	if (ker_info->last_exec_seq_start >= ker_info->last_exec_seq_end) *is_completed = 1;
+	else *is_completed = 0;
+	if (*is_completed) return 0;
 	
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
 	
@@ -1619,6 +1630,11 @@ int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr
 		else if (i == partitioned_dim)   data_info->elem_num    *= size_array[i];
 		else /* i > partitioned_dim */   data_info->block_size  *= size_array[i];
 	}
+	
+	/*if (_debug_stream_seq && _gfn_rank == 0) {
+		printf("ELEMENT NUM = %zu\n", data_info->elem_num);
+		printf("BLOCK SIZE = %zu\n", data_info->block_size);
+	}*/
 
 	// FIXME: this quick fix for partition of loop and data isnot match
 	if (partitioned_dim >= 0) {
@@ -1666,6 +1682,20 @@ do { \
 	struct _kernel_information *ker_info;
 	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	_add_scatter_var_id( ker_info, data_info ); // Register to kernel
+	
+	// Calculate disp (cnts is depend on partition size)
+	_CalcPartitionInfo(
+		data_info->elem_num, 
+		data_info->block_size, 
+		data_info->loop_start,
+		data_info->loop_end, 
+		data_info->loop_step, 
+		data_info->pattern_array, 
+		data_info->pattern_num, 
+		data_info->pattern_type, 
+		data_info->last_partition_cnts, /* OUTPUT */
+		data_info->last_partition_disp  /* OUTPUT */
+	);
 #if 0
 
 	/* Exchange boundary if stream number is -1 */
@@ -1871,11 +1901,16 @@ for (i = 0; i < recv_loop_num; ++i) { \
 
 int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_info)
 {	
+	int *cnts = data_info->last_partition_cnts;
+	int *disp = data_info->last_partition_disp;
+	int sub_size = data_info->last_partition_cnts[_gfn_rank];
+	int elem_offset = data_info->last_partition_disp[_gfn_rank];
+	
 #define SWITCH_STREAM_SCATTER(type, mpi_type) \
 do { \
 	type * tmp_ptr = (type *) data_info->ptr; \
-	MPI_Iscatterv(tmp_ptr, data_info->last_cnts, data_info->last_disp, mpi_type, \
-		tmp_ptr + data_info->last_disp[_gfn_rank], data_info->last_cnts[_gfn_rank], mpi_type, 0, MPI_COMM_WORLD, \
+	MPI_Iscatterv(tmp_ptr, cnts, disp, mpi_type, \
+		tmp_ptr + elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD, \
 		&(data_info->last_iscatter_req)); \
 } while (0)
 
@@ -1902,8 +1937,8 @@ int _GfnStreamSeqWriteBuffer(long long kernel_id, struct _data_information *data
 	cl_buffer_region info;
 	cl_mem subbuf;
 	
-	int sub_size = data_info->last_cnts[_gfn_rank];
-	int elem_offset = data_info->last_disp[_gfn_rank];
+	int sub_size = data_info->last_upload_cnts[_gfn_rank];
+	int elem_offset = data_info->last_upload_disp[_gfn_rank];
 	
 #define SWITCH_STREAM_WRITE_BUFFER(type, mpi_type) \
 do { \
@@ -2571,20 +2606,19 @@ void _set_data_info_variable(struct _data_information *data_info,
 	data_info->type_id = type_id;
 }
 
-void _set_data_info_cnts_disp(struct _data_information *data_info, int partition_size, int seq_start, int seq_end)
+void _update_data_info_cnts_disp(struct _data_information *data_info)
 {
-	_CalcPartitionInfo(
-		partition_size, 
-		data_info->block_size, 
-		seq_start, 
-		seq_end, 
-		data_info->loop_step, 
-		data_info->pattern_array, 
-		data_info->pattern_num, 
-		data_info->pattern_type, 
-		data_info->last_cnts, /* OUTPUT */
-		data_info->last_disp  /* OUTPUT */
-	);
+	int i;
+	
+	/*for (i = 0; i < _gfn_num_proc; ++i) {
+		data_info->last_exec_cnts[i] = data_info->last_upload_cnts[i];
+		data_info->last_exec_disp[i] = data_info->last_upload_cnts[i];
+	}*/
+	
+	for (i = 0; i < _gfn_num_proc; ++i) {
+		data_info->last_upload_cnts[i] = data_info->last_partition_cnts[i];
+		data_info->last_upload_cnts[i] = data_info->last_partition_disp[i];
+	}
 }
 
 
@@ -2605,10 +2639,10 @@ void _add_scatter_var_id( struct _kernel_information *ker_info, struct _data_inf
 	ker_info->scatter_var_num += 1;
 }
 
-void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num ) {
+void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num ) {
 	*var_num = ker_info->scatter_var_num;
-	var_datas = ker_info->scatter_var_datas;
+	*var_datas = ker_info->scatter_var_datas;
 }
 
 void _add_gather_var_id( struct _kernel_information *ker_info, struct _data_information *var_data ) {}
-void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information **var_datas, size_t *var_num ) {}
+void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num ) {}
