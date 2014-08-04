@@ -277,7 +277,7 @@ TL::Source ParallelFor::do_parallel_for()
         << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
         << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
-        << "_GfnStreamSeqKernelRegister(_kernel_id, _local_i_start, _local_i_end, _loop_size);"; 
+        << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_size);"; 
         
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (loop_step[0] == '-')? false : true;
@@ -679,7 +679,7 @@ TL::Source ParallelFor::do_parallel_for()
 	cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     }
     // Current loop step
-    if (loop_step != "1")
+    //if (loop_step != "1")
     {
         cl_set_kernel_arg
             << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", loop_step_var);
