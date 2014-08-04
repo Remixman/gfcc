@@ -129,11 +129,7 @@ TL::Source ParallelFor::do_parallel_for()
     TL::Source mpi_block_dist_for_stmt; // TODO : other for stmt
     
     // Optimization code
-    TL::Source stream_loop_start_src;
-    TL::Source stream_initialize_generated_variables_src;
-    TL::Source stream_distribute_array_src;
-    TL::Source stream_gather_array_src;
-    TL::Source stream_loop_end_src;
+    TL::Source stream_loop_variable;
 
     /* _function_def is function that call for_stmt */
     _function_def = new FunctionDefinition(_for_stmt.get_enclosing_function());
@@ -165,6 +161,18 @@ TL::Source ParallelFor::do_parallel_for()
     
     worker_function_name << "_Function_" << _kernel_info->kernel_id;
     kernel_name << "_kernel_" << _kernel_info->kernel_id;
+    
+    std::string stream_start_idx_var = "_stream_" + induction_var_name + "_start";
+    std::string stream_end_idx_var = "_stream_" + induction_var_name + "_end";
+    
+    stream_loop_variable
+        << "int " << stream_start_idx_var << ";"
+        << "int " << stream_end_idx_var << ";"
+        << "int _stream_loop_size;"
+        << "int _stream_completed = 0;"
+        << "int _sequence_id = 0;"
+        << "size_t _stream_global_item_num;"
+        << "size_t _stream_work_group_item_num;";
 
     /*== ---------- Create source about loop size ------------------==*/
     if (debug) std::cout << "create source about loop size\n";
@@ -182,7 +190,7 @@ TL::Source ParallelFor::do_parallel_for()
         {
             std::cerr << "Error : Variable in loop expression must be scalar\n";
         }
-
+        
         master_send_scalar_input
             << "_SendInputMsg((void *)&" << var_name
             << ", sizeof (" << c_type_str << "));";
@@ -209,6 +217,7 @@ TL::Source ParallelFor::do_parallel_for()
     std::string loop_step_var = "_loop_step";
     std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
+    std::string kernel_id_var = "_kernel_id";
     
     std::string inner_start_idx_var = "_" + inner_induction_var_name + "_start";
     std::string inner_end_idx_var = "_" + inner_induction_var_name + "_end";
@@ -220,6 +229,7 @@ TL::Source ParallelFor::do_parallel_for()
     std::string gen_loop_size = "_gen_loop_size";
     
     worker_declare_generated_variables_src
+	<< "int " << kernel_id_var << " = " << _kernel_info->kernel_id << ";"
         << "int " << local_start_idx_var << "," << local_end_idx_var << ";"
         << "int " << loop_step_var << ";"
         << "int " << loop_size_var << ";"
@@ -236,16 +246,7 @@ TL::Source ParallelFor::do_parallel_for()
             << "int " << gen_index << ";"
             << "int " << gen_loop_size << ";";
     }
-    if (_optimization_level > 0)
-    {
-        worker_declare_generated_variables_src
-            << "int _stream_no = -1, _number_of_stream;"
-            << "int _stream_local_start, _stream_local_end;";
-        stream_loop_start_src 
-            << "for (_stream_no = 0; _stream_no < _number_of_stream; ++_stream_no) {";
-        stream_loop_end_src
-            << "}";
-    }
+    
     
     worker_initialize_generated_variables_src
         << local_start_idx_var << " = _GfnCalcLocalLoopStart("
@@ -275,18 +276,8 @@ TL::Source ParallelFor::do_parallel_for()
         << ((_kernel_info->_has_inner_loop)? gen_loop_size : loop_size_var)
         << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
-        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
-    if (_optimization_level > 0)
-    {
-        worker_initialize_generated_variables_src
-            << "_number_of_stream = _GfnCalcNumberOfStream(" 
-            << local_start_idx_var << "," << local_end_idx_var << ");";
-        stream_initialize_generated_variables_src
-            << "_stream_local_start = _GfnStreamSeqLocalLoopStart(" << local_start_idx_var << ","
-            << local_end_idx_var << "," << loop_step << ", 1000, _stream_no, 1);"
-            << "_stream_local_end = _GfnStreamSeqLocalLoopEnd(" << local_start_idx_var << ","
-            << local_end_idx_var << "," << loop_step << ", 1000, _stream_no, 1);";
-    }        
+        << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);"
+        << "_GfnStreamSeqKernelRegister(_kernel_id, _local_i_start, _local_i_end, _loop_size);"; 
         
     // XXX: we indicate with only step symbol
     bool is_incre_loop = (loop_step[0] == '-')? false : true;
@@ -497,16 +488,9 @@ TL::Source ParallelFor::do_parallel_for()
                 {
                     /* distribute first chunk and boundary */
                     worker_distribute_array_memory_src
-                        << create_gfn_q_stream_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
-                                                loop_start, loop_end, loop_step, "0", var_info._dimension_num,
-                                                var_info._dim_size, var_info._shared_dimension, 
-                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
-                                                in_pattern_type, level1_cond, level2_cond);
-                    
-                    /* distribute other chunks */
-                    stream_distribute_array_src
-                        << create_gfn_q_stream_scatter_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
-                                                loop_start, loop_end, loop_step, "_stream_no + 1", var_info._dimension_num,
+                        << create_gfn_q_stream_scatter_nd(kernel_id_var,
+                                                var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, var_info._dimension_num,
                                                 var_info._dim_size, var_info._shared_dimension, 
                                                 var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
                                                 in_pattern_type, level1_cond, level2_cond);
@@ -668,30 +652,32 @@ TL::Source ParallelFor::do_parallel_for()
             // TODO: step
     }
     
-    // Add new start and end index to kernel argument, e.g. local_i_start, local_i_end
-    if (_optimization_level > 0) 
-    {}
     
     std::string kernel_start_param, kernel_end_param;
+    kernel_start_param = local_start_idx_var;
+    kernel_end_param = local_end_idx_var;
+    
+    // Current local loop start
     if (_optimization_level > 0)
     {
-        kernel_start_param = "_stream_local_start";
-        kernel_end_param = "_stream_local_end";
+	cl_set_kernel_arg
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", stream_start_idx_var);
+	cl_actual_params.append_with_separator(("int " + local_start_idx_var), ",");
+	// Current local loop end
+	cl_set_kernel_arg
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", stream_end_idx_var);
+	cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     }
     else
     {
-        kernel_start_param = local_start_idx_var;
-        kernel_end_param = local_end_idx_var;
+	cl_set_kernel_arg
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_start_idx_var);
+	cl_actual_params.append_with_separator(("int " + local_start_idx_var), ",");
+	// Current local loop end
+	cl_set_kernel_arg
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_end_idx_var);
+	cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     }
-    
-    // Current local loop start
-    cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_start_idx_var);
-    cl_actual_params.append_with_separator(("int " + local_start_idx_var), ",");
-    // Current local loop end
-    cl_set_kernel_arg
-        << create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", local_end_idx_var);
-    cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     // Current loop step
     if (loop_step != "1")
     {
@@ -781,8 +767,16 @@ TL::Source ParallelFor::do_parallel_for()
     cl_release_kernel
         << "_GfnClearKernel(_kernel);";
 
-    cl_launch_kernel
-        << "_GfnLaunchKernel(_kernel,&_global_item_num,&_work_group_item_num);";
+    if (_optimization_level > 0)
+    {
+        cl_launch_kernel
+            << "_GfnLaunchKernel(_kernel, &_stream_global_item_num, &_stream_work_group_item_num);";
+    }
+    else
+    {
+        cl_launch_kernel
+            << "_GfnLaunchKernel(_kernel,&_global_item_num,&_work_group_item_num);";
+    }
 
 
     /*==----------------  Create worker function -------------------==*/
@@ -814,10 +808,10 @@ TL::Source ParallelFor::do_parallel_for()
             << create_gfn_f_dist_array()
             
                 /* Optimization */
-                << stream_loop_start_src 
-                << stream_initialize_generated_variables_src
-                << "if (_stream_no != _number_of_stream-1) {"
-                << stream_distribute_array_src << "}"
+                << "while (1) {"
+                << stream_loop_variable
+                << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_completed);"
+                << "if (!_stream_completed && (_sequence_id >= 2)) {"
             
             << comment("Compute Workload")
             // GPU or GPU Cluster (depend on level1 condition)
@@ -832,8 +826,10 @@ TL::Source ParallelFor::do_parallel_for()
             << "}"
             
                 /* Optimization */
-                << stream_gather_array_src
-                << stream_loop_end_src
+                << "}"
+                << "_GfnStreamSeqKernelFinishSequence(_kernel_id);"
+                << "if (_stream_completed) break;"
+                << "}"
             
             << comment("Gather Array Memory")
             << worker_gather_array_memory_src

@@ -754,14 +754,14 @@ TL::Source create_gfn_q_scatter_nd(std::string var_name,
     return result;
 }
 
-TL::Source create_gfn_q_stream_scatter_nd(std::string var_name,
+TL::Source create_gfn_q_stream_scatter_nd(std::string kernel_id,
+                                          std::string var_name,
                                           std::string var_cl_name,
                                           std::string var_unique_id_name,
                                           std::string mpi_type,
                                           std::string loop_start,
                                           std::string loop_end,
                                           std::string loop_step,
-                                          std::string stream_no_var,
                                           int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                           int partitioned_dim,
                                           std::string cl_mem_flags,
@@ -794,11 +794,12 @@ TL::Source create_gfn_q_stream_scatter_nd(std::string var_name,
     }
     
     result
-        << "_GfnStreamSeqEnqueueScatterND((void*)" << var_name << subscript_to_1d << "," 
+        << "_GfnStreamSeqEnqueueScatterND(" << kernel_id 
+        << ",(void*)" << var_name << subscript_to_1d << ","
         << var_cl_name << "," << var_unique_id_name << ","
         << mpi_type << "," << cl_mem_flags << ","
         << loop_start << "," << loop_end << "," << loop_step << "," 
-        << stream_no_var << "," << partitioned_dim << "," << pattern_type << "," 
+        << partitioned_dim << "," << pattern_type << "," 
         << level1_cond << "," << level2_cond << ","
         << dim_num << "," << pattern_array_size 
         << ((dim_num+pattern_array_size==0)?"":",") << size_params;

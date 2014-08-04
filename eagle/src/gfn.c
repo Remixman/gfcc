@@ -1536,7 +1536,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			// Update cnts and disp
 			for (i = 0; i < _gfn_num_proc; ++i) {
 				data_info->last_partition_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
-				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size;
+				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size * data_info->block_size;
 				// TODO: if data_info->last_partition_disp[i] + data_info->last_partition_cnts[i] > bound
 				_update_data_info_cnts_disp(data_info);
 			}
@@ -1568,9 +1568,15 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		printf("========================================\n\n");
 	}
 	
-	// TODO: calculate increment step
-	if (ker_info->last_exec_seq_start >= ker_info->last_exec_seq_end) *is_completed = 1;
-	else *is_completed = 0;
+	
+	if (ker_info->curr_sequence_id < 2) {
+		*is_completed = 0;
+	} else {
+		// TODO: calculate increment step
+		if (ker_info->last_exec_seq_start >= ker_info->last_exec_seq_end) *is_completed = 1;
+		else *is_completed = 0;
+	}
+	
 	if (*is_completed) return 0;
 	
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
