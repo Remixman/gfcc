@@ -1481,7 +1481,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	}
 	
 	// TODO: calculate partition size dynamically
-	int curr_ite_partition_size = 500;
+	int curr_ite_partition_size = 200;
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
@@ -1535,10 +1535,15 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			
 			// Update cnts and disp
 			for (i = 0; i < _gfn_num_proc; ++i) {
+				data_info->last_upload_cnts[i] = data_info->last_partition_cnts[i];
+				data_info->last_upload_disp[i] = data_info->last_partition_disp[i];
+
 				data_info->last_partition_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
 				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size * data_info->block_size;
-				// TODO: if data_info->last_partition_disp[i] + data_info->last_partition_cnts[i] > bound
-				_update_data_info_cnts_disp(data_info);
+				/*if (data_info->last_partition_disp[i] > data_info->end_disp) {
+					data_info->last_partition_disp[i] = 0;
+					data_info->last_partition_cnts[i] = 0;
+				}*/
 			}
 			
 			// 2.1 IScatter (part I+1)
@@ -1554,7 +1559,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 				int r;
 				for (r = 0; r < _gfn_num_proc; ++r)
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_upload_disp[r], r, data_info->last_upload_disp[r]);
+					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
 			}
 			//_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
@@ -1637,10 +1642,10 @@ int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr
 		else /* i > partitioned_dim */   data_info->block_size  *= size_array[i];
 	}
 	
-	/*if (_debug_stream_seq && _gfn_rank == 0) {
+	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("ELEMENT NUM = %zu\n", data_info->elem_num);
 		printf("BLOCK SIZE = %zu\n", data_info->block_size);
-	}*/
+	}
 
 	// FIXME: this quick fix for partition of loop and data isnot match
 	if (partitioned_dim >= 0) {
@@ -2614,17 +2619,7 @@ void _set_data_info_variable(struct _data_information *data_info,
 
 void _update_data_info_cnts_disp(struct _data_information *data_info)
 {
-	int i;
 	
-	/*for (i = 0; i < _gfn_num_proc; ++i) {
-		data_info->last_exec_cnts[i] = data_info->last_upload_cnts[i];
-		data_info->last_exec_disp[i] = data_info->last_upload_cnts[i];
-	}*/
-	
-	for (i = 0; i < _gfn_num_proc; ++i) {
-		data_info->last_upload_cnts[i] = data_info->last_partition_cnts[i];
-		data_info->last_upload_cnts[i] = data_info->last_partition_disp[i];
-	}
 }
 
 

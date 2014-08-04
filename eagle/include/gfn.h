@@ -57,6 +57,7 @@ struct _data_information {
 	int loop_start;
 	int loop_end;
 	int loop_step;
+	int end_disp;
 	
 	int pattern_type;
 	int pattern_array[20];
