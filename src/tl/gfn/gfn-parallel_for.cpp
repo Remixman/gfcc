@@ -280,7 +280,7 @@ TL::Source ParallelFor::do_parallel_for()
     if (_optimization_level > 0) 
     {
         worker_initialize_generated_variables_src
-            << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_size);"; 
+            << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_step);"; 
     }
         
     // XXX: we indicate with only step symbol

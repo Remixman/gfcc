@@ -57,7 +57,6 @@ struct _data_information {
 	int loop_start;
 	int loop_end;
 	int loop_step;
-	int end_disp;
 	
 	int pattern_type;
 	int pattern_array[20];
@@ -74,6 +73,7 @@ struct _data_information {
 	// For broadcast and scatter
 	int last_partition_cnts[8];
 	int last_partition_disp[8];
+    int end_disp[8];
 	
 	MPI_Request last_iscatter_req;
 	MPI_Request last_igather_req;
@@ -86,7 +86,6 @@ void _set_data_info_loop(struct _data_information *data_info,
 			int loop_start, int loop_end, int loop_step);
 void _set_data_info_pattern(struct _data_information *data_info,
 			int pattern_type, int pattern_num, int *pattern_array);
-void _update_data_info_cnts_disp(struct _data_information *data_info);
 
 struct _kernel_information {
 	
@@ -98,8 +97,6 @@ struct _kernel_information {
 	int curr_sequence_id;
 	
 	// For kernel execution
-	int last_exec_seq_start;
-	int last_exec_seq_end;
 	int last_exec_partition_size;
 	
 	// For write buffer
