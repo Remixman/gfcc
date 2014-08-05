@@ -1451,7 +1451,9 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	_insert_to_kernel_table(kernel_id, ker_info);
 }
 
-int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, int *is_completed)
+int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
+                                       size_t *stream_global_item_num, size_t *stream_work_group_item_num,
+                                       int *is_completed)
 {
 	int found = 0;
 	struct _kernel_information *ker_info;
@@ -1471,6 +1473,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	_get_scatter_var_ids(ker_info, &data_infos, &var_num);
 	struct _data_information *first_data_info = NULL;
 	struct _data_information *last_data_info = NULL;
+    MPI_Status status;
 	
 	if (var_num > 0) {
 		first_data_info = data_infos[0];
@@ -1519,7 +1522,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
                            r, data_info->end_disp[r] );
 			}
-			//_GfnStreamSeqIScatter(kernel_id, data_info);
+			_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
 	} else {
 		_update_kernel_info_seq(ker_info);
@@ -1567,7 +1570,13 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
-			//_GfnStreamSeqIScatter(kernel_id, data_info);
+			MPI_Wait(&(data_info->last_iscatter_req), &status);
+			_GfnStreamSeqIScatter(kernel_id, data_info);
+        }
+        
+        for (vit = 0; vit < var_num; ++vit) {
+            struct _data_information * data_info = data_infos[vit];
+            
 			// 2.2 WriteBuffer (part I)
 			if (_debug_stream_seq && _gfn_rank == 0) {
 				int r;
@@ -1575,7 +1584,8 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
 			}
-			//_GfnStreamSeqWriteBuffer(kernel_id, data_info);
+			clWaitForEvents(1, &(data_info->last_upload_evt));
+			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
 		
 		if (_debug_stream_seq && ker_info->curr_sequence_id >= 2) {
@@ -1587,6 +1597,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		printf("========================================\n\n");
 	}
 	
+	int _loop_size = _CalcLoopSize(*seq_start_idx, *seq_end_idx, ker_info->loop_step);
+	size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
+	*stream_global_item_num = 64; // TODO: optimization this value
+	*stream_work_group_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_global_item_num);
 	
 	if (ker_info->curr_sequence_id < 2) {
 		*is_completed = 0;
@@ -1979,7 +1993,7 @@ do { \
 	info.size = (size_t)(sub_size * sizeof(type)); \
 	subbuf = clCreateSubBuffer(data_info->cl_ptr, data_info->mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
 	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
-	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, 0); \
+	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_FALSE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, &(data_info->last_upload_evt)); \
 	_GfnCheckCLStatus(_gfn_status, "WRITE BUFFER"); \
 	_gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \

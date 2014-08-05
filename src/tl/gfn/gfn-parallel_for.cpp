@@ -817,7 +817,7 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_func_def
                     << "while (1) {"
                     << stream_loop_variable
-                    << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_completed);"
+                    << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_global_item_num, &_stream_work_group_item_num, &_stream_completed);"
                     << "if (!_stream_completed && (_sequence_id >= 2)) {";
             }
             
