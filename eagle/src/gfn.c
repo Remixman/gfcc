@@ -1428,7 +1428,12 @@ int _GfnFinishGatherArray()
 // Stream sequence
 int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_step)
 {
-	struct _kernel_information *ker_info = (struct _kernel_information *)malloc(sizeof(struct _kernel_information));
+	int found = 0;
+	struct _kernel_information *ker_info;
+	
+	_retieve_kernel_table(kernel_id, &ker_info, &found);
+	
+	if (!found) ker_info = (struct _kernel_information *)malloc(sizeof(struct _kernel_information));
 	
 	ker_info->kernel_id = kernel_id;
 	ker_info->local_start = local_start;
@@ -1452,7 +1457,7 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->scatter_var_num = 0;
 	ker_info->gather_var_num = 0;
 	
-	_insert_to_kernel_table(kernel_id, ker_info);
+	if (!found) _insert_to_kernel_table(kernel_id, ker_info);
 }
 
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
@@ -1477,7 +1482,9 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	_get_scatter_var_ids(ker_info, &data_infos, &var_num);
 	struct _data_information *first_data_info = NULL;
 	struct _data_information *last_data_info = NULL;
-    MPI_Status status;
+	MPI_Status status;
+	
+	printf("VAR NUM = %zu\n", var_num);
 	
 	if (var_num > 0) {
 		first_data_info = data_infos[0];
@@ -1574,7 +1581,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
-			MPI_Wait(&(data_info->last_iscatter_req), &status);
+			if (data_info->has_iscatter_req) MPI_Wait(&(data_info->last_iscatter_req), &status);
 			_GfnStreamSeqIScatter(kernel_id, data_info);
 		}
         
@@ -1588,7 +1595,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
 			}
-			clWaitForEvents(1, &(data_info->last_upload_evt));
+			if (data_info->has_upload_evt) clWaitForEvents(1, &(data_info->last_upload_evt));
 			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
 		}
 		
@@ -1954,9 +1961,12 @@ int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_in
 	int sub_size = data_info->last_partition_cnts[_gfn_rank];
 	int elem_offset = data_info->last_partition_disp[_gfn_rank];
 	
-	if (sub_size == -1) return 0;
+	if (sub_size == -1) {
+		data_info->has_iscatter_req = 0; /* FALSE */
+		return 0;
+	}
 	
-	//printf("RANK = %d OFFSET = %d\n", _gfn_rank, elem_offset);
+	data_info->has_iscatter_req = 1; /* TRUE */
 	
 #define SWITCH_STREAM_SCATTER(type, mpi_type) \
 do { \
@@ -1997,7 +2007,12 @@ int _GfnStreamSeqWriteBuffer(long long kernel_id, struct _data_information *data
 	int sub_size = data_info->last_upload_cnts[_gfn_rank];
 	int elem_offset = data_info->last_upload_disp[_gfn_rank];
 	
-	if (sub_size == -1) return 0;
+	if (sub_size == -1) {
+		data_info->has_upload_evt = 0; /* FALSE */
+		return 0;
+	}
+	
+	data_info->has_upload_evt = 1; /* TRUE */
 	
 #define SWITCH_STREAM_WRITE_BUFFER(type, mpi_type) \
 do { \

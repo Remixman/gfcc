@@ -73,10 +73,12 @@ struct _data_information {
 	// For broadcast and scatter
 	int last_partition_cnts[8];
 	int last_partition_disp[8];
-    int end_disp[8];
+	int end_disp[8];
 	
-    cl_event last_upload_evt;
-    cl_event last_download_evt;
+	int has_upload_evt;
+	cl_event last_upload_evt;
+	cl_event last_download_evt;
+	int has_iscatter_req;
 	MPI_Request last_iscatter_req;
 	MPI_Request last_igather_req;
 };
@@ -171,6 +173,7 @@ int _GfnUnlockTransfer(long long id);
 
 // Stream Sequence Optimization
 int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_step);
+int _GfnStreamSeqKernelCleanUp(long long kernel_id);
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
                                        size_t *stream_global_item_num, size_t *stream_work_group_item_num,
                                        int *is_completed);
