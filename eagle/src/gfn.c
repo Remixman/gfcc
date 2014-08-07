@@ -1376,8 +1376,12 @@ for (i = 0; i < send_loop_num; ++i) { \
 	} \
 	IF_TIMING (_cluster_gather_time) gather_start_t = get_time(); \
 	TRACE_LOG ("node-transfer start %lld\n", gather_start_t); \
-	MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
-		tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	if (_gfn_rank == 0) \
+		MPI_Gatherv(MPI_IN_PLACE, sub_size, mpi_type, \
+			tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
+	else \
+		MPI_Gatherv(tmp_ptr + send_it_offset + send_elem_offset, sub_size, mpi_type, \
+			tmp_ptr + send_it_offset, cnts, disp, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_gather_time) gather_end_t = get_time(); \
 	TRACE_LOG ("node-transfer end %lld\n", gather_end_t); \
 	send_it_offset += (elem_num * block_size); \
@@ -1534,10 +1538,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
 		
-        *seq_start_idx = (*seq_start_idx < 0)? ker_info->local_start : *seq_end_idx + 1;
-        *seq_end_idx = *seq_start_idx + ker_info->last_exec_partition_size - 1;
-        if (*seq_end_idx > ker_info->local_end)
-            *seq_end_idx = ker_info->local_end;
+		*seq_start_idx = (*seq_start_idx < 0)? ker_info->local_start : *seq_end_idx + 1;
+		*seq_end_idx = *seq_start_idx + ker_info->last_exec_partition_size - 1;
+		if (*seq_end_idx > ker_info->local_end)
+			*seq_end_idx = ker_info->local_end;
 		
 		// 2. for variable 2 - last
 		for (vit = 0; vit < var_num; ++vit) {
@@ -1548,7 +1552,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 				data_info->last_upload_cnts[i] = data_info->last_partition_cnts[i];
 				data_info->last_upload_disp[i] = data_info->last_partition_disp[i];
 
-                if (data_info->last_partition_disp[i] < 0) continue;
+				if (data_info->last_partition_disp[i] < 0) continue;
                 
 				data_info->last_partition_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
 				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size/* * data_info->block_size*/;
@@ -1572,10 +1576,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			}
 			MPI_Wait(&(data_info->last_iscatter_req), &status);
 			_GfnStreamSeqIScatter(kernel_id, data_info);
-        }
+		}
         
-        for (vit = 0; vit < var_num; ++vit) {
-            struct _data_information * data_info = data_infos[vit];
+		for (vit = 0; vit < var_num; ++vit) {
+			struct _data_information * data_info = data_infos[vit];
             
 			// 2.2 WriteBuffer (part I)
 			if (_debug_stream_seq && _gfn_rank == 0) {
@@ -1599,8 +1603,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	
 	int _loop_size = _CalcLoopSize(*seq_start_idx, *seq_end_idx, ker_info->loop_step);
 	size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
-	*stream_global_item_num = 64; // TODO: optimization this value
-	*stream_work_group_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_global_item_num);
+	*stream_work_group_item_num = 64; // TODO: optimization this value
+	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
+	
+	printf("RANK %d WORK_ITEM_NUM = %zu WORK_GROUP_SIZE = %zu\n", _gfn_rank, _work_item_num, *stream_work_group_item_num);
 	
 	if (ker_info->curr_sequence_id < 2) {
 		*is_completed = 0;
@@ -1950,12 +1956,19 @@ int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_in
 	
 	if (sub_size == -1) return 0;
 	
+	//printf("RANK = %d OFFSET = %d\n", _gfn_rank, elem_offset);
+	
 #define SWITCH_STREAM_SCATTER(type, mpi_type) \
 do { \
 	type * tmp_ptr = (type *) data_info->ptr; \
-	MPI_Iscatterv(tmp_ptr, cnts, disp, mpi_type, \
-		tmp_ptr + elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD, \
-		&(data_info->last_iscatter_req)); \
+	if (_gfn_rank == 0) \
+		MPI_Iscatterv(tmp_ptr, cnts, disp, mpi_type, \
+			MPI_IN_PLACE, sub_size, mpi_type, 0, MPI_COMM_WORLD, \
+			&(data_info->last_iscatter_req)); \
+	else \
+		MPI_Iscatterv(tmp_ptr, cnts, disp, mpi_type, \
+			(tmp_ptr + elem_offset), sub_size, mpi_type, 0, MPI_COMM_WORLD, \
+			&(data_info->last_iscatter_req)); \
 } while (0)
 
 	switch(data_info->type_id)
