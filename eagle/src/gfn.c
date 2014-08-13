@@ -1695,6 +1695,7 @@ int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr
 	int recv_loop_num = 1;
 	int size_array[size_n], pattern_array[pattern_n];
 	struct _data_information *data_info = (struct _data_information *) malloc(sizeof(struct _data_information));
+	_init_data_info(data_info);
 
 	int i, found = 0;
 	va_list vl;
@@ -2685,6 +2686,15 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 
 
 //// Function for data information
+void _init_data_info(struct _data_information *data_info)
+{
+	data_info->ptr = NULL;
+	data_info->dim_n = 0;
+	
+	data_info->has_upload_evt = 0;
+	data_info->has_iscatter_req = 0;
+}
+
 void _set_data_info_loop(struct _data_information *data_info, 
 			int loop_start, int loop_end, int loop_step)
 {
