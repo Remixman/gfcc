@@ -36,7 +36,7 @@ long long int *long_long_int_sum_buffer;
 
 long long _gfn_last_kernel_time;
 int is_overlap_node_dev_trans;
-int optimize_chunk_size;
+int stream_seq_factor = 1;
 
 char current_kernel_name[50];
 
@@ -135,12 +135,11 @@ int _GfnInit(int *argc, char **argv[])
 	send_scalar_curr_idx = 0;
 
 	/* Chunk size */
-	optimize_chunk_size = 5000;
-	char *opt_chunk_size = getenv("GFN_OPT_CHUNK_SIZE");
-	if (opt_chunk_size) 
-		sscanf(opt_chunk_size, "%d", &optimize_chunk_size);
-	MPI_Bcast(&optimize_chunk_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	if (_gfn_rank == 0) printf("GFN_OPT_CHUNK_SIZE = %d\n", optimize_chunk_size);
+	stream_seq_factor = 1;
+	char *opt_stream_factor = getenv("GFN_OPT_STREAM_FACTOR");
+	if (opt_stream_factor) sscanf(opt_stream_factor, "%d", &stream_seq_factor);
+	MPI_Bcast(&stream_seq_factor, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if (_gfn_rank == 0) printf("GFN_OPT_STREAM_FACTOR = %d\n", stream_seq_factor);
 
 
 	/* Reduction buffer */
@@ -884,12 +883,6 @@ int _GfnEnqueueBroadcastND(void * ptr, cl_mem cl_ptr, long long unique_id, int t
 			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueBroadcastND", __FILE__, __LINE__);
  	}
 
- 	_get_var_info(unique_id, &mem_type, &found); /* get mem flags */
-	chunk_size = optimize_chunk_size;
-	chunk_num = (total_size + chunk_size - 1) / chunk_size;
-	last_ite_size = (total_size % chunk_size == 0)?
-		chunk_size : total_size % chunk_size;
-
 #define SWITCH_BCAST_ND(type,mpi_type) \
 do { \
 	type * tmp_ptr = (type *) ptr; \
@@ -909,63 +902,21 @@ do { \
 	} \
 } while (0)
 
-#define OVERLAP_SWITCH_BCAST_ND(type,mpi_type) \
-do { \
-	type * tmp_ptr = (type *) ptr; \
-	if (_gfn_rank == 0) _RecvInputMsg((void *)(tmp_ptr), sizeof(type) * total_size); \
-	cl_buffer_region subbuf_info; \
-	for (i = 0; i < chunk_num; ++i) { \
-		transfer_size = (i == chunk_num-1)? last_ite_size : chunk_size; \
-		MPI_Bcast((void *)(tmp_ptr), transfer_size, mpi_type, 0, MPI_COMM_WORLD); \
-		subbuf_info.origin = (size_t)(chunk_size * i * sizeof(type)); \
-		subbuf_info.size = (size_t)(transfer_size * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &subbuf_info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER FOR OVERLAP BCAST"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * transfer_size, tmp_ptr, 0, 0, 0); \
-		_GfnCheckCLStatus(_gfn_status, "OVERLAP BCAST WRITE BUFFER"); \
-		tmp_ptr += chunk_size; \
-	} \
-} while (0)
-
-	overall_bcast_start_t = get_time();
-	if (is_overlap_node_dev_trans && level2_cond &&
-			(total_size > chunk_size))
+	switch(type_id)
 	{
-		switch(type_id)
-		{
-		case TYPE_CHAR:           OVERLAP_SWITCH_BCAST_ND(char,MPI_CHAR); break;
-		case TYPE_UNSIGNED_CHAR:  OVERLAP_SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-		case TYPE_SHORT:          OVERLAP_SWITCH_BCAST_ND(short,MPI_SHORT); break;
-		case TYPE_UNSIGNED_SHORT: OVERLAP_SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-		case TYPE_INT:            OVERLAP_SWITCH_BCAST_ND(int,MPI_INT); break;
-		case TYPE_UNSIGNED:       OVERLAP_SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
-		case TYPE_LONG:           OVERLAP_SWITCH_BCAST_ND(long,MPI_LONG); break;
-		case TYPE_UNSIGNED_LONG:  OVERLAP_SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-		case TYPE_FLOAT:          OVERLAP_SWITCH_BCAST_ND(float,MPI_FLOAT); break;
-		case TYPE_DOUBLE:         OVERLAP_SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
-		case TYPE_LONG_DOUBLE:    OVERLAP_SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
-		case TYPE_LONG_LONG_INT:  OVERLAP_SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
-		}
+	case TYPE_CHAR:           SWITCH_BCAST_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_BCAST_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_BCAST_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_BCAST_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_BCAST_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
-	else
-	{
-		switch(type_id)
-		{
-		case TYPE_CHAR:           SWITCH_BCAST_ND(char,MPI_CHAR); break;
-		case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-		case TYPE_SHORT:          SWITCH_BCAST_ND(short,MPI_SHORT); break;
-		case TYPE_UNSIGNED_SHORT: SWITCH_BCAST_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-		case TYPE_INT:            SWITCH_BCAST_ND(int,MPI_INT); break;
-		case TYPE_UNSIGNED:       SWITCH_BCAST_ND(unsigned,MPI_UNSIGNED); break;
-		case TYPE_LONG:           SWITCH_BCAST_ND(long,MPI_LONG); break;
-		case TYPE_UNSIGNED_LONG:  SWITCH_BCAST_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-		case TYPE_FLOAT:          SWITCH_BCAST_ND(float,MPI_FLOAT); break;
-		case TYPE_DOUBLE:         SWITCH_BCAST_ND(double,MPI_DOUBLE); break;
-		case TYPE_LONG_DOUBLE:    SWITCH_BCAST_ND(long double,MPI_LONG_DOUBLE); break;
-		case TYPE_LONG_LONG_INT:  SWITCH_BCAST_ND(long long int,MPI_LONG_LONG_INT); break;
-		}
-	}
-	overall_bcast_end_t = get_time();
 
 	IF_TIMING (level2_cond && _gpu_transfer_h2d_time)
 		printf("[%d] Transfer %p from host to device : %.10f s.\n", _gfn_rank, ptr, 
@@ -1049,14 +1000,6 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
 	}
 
-	chunk_size = optimize_chunk_size;
-	chunk_num = (sub_size + chunk_size - 1) / chunk_size;
-	for (i = 0; i < _gfn_num_proc; ++i)
-		subcnts[i] = chunk_size;
-	_CalcDisp(scatter_size, _gfn_num_proc, subdisp, 1);
-
-	//printf("Rank %d : chunk num = %d\n", _gfn_rank, chunk_num);
-
 #ifdef OPTIMIZE_NO_USE_CL_SUBBUFFER
 #define UPLOAD_TO_GPU(type) \
 	_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, cl_ptr, CL_TRUE, 0, sizeof(type) * elem_num * block_size, tmp_ptr + recv_it_offset, 0, 0, 0); \
@@ -1093,36 +1036,6 @@ for (i = 0; i < recv_loop_num; ++i) { \
 		UPLOAD_TO_GPU(type) \
 		IF_TIMING (_gpu_transfer_h2d_time) gpu_trans_end_t = get_time(); \
 		TRACE_LOG ("device-transfer end %lld\n", gpu_trans_end_t); \
-	} \
-	recv_it_offset += (elem_num * block_size); \
-} \
-} while (0)
-
-#define OVERLAP_SWITCH_SCATTER_ND(type,mpi_type) \
-do { \
-	type * tmp_ptr = (type *) ptr; \
-	if (_gfn_rank == 0) { \
-		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
-						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
-	} \
-	cl_buffer_region subbuf_info; \
-for (r = 0; r < recv_loop_num; ++r) { \
-	type * sub_tmp_ptr = tmp_ptr + recv_it_offset; \
-	for (i = 0; i < chunk_num; ++i) { \
-		if (i == chunk_num-1) \
-			for (k = 0; k < _gfn_num_proc; ++k) \
-				subcnts[k] = cnts[k] - (chunk_size * (chunk_num-1)); \
-		MPI_Scatterv(sub_tmp_ptr, subcnts, subdisp, mpi_type, \
-			sub_tmp_ptr + subdisp[_gfn_rank], subcnts[_gfn_rank], mpi_type, 0, MPI_COMM_WORLD); \
-		subbuf_info.origin = (size_t)((recv_it_offset + subdisp[_gfn_rank]) * sizeof(type)); \
-		subbuf_info.size = (size_t)(subcnts[_gfn_rank] * sizeof(type)); \
-		cl_mem subbuf = clCreateSubBuffer(cl_ptr, mem_type, CL_BUFFER_CREATE_TYPE_REGION, &subbuf_info, &_gfn_status); \
-		_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER FOR OVERLAP SCATTER"); \
-		_gfn_status = clEnqueueWriteBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * subcnts[_gfn_rank], \
-			sub_tmp_ptr + subdisp[_gfn_rank], 0, 0, 0); \
-		_GfnCheckCLStatus(_gfn_status, "OVERLAP SCATTER WRITE BUFFER"); \
-		for (k = 0; k < _gfn_num_proc; ++k) \
-			subdisp[k] += chunk_size; \
 	} \
 	recv_it_offset += (elem_num * block_size); \
 } \
@@ -1272,46 +1185,21 @@ for (r = 0; r < recv_loop_num; ++r) { \
 		return 0;
 	}
 
-	// Send bound and all memory
-	overall_scatter_start_t = get_time();
-	if (is_overlap_node_dev_trans && level2_cond &&
-		(sub_size > chunk_size * 4))
+	switch(type_id)
 	{
-		switch(type_id)
-		{
-		case TYPE_CHAR:           OVERLAP_SWITCH_SCATTER_ND(char,MPI_CHAR); break;
-		case TYPE_UNSIGNED_CHAR:  OVERLAP_SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-		case TYPE_SHORT:          OVERLAP_SWITCH_SCATTER_ND(short,MPI_SHORT); break;
-		case TYPE_UNSIGNED_SHORT: OVERLAP_SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-		case TYPE_INT:            OVERLAP_SWITCH_SCATTER_ND(int,MPI_INT); break;
-		case TYPE_UNSIGNED:       OVERLAP_SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
-		case TYPE_LONG:           OVERLAP_SWITCH_SCATTER_ND(long,MPI_LONG); break;
-		case TYPE_UNSIGNED_LONG:  OVERLAP_SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-		case TYPE_FLOAT:          OVERLAP_SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
-		case TYPE_DOUBLE:         OVERLAP_SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
-		case TYPE_LONG_DOUBLE:    OVERLAP_SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
-		case TYPE_LONG_LONG_INT:  OVERLAP_SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
-		}
+	case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_SCATTER_ND(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_SCATTER_ND(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_SCATTER_ND(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
 	}
-	else
-	{
-		switch(type_id)
-		{
-		case TYPE_CHAR:           SWITCH_SCATTER_ND(char,MPI_CHAR); break;
-		case TYPE_UNSIGNED_CHAR:  SWITCH_SCATTER_ND(unsigned char,MPI_UNSIGNED_CHAR); break;
-		case TYPE_SHORT:          SWITCH_SCATTER_ND(short,MPI_SHORT); break;
-		case TYPE_UNSIGNED_SHORT: SWITCH_SCATTER_ND(unsigned short,MPI_UNSIGNED_SHORT); break;
-		case TYPE_INT:            SWITCH_SCATTER_ND(int,MPI_INT); break;
-		case TYPE_UNSIGNED:       SWITCH_SCATTER_ND(unsigned,MPI_UNSIGNED); break;
-		case TYPE_LONG:           SWITCH_SCATTER_ND(long,MPI_LONG); break;
-		case TYPE_UNSIGNED_LONG:  SWITCH_SCATTER_ND(unsigned long,MPI_UNSIGNED_LONG); break;
-		case TYPE_FLOAT:          SWITCH_SCATTER_ND(float,MPI_FLOAT); break;
-		case TYPE_DOUBLE:         SWITCH_SCATTER_ND(double,MPI_DOUBLE); break;
-		case TYPE_LONG_DOUBLE:    SWITCH_SCATTER_ND(long double,MPI_LONG_DOUBLE); break;
-		case TYPE_LONG_LONG_INT:  SWITCH_SCATTER_ND(long long int,MPI_LONG_LONG_INT); break;
-		}
-	}
-	overall_scatter_end_t = get_time();
 
 	IF_TIMING (_cluster_scatter_time)
 		printf("[%d] Scatter %p : %.10f s.\n", _gfn_rank, ptr, 
@@ -1533,7 +1421,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	
 	// TODO: calculate partition size dynamically
 	//int curr_ite_partition_size = 200000;
-	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * 2);
+	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
