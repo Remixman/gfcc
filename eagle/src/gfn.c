@@ -1520,8 +1520,9 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 			
 			// Initialize cnts for first partition
 			for (i = 0; i < _gfn_num_proc; ++i) {
-				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size/* * data_info->block_size*/;
-				// TODO: if  > bound
+				if (data_info->last_partition_cnts[i] > ker_info->last_partition_partition_size) {
+					data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size/* * data_info->block_size*/;
+				}
 			}
 			
 			if (_debug_stream_seq && _gfn_rank == 0) {
