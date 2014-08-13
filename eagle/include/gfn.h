@@ -64,6 +64,14 @@ struct _data_information {
 	int pattern_array[20];
 	int pattern_num;
 	
+	// For gather
+	int last_gather_cnts[8];
+	int last_gather_disp[8];
+	
+	// For read buffer
+	int last_download_cnts[8];
+	int last_download_disp[8];
+	
 	// For kernel execution
 	int last_exec_cnts[8];
 	int last_exec_disp[8];
@@ -79,9 +87,11 @@ struct _data_information {
 	
 	int has_upload_evt;
 	cl_event last_upload_evt;
+	int has_download_evt;
 	cl_event last_download_evt;
 	int has_iscatter_req;
 	MPI_Request last_iscatter_req;
+	int has_igather_req;
 	MPI_Request last_igather_req;
 };
 
@@ -190,6 +200,9 @@ int _GfnStreamSeqFinishDistributeArray();
 int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
+int _GfnStreamSeqFinishGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ...);
 int _GfnStreamSeqFinishGatherArray(); // TODO: clear var_table
 
 

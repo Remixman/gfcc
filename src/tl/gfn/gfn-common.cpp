@@ -884,14 +884,14 @@ TL::Source create_gfn_q_gather_nd(std::string var_name,
     return result;
 }
 
-TL::Source create_gfn_q_stream_gather_nd(std::string var_name,
+TL::Source create_gfn_q_stream_gather_nd(std::string kernel_id,
+                                         std::string var_name,
                                          std::string var_cl_name,
                                          std::string var_unique_id_name,
                                          std::string mpi_type,
                                          std::string loop_start,
                                          std::string loop_end,
                                          std::string loop_step,
-                                         std::string stream_no_var,
                                          int dim_num, TL::ObjectList<TL::Expression> dim_size,
                                          int partitioned_dim,
                                          std::string cl_mem_flags,
@@ -924,11 +924,71 @@ TL::Source create_gfn_q_stream_gather_nd(std::string var_name,
     }
 
     result
-        << "_GfnStreamSeqEnqueueGatherND((void*)" << var_name << subscript_to_1d << "," 
+        << "_GfnStreamSeqEnqueueGatherND(" << kernel_id 
+        << ",(void*)" << var_name << subscript_to_1d << ","
         << var_cl_name << "," << var_unique_id_name << ","
         << mpi_type << "," << cl_mem_flags << ","
         << loop_start << "," << loop_end << "," << loop_step << "," 
-        << stream_no_var << "," << partitioned_dim << "," << pattern_type << ","
+        << partitioned_dim << "," << pattern_type << "," 
+        << level1_cond << "," << level2_cond << ","
+        << dim_num << "," << pattern_array_size 
+        << ((dim_num+pattern_array_size==0)?"":",") << size_params;
+        
+    if (pattern_array_size > 0)
+        result << pattern_params;
+    
+    result
+        << ");";
+    
+    return result;
+}
+
+TL::Source create_gfn_f_stream_gather_nd(std::string kernel_id,
+                                         std::string var_name,
+                                         std::string var_cl_name,
+                                         std::string var_unique_id_name,
+                                         std::string mpi_type,
+                                         std::string loop_start,
+                                         std::string loop_end,
+                                         std::string loop_step,
+                                         int dim_num, TL::ObjectList<TL::Expression> dim_size,
+                                         int partitioned_dim,
+                                         std::string cl_mem_flags,
+                                         TL::ObjectList<std::string> &pattern_array,
+                                         int pattern_array_size,
+                                         int pattern_type,
+                                         std::string level1_cond,
+                                         std::string level2_cond)
+{
+    TL::Source result, size_params, pattern_params, subscript_to_1d;
+     
+    // For unknown information variable
+    if (dim_size.size() == 0)
+    {
+        dim_num = 0;
+    }
+    
+    for (int i = 0; i < dim_num; ++i)
+    {
+        if (i != 0) {
+            size_params << ",";
+            subscript_to_1d << "[0]";
+        }
+        size_params << dim_size[i];
+    }
+    
+    for (int i = 0; i < pattern_array_size; ++i)
+    {
+        pattern_params << "," << pattern_array[i];
+    }
+
+    result
+        << "_GfnStreamSeqFinishGatherND(" << kernel_id 
+        << ",(void*)" << var_name << subscript_to_1d << ","
+        << var_cl_name << "," << var_unique_id_name << ","
+        << mpi_type << "," << cl_mem_flags << ","
+        << loop_start << "," << loop_end << "," << loop_step << "," 
+        << partitioned_dim << "," << pattern_type << "," 
         << level1_cond << "," << level2_cond << ","
         << dim_num << "," << pattern_array_size 
         << ((dim_num+pattern_array_size==0)?"":",") << size_params;

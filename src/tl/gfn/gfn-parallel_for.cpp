@@ -549,12 +549,33 @@ TL::Source ParallelFor::do_parallel_for()
             /* Worker code */
             if (var_info._is_array_or_pointer && is_partition)
             {
-                worker_gather_array_memory_src
-                    << create_gfn_q_gather_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
-                                              loop_start, loop_end, loop_step, var_info._dimension_num, 
-                                              var_info._dim_size, var_info._shared_dimension, 
-                                              var_cl_mem_type, out_pattern_array, out_pattern_array.size(),
-                                              out_pattern_type, level1_cond, level2_cond);
+                if (_optimization_level > 0)
+                {
+                    /* distribute first chunk and boundary */
+                    worker_distribute_array_memory_src
+                        << create_gfn_q_stream_gather_nd(kernel_id_var,
+                                                var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, var_info._dimension_num,
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
+                                                in_pattern_type, level1_cond, level2_cond);
+                    worker_gather_array_memory_src
+                        << create_gfn_f_stream_gather_nd(kernel_id_var,
+                                                var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, var_info._dimension_num,
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
+                                                in_pattern_type, level1_cond, level2_cond);
+                }
+                else
+                {
+                    worker_gather_array_memory_src
+                        << create_gfn_q_gather_nd(var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
+                                                loop_start, loop_end, loop_step, var_info._dimension_num, 
+                                                var_info._dim_size, var_info._shared_dimension, 
+                                                var_cl_mem_type, out_pattern_array, out_pattern_array.size(),
+                                                out_pattern_type, level1_cond, level2_cond);
+                }
             }
             else if (var_info._is_array_or_pointer)
             {

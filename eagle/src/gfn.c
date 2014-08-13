@@ -1995,7 +1995,224 @@ int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr,
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
+	if (_is_lock_transfer(unique_id)) {
+		//send_only_bound = 1;
+		if (pattern_n == 0)
+			return 0;
+	}
+
+	int sub_size;
+	int send_elem_offset = 0;
+	int send_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
+	int send_loop_num = 1;
+	int size_array[size_n], pattern_array[pattern_n];
+	struct _data_information *data_info = (struct _data_information *) malloc(sizeof(struct _data_information));
+	_init_data_info(data_info);
+	
+	int i, found = 0;
+	va_list vl;
+	
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+
+	// Calculate block size and elements number
+	data_info->elem_num = 1;
+	data_info->block_size = 1;
+	for (i = 0; i < size_n; ++i) {
+		if (i < partitioned_dim)         send_loop_num *= size_array[i];
+		else if (i == partitioned_dim)   data_info->elem_num      *= size_array[i];
+		else /* i > partitioned_dim */   data_info->block_size    *= size_array[i];
+	}
+	
+	if (_debug_stream_seq && _gfn_rank == 0) {
+		printf("ELEMENT NUM = %zu\n", data_info->elem_num);
+		printf("BLOCK SIZE = %zu\n", data_info->block_size);
+	}
+
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim] - 1;
+		loop_step = 1;
+	}
+	_set_data_info_loop(data_info, loop_start, loop_end, loop_step);
+
+	// Not have information case
+	/*if (size_n == 0) {
+		// TODO: get other information from var table
+		_get_var_info(unique_id, &mem_type, &found);
+		if (!found)
+			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
+	}*/
+	
+	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
+
+	
+	struct _kernel_information *ker_info;
+	_retieve_kernel_table(kernel_id, &ker_info, &found);
+	_add_gather_var_id( ker_info, data_info ); // Register to kernel
+	
+	// Calculate disp (cnts is depend on partition size)
+	_CalcPartitionInfo(
+		data_info->elem_num, 
+		data_info->block_size, 
+		data_info->loop_start,
+		data_info->loop_end, 
+		data_info->loop_step, 
+		data_info->pattern_array, 
+		data_info->pattern_num, 
+		data_info->pattern_type, 
+		data_info->last_partition_cnts, /* OUTPUT */
+		data_info->last_partition_disp  /* OUTPUT */
+	);
+	for (i = 0; i < _gfn_num_proc; ++i)
+		data_info->end_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
+
 	return 0;
+}
+
+
+int _GfnStreamSeqFinishGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
+						int level1_cond, int level2_cond, int size_n, int pattern_n, ...)
+{
+	if (_is_lock_transfer(unique_id)) {
+		//send_only_bound = 1;
+		if (pattern_n == 0) // no dependency
+			return 0;
+	}
+	
+	int size_array[size_n], pattern_array[pattern_n];
+	
+	int i;
+	va_list vl;
+	
+	// We want to pass size_n + pattern_n but it warning,
+	// So pass pattern_n that add with size_n
+	pattern_n += size_n;
+	va_start(vl, pattern_n);
+	pattern_n -= size_n;
+	for (i = 0; i < size_n; ++i) size_array[i] = va_arg(vl, int);
+	for (i = 0; i < pattern_n; ++i) pattern_array[i] = va_arg(vl, int);
+	va_end(vl);
+	
+	switch(type_id)
+	{
+#define SWITCH_STREAMSEQ_MASTER_RECV(type,mpi_type) \
+do { \
+	type * tmp_ptr = (type *) ptr; \
+	if (_gfn_rank == 0) { \
+		_SendOutputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
+			partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+	} \
+} while(0)
+	case TYPE_CHAR:           SWITCH_STREAMSEQ_MASTER_RECV(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAMSEQ_MASTER_RECV(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAMSEQ_MASTER_RECV(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAMSEQ_MASTER_RECV(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAMSEQ_MASTER_RECV(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAMSEQ_MASTER_RECV(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAMSEQ_MASTER_RECV(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAMSEQ_MASTER_RECV(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAMSEQ_MASTER_RECV(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAMSEQ_MASTER_RECV(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_MASTER_RECV(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_MASTER_RECV(long long int,MPI_LONG_LONG_INT); break;
+	}
+}
+
+int _GfnStreamSeqIGather(long long kernel_id, struct _data_information *data_info)
+{
+	int *cnts = data_info->last_gather_cnts;
+	int *disp = data_info->last_gather_disp;
+	int sub_size = data_info->last_gather_cnts[_gfn_rank];
+	int elem_offset = data_info->last_gather_disp[_gfn_rank];
+	
+	if (sub_size == -1) {
+		data_info->has_igather_req = 0; /* FALSE */
+		return 0;
+	}
+	
+	data_info->has_igather_req = 1; /* TRUE */
+	
+#define SWITCH_STREAM_GATHER(type, mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	if (_gfn_rank == 0) \
+		MPI_Igatherv(MPI_IN_PLACE, sub_size, mpi_type, tmp_ptr, \
+			cnts, disp, mpi_type, 0, MPI_COMM_WORLD, &(data_info->last_igather_req)); \
+	else \
+		MPI_Igatherv((tmp_ptr + elem_offset), sub_size, mpi_type, tmp_ptr, \
+			cnts, disp, mpi_type, 0, MPI_COMM_WORLD, &(data_info->last_igather_req)); \
+} while (0)
+
+	switch(data_info->type_id)
+	{
+	case TYPE_CHAR:           SWITCH_STREAM_GATHER(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAM_GATHER(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAM_GATHER(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAM_GATHER(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAM_GATHER(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAM_GATHER(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAM_GATHER(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAM_GATHER(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAM_GATHER(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAM_GATHER(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_GATHER(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_GATHER(long long int,MPI_LONG_LONG_INT); break;
+	}
+}
+
+int _GfnStreamSeqReadBuffer(long long kernel_id, struct _data_information *data_info)
+{
+	cl_buffer_region info;
+	cl_mem subbuf;
+	
+	int sub_size = data_info->last_download_cnts[_gfn_rank];
+	int elem_offset = data_info->last_download_disp[_gfn_rank];
+	
+	if (sub_size == -1) {
+		data_info->has_download_evt = 0; /* FALSE */
+		return 0;
+	}
+	
+	data_info->has_download_evt = 1; /* TRUE */
+	
+	// TODO: subbuffer memtype should map to pinned memory ??
+#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	info.origin = (size_t)(elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	subbuf = clCreateSubBuffer(data_info->cl_ptr, data_info->mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_FALSE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, &(data_info->last_download_evt)); \
+	_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+	_gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
+} while (0)
+
+	switch(data_info->type_id)
+	{
+	case TYPE_CHAR:           SWITCH_STREAM_READ_BUFFER(char,MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_STREAM_READ_BUFFER(unsigned char,MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_STREAM_READ_BUFFER(short,MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_STREAM_READ_BUFFER(unsigned short,MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_STREAM_READ_BUFFER(int,MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_STREAM_READ_BUFFER(unsigned,MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_STREAM_READ_BUFFER(long,MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_STREAM_READ_BUFFER(unsigned long,MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_STREAM_READ_BUFFER(float,MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_STREAM_READ_BUFFER(double,MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_READ_BUFFER(long double,MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_READ_BUFFER(long long int,MPI_LONG_LONG_INT); break;
+	}
 }
 
 int _GfnStreamSeqFinishGatherArray()
@@ -2580,7 +2797,9 @@ void _init_data_info(struct _data_information *data_info)
 	data_info->dim_n = 0;
 	
 	data_info->has_upload_evt = 0;
+	data_info->has_download_evt = 0;
 	data_info->has_iscatter_req = 0;
+	data_info->has_igather_req = 0;
 }
 
 void _set_data_info_loop(struct _data_information *data_info, 
