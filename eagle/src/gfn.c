@@ -1484,8 +1484,6 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	struct _data_information *last_data_info = NULL;
 	MPI_Status status;
 	
-	printf("VAR NUM = %zu\n", var_num);
-	
 	if (var_num > 0) {
 		first_data_info = data_infos[0];
 		last_data_info = data_infos[var_num - 1];
@@ -1508,8 +1506,8 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
 		
-        *seq_start_idx = -1;
-        *seq_end_idx = -1;
+		*seq_start_idx = -1;
+		*seq_end_idx = -1;
         
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
@@ -1612,8 +1610,6 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
 	*stream_work_group_item_num = 64; // TODO: optimization this value
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
-	
-	printf("RANK %d WORK_ITEM_NUM = %zu WORK_GROUP_SIZE = %zu\n", _gfn_rank, _work_item_num, *stream_work_group_item_num);
 	
 	if (ker_info->curr_sequence_id < 2) {
 		*is_completed = 0;
@@ -1748,8 +1744,8 @@ do { \
 		data_info->last_partition_cnts, /* OUTPUT */
 		data_info->last_partition_disp  /* OUTPUT */
 	);
-    for (i = 0; i < _gfn_num_proc; ++i)
-        data_info->end_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
+	for (i = 0; i < _gfn_num_proc; ++i)
+		data_info->end_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
 	
 #if 0
 
