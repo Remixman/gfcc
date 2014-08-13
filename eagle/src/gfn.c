@@ -1607,8 +1607,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		printf("========================================\n\n");
 	}
 	
-	int _loop_size = _CalcLoopSize(*seq_start_idx, *seq_end_idx, ker_info->loop_step);
-	size_t _work_item_num = _CalcSubSize(_loop_size, _gfn_num_proc, _gfn_rank, 1);
+	size_t _work_item_num = (size_t)_CalcLoopSize(*seq_start_idx, *seq_end_idx, ker_info->loop_step);
 	*stream_work_group_item_num = 64; // TODO: optimization this value
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
 	
