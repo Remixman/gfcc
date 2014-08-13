@@ -8,6 +8,7 @@
 #include "gfn.h"
 
 
+int _gfn_opt_level = 0;
 int _gfn_rank;		/**/
 int _gfn_num_proc;	/**/
 cl_platform_id _gfn_platform_id;
@@ -17,7 +18,7 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
-int _debug_stream_seq = 1;
+int _debug_stream_seq = 0;
 
 /* buffer for reduction */
 char *char_sum_buffer;
@@ -127,6 +128,7 @@ int _GfnInit(int *argc, char **argv[])
 
 	if (opt_level != '0') {
 		is_overlap_node_dev_trans = TRUE;
+		_gfn_opt_level = opt_level - '0';
 	}
 
 	/* Send scalar list */
@@ -362,6 +364,11 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
 
+	cl_map_flags map_type;
+	if (mem_type == CL_MEM_READ_ONLY) map_type = CL_MAP_READ;
+	else if (mem_type == CL_MEM_WRITE_ONLY) map_type = CL_MAP_WRITE;
+	else printf("ERROR : INVALID MEM TYPE FOR MAP TYPE\n");
+	
 	int found = 0;
 	int retieve_dim_num = 0;
 	cl_mem_flags dummy_mem_type = 0;
@@ -373,6 +380,11 @@ int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, 
 
 	if (dim1_size <= 0) {
 		fprintf(stdout, "ERROR %s:%d : Invalid size [%zu]\n", __FILE__, __LINE__, dim1_size);
+	}
+	
+	if (_gfn_opt_level >= 3)
+	{
+		mem_type = mem_type | CL_MEM_ALLOC_HOST_PTR;
 	}
 
 #define SWITCH_MALLOC_1D(type,size1) \
@@ -388,11 +400,11 @@ do { \
 		IF_TIMING (_gpu_malloc_time) create_buf_start_t = get_time(); \
 		*cl_ptr = clCreateBuffer(_gfn_context, mem_type, sizeof(type) * size1, 0, &_gfn_status); \
 		IF_TIMING (_gpu_malloc_time) create_buf_end_t = get_time(); \
-    	_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
-    } \
-    IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
-    _insert_to_var_table(unique_id, *cl_ptr, mem_type, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
-    IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
+		_GfnCheckCLStatus(_gfn_status, "CREATE BUFFER"); \
+	} \
+	IF_TIMING (_mm_overhead_time) insert_vtab_start_t = get_time(); \
+	_insert_to_var_table(unique_id, *cl_ptr, mem_type, 1, (void *)tmp_ptr, NULL, NULL, NULL, NULL, NULL); \
+	IF_TIMING (_mm_overhead_time) insert_vtab_end_t = get_time(); \
 } while (0)
 
 	
@@ -410,6 +422,30 @@ do { \
 	case TYPE_DOUBLE:         SWITCH_MALLOC_1D(double,dim1_size); break;
 	case TYPE_LONG_DOUBLE:    SWITCH_MALLOC_1D(long double,dim1_size); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_MALLOC_1D(long long int,dim1_size); break;
+	}
+	
+#define SWITCH_MAP_BUFFER(type,size1) \
+do { \
+	*ptr = (double*) clEnqueueMapBuffer(_gfn_cmd_queue, *cl_ptr, CL_TRUE, map_type, 0, sizeof(type)*size1, 0,NULL, NULL, NULL); \
+} while(0)
+
+	if (_gfn_opt_level >= 3)
+	{
+		switch(type_id)
+		{
+		case TYPE_CHAR:           SWITCH_MAP_BUFFER(char,dim1_size); break;
+		case TYPE_UNSIGNED_CHAR:  SWITCH_MAP_BUFFER(unsigned char,dim1_size); break;
+		case TYPE_SHORT:          SWITCH_MAP_BUFFER(short,dim1_size); break;
+		case TYPE_UNSIGNED_SHORT: SWITCH_MAP_BUFFER(unsigned short,dim1_size); break;
+		case TYPE_INT:            SWITCH_MAP_BUFFER(int,dim1_size); break;
+		case TYPE_UNSIGNED:       SWITCH_MAP_BUFFER(unsigned,dim1_size); break;
+		case TYPE_LONG:           SWITCH_MAP_BUFFER(long,dim1_size); break;
+		case TYPE_UNSIGNED_LONG:  SWITCH_MAP_BUFFER(unsigned long,dim1_size); break;
+		case TYPE_FLOAT:          SWITCH_MAP_BUFFER(float,dim1_size); break;
+		case TYPE_DOUBLE:         SWITCH_MAP_BUFFER(double,dim1_size); break;
+		case TYPE_LONG_DOUBLE:    SWITCH_MAP_BUFFER(long double,dim1_size); break;
+		case TYPE_LONG_LONG_INT:  SWITCH_MAP_BUFFER(long long int,dim1_size); break;
+		}
 	}
 
 	IF_TIMING (_cluster_malloc_time && level1_cond)
@@ -1426,7 +1462,7 @@ int _GfnFinishGatherArray()
 
 
 // Stream sequence
-int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_step)
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step)
 {
 	int found = 0;
 	struct _kernel_information *ker_info;
@@ -1438,6 +1474,8 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->kernel_id = kernel_id;
 	ker_info->local_start = local_start;
 	ker_info->local_end = local_end;
+	ker_info->loop_start = loop_start;
+	ker_info->loop_end = loop_end;
 	ker_info->loop_step = loop_step;
 	
     //printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start,
@@ -1494,7 +1532,8 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 	}
 	
 	// TODO: calculate partition size dynamically
-	int curr_ite_partition_size = 200000;
+	//int curr_ite_partition_size = 200000;
+	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * 2);
 
 	
 	// ONLY BROADCAST AND SCATTER DATA

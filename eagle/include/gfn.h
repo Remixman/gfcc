@@ -17,12 +17,14 @@
 
 /* Optimization */
 #define OPTIMIZE_NO_USE_CL_SUBBUFFER
+#define OPTIMIZE_STREAM_SEQ
 
 /* Constant */
 #define MAX_DIM_SUPPORT 6
 
 #define MAX_IBCAST_HANDLE_LIST 20
 
+extern int _gfn_opt_level;
 extern int _gfn_rank;		/**/
 extern int _gfn_num_proc;	/**/
 extern cl_platform_id _gfn_platform_id;
@@ -96,6 +98,8 @@ struct _kernel_information {
 	long long kernel_id;
 	int local_start;
 	int local_end;
+	int loop_start;
+	int loop_end;
 	int loop_step;
 	
 	int curr_sequence_id;
@@ -172,7 +176,7 @@ int _GfnUnlockTransfer(long long id);
 
 
 // Stream Sequence Optimization
-int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_step);
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step);
 int _GfnStreamSeqKernelCleanUp(long long kernel_id);
 int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
                                        size_t *stream_global_item_num, size_t *stream_work_group_item_num,

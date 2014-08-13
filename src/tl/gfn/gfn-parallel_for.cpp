@@ -277,10 +277,11 @@ TL::Source ParallelFor::do_parallel_for()
         << ", _gfn_num_proc, _gfn_rank, 1);"
         << "_work_group_item_num = 64;"
         << "_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, _work_group_item_num);";
-    if (_optimization_level > 0) 
+    if (_optimization_level > 0)
     {
         worker_initialize_generated_variables_src
-            << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, _local_" << induction_var_name << "_end, _loop_step);"; 
+            << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, "
+            << "_local_" << induction_var_name << "_end, " << loop_start << "," << loop_end << ", _loop_step);"; 
     }
         
     // XXX: we indicate with only step symbol
@@ -324,10 +325,12 @@ TL::Source ParallelFor::do_parallel_for()
 
         // TODO: _GFN_MEM_ALLOC_HOST_PTR(), [Research] Opttimize memory type
         std::string var_cl_mem_type;
-        if (var_info._is_input && !var_info._is_output)
+        if (var_info._is_input && var_info._is_output)
+            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
+        else if (var_info._is_input)
             var_cl_mem_type = "_GFN_MEM_READ_ONLY()";
         else
-            var_cl_mem_type = "_GFN_MEM_READ_WRITE()";
+            var_cl_mem_type = "_GFN_MEM_WRITE_ONLY()";
         
         int in_pattern_type = var_info._in_pattern_type;
         int out_pattern_type = var_info._out_pattern_type;
