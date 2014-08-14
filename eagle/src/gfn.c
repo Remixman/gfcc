@@ -1622,7 +1622,7 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 				printf("SS: READ CNTS[%d] = %d , DISP[%d] = %d\n", 
 				       r, data_info->last_download_cnts[r], r, data_info->last_download_disp[r]);
 		}
-		if (data_info->has_download_evt) clWaitForEvents(1, &(data_info->last_download_evt));
+		//if (data_info->has_download_evt) clWaitForEvents(1, &(data_info->last_download_evt));
 		_GfnStreamSeqReadBuffer(data_info);
 	}
 	
@@ -1641,6 +1641,14 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 		_GfnStreamSeqExec(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx) == 0 
 		&& has_gather == 0) {
 		ker_info->is_complete = 1;
+	}
+	
+	// last iteration block for all download and gather
+	if (ker_info->is_complete) {
+		for (vit = 0; vit < var_num; ++vit) {
+		struct _data_information * data_info = data_infos[vit];
+		if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
+	}
 	}
 	
 	// update kernel info
@@ -2259,7 +2267,7 @@ int _GfnStreamSeqReadBuffer(struct _data_information *data_info)
 	data_info->has_download_evt = 1; /* TRUE */
 	
 	// TODO: subbuffer memtype should map to pinned memory ??
-#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
+/*#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
 do { \
 	type * tmp_ptr = (type *) data_info->ptr; \
 	info.origin = (size_t)(elem_offset * sizeof(type)); \
@@ -2267,6 +2275,19 @@ do { \
 	subbuf = clCreateSubBuffer(data_info->cl_ptr, data_info->mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
 	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
 	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_FALSE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, &(data_info->last_download_evt)); \
+	_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
+	_gfn_status = clReleaseMemObject(subbuf); \
+	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
+} while (0)*/
+
+#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
+do { \
+	type * tmp_ptr = (type *) data_info->ptr; \
+	info.origin = (size_t)(elem_offset * sizeof(type)); \
+	info.size = (size_t)(sub_size * sizeof(type)); \
+	subbuf = clCreateSubBuffer(data_info->cl_ptr, data_info->mem_type, CL_BUFFER_CREATE_TYPE_REGION, &info, &_gfn_status); \
+	_GfnCheckCLStatus(_gfn_status, "CREATE SUB BUFFER"); \
+	_gfn_status = clEnqueueReadBuffer(_gfn_cmd_queue, subbuf, CL_TRUE, 0, sizeof(type) * sub_size, tmp_ptr + elem_offset, 0, 0, 0); \
 	_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
 	_gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
