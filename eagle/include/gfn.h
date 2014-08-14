@@ -114,8 +114,23 @@ struct _kernel_information {
 	int loop_step;
 	
 	int curr_sequence_id;
+	int stream_seq_start_idx;
+	int stream_seq_end_idx;
+	int is_complete;
+	
+	// For gather
+	int last_gather_seq_start;
+	int last_gather_seq_end;
+	int last_gather_partition_size;
+	
+	// For read buffer
+	int last_download_seq_start;
+	int last_download_seq_end;
+	int last_download_partition_size;
 	
 	// For kernel execution
+	int save_exec_seq_start;
+	int save_exec_seq_end;
 	int last_exec_partition_size;
 	
 	// For write buffer
@@ -127,6 +142,9 @@ struct _kernel_information {
 	int last_partition_seq_start;
 	int last_partition_seq_end;
 	int last_partition_partition_size;
+	
+	cl_event exec_evt;
+	int has_exec_evt;
 	
 	// TODO: Broadcast
 	size_t bcast_var_num;
@@ -187,23 +205,23 @@ int _GfnUnlockTransfer(long long id);
 
 
 // Stream Sequence Optimization
-int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step);
-int _GfnStreamSeqKernelCleanUp(long long kernel_id);
-int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
-                                       size_t *stream_global_item_num, size_t *stream_work_group_item_num,
-                                       int *is_completed);
-int _GfnStreamSeqKernelGetDependData(long long kernel_id, int start_idx, int end_idx);
-int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step, struct _kernel_information **out_ker_info);
+int _GfnStreamSeqKernelCleanUp(struct _kernel_information *ker_info);
+int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int *seq_id, 
+                                       size_t *stream_global_item_num, size_t *stream_work_group_item_num);
+int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info);
+int _GfnStreamSeqEnqueueScatterND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
 int _GfnStreamSeqFinishDistributeArray();
-int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqEnqueueGatherND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... );
-int _GfnStreamSeqFinishGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqFinishGatherND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ...);
 int _GfnStreamSeqFinishGatherArray(); // TODO: clear var_table
+int _GfnStreamSeqExec(int start, int end);
 
 
 // High Level function for trnsformation
@@ -287,7 +305,7 @@ void _GfnClearProgram();
 cl_kernel _GfnCreateKernel(const char *name);
 void _GfnClearKernel(cl_kernel kernel);
 void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr);
-void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size);
+void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size, struct _kernel_information *ker_info);
 
 /*----------------------------------------------------------------------------*\
                    IPC INTERFACE - source is in myipc_socket.c

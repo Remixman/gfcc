@@ -162,12 +162,7 @@ TL::Source ParallelFor::do_parallel_for()
     worker_function_name << "_Function_" << _kernel_info->kernel_id;
     kernel_name << "_kernel_" << _kernel_info->kernel_id;
     
-    std::string stream_start_idx_var = "_stream_" + induction_var_name + "_start";
-    std::string stream_end_idx_var = "_stream_" + induction_var_name + "_end";
-    
     stream_loop_variable
-        << "int " << stream_start_idx_var << ";"
-        << "int " << stream_end_idx_var << ";"
         << "int _stream_loop_size;"
         << "int _stream_completed = 0;"
         << "int _sequence_id = 0;"
@@ -218,6 +213,7 @@ TL::Source ParallelFor::do_parallel_for()
     std::string cl_loop_step_var = "_cl_loop_step";
     std::string loop_size_var = "_loop_size";
     std::string kernel_id_var = "_kernel_id";
+    std::string kernel_info_var = "_kernel_info";
     
     std::string inner_start_idx_var = "_" + inner_induction_var_name + "_start";
     std::string inner_end_idx_var = "_" + inner_induction_var_name + "_end";
@@ -234,6 +230,7 @@ TL::Source ParallelFor::do_parallel_for()
         << "int " << loop_step_var << ";"
         << "int " << loop_size_var << ";"
         << "int " << new_induction_var_name << " = 0;"
+	<< "struct _kernel_information * " << kernel_info_var << " = 0;"
         << "size_t _work_item_num, _work_group_item_num, _global_item_num;"
         << "cl_kernel _kernel;";
     if (_kernel_info->_has_inner_loop)
@@ -281,7 +278,8 @@ TL::Source ParallelFor::do_parallel_for()
     {
         worker_initialize_generated_variables_src
             << "_GfnStreamSeqKernelRegister(_kernel_id, _local_" << induction_var_name << "_start, "
-            << "_local_" << induction_var_name << "_end, " << loop_start << "," << loop_end << ", _loop_step);"; 
+            << "_local_" << induction_var_name << "_end, " << loop_start << "," << loop_end << ", _loop_step, &" 
+	    << kernel_info_var << ");"; 
     }
         
     // XXX: we indicate with only step symbol
@@ -495,7 +493,7 @@ TL::Source ParallelFor::do_parallel_for()
                 {
                     /* distribute first chunk and boundary */
                     worker_distribute_array_memory_src
-                        << create_gfn_q_stream_scatter_nd(kernel_id_var,
+                        << create_gfn_q_stream_scatter_nd(kernel_info_var,
                                                 var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                                 loop_start, loop_end, loop_step, var_info._dimension_num,
                                                 var_info._dim_size, var_info._shared_dimension, 
@@ -553,14 +551,14 @@ TL::Source ParallelFor::do_parallel_for()
                 {
                     /* distribute first chunk and boundary */
                     worker_distribute_array_memory_src
-                        << create_gfn_q_stream_gather_nd(kernel_id_var,
+                        << create_gfn_q_stream_gather_nd(kernel_info_var,
                                                 var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                                 loop_start, loop_end, loop_step, var_info._dimension_num,
                                                 var_info._dim_size, var_info._shared_dimension, 
                                                 var_cl_mem_type, in_pattern_array, in_pattern_array.size(),
                                                 in_pattern_type, level1_cond, level2_cond);
                     worker_gather_array_memory_src
-                        << create_gfn_f_stream_gather_nd(kernel_id_var,
+                        << create_gfn_f_stream_gather_nd(kernel_info_var,
                                                 var_name, var_cl_name, var_unique_id_name, mpi_type_str, 
                                                 loop_start, loop_end, loop_step, var_info._dimension_num,
                                                 var_info._dim_size, var_info._shared_dimension, 
@@ -689,11 +687,11 @@ TL::Source ParallelFor::do_parallel_for()
     if (_optimization_level > 0)
     {
 	cl_set_kernel_arg
-		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", stream_start_idx_var);
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", "_kernel_info->stream_seq_start_idx");
 	cl_actual_params.append_with_separator(("int " + local_start_idx_var), ",");
 	// Current local loop end
 	cl_set_kernel_arg
-		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", stream_end_idx_var);
+		<< create_cl_set_kernel_arg("_kernel", kernel_arg_num++, "int", "_kernel_info->stream_seq_end_idx");
 	cl_actual_params.append_with_separator(("int " + local_end_idx_var), ",");
     }
     else
@@ -798,12 +796,13 @@ TL::Source ParallelFor::do_parallel_for()
     if (_optimization_level > 0)
     {
         cl_launch_kernel
-            << "_GfnLaunchKernel(_kernel, &_stream_global_item_num, &_stream_work_group_item_num);";
+            << "_GfnLaunchKernel(_kernel, &_stream_global_item_num, &_stream_work_group_item_num, " 
+	    << kernel_info_var << ");";
     }
     else
     {
         cl_launch_kernel
-            << "_GfnLaunchKernel(_kernel,&_global_item_num,&_work_group_item_num);";
+            << "_GfnLaunchKernel(_kernel,&_global_item_num,&_work_group_item_num,0);";
     }
 
 
@@ -841,8 +840,8 @@ TL::Source ParallelFor::do_parallel_for()
                 worker_func_def
                     << "while (1) {"
                     << stream_loop_variable
-                    << "_GfnStreamSeqKernelGetNextSequence(_kernel_id, &_stream_" << induction_var << "_start, &_stream_" << induction_var << "_end, &_sequence_id, &_stream_global_item_num, &_stream_work_group_item_num, &_stream_completed);"
-                    << "if (!_stream_completed && (_sequence_id >= 2)) {";
+                    << "_GfnStreamSeqKernelGetNextSequence(" << kernel_info_var << ", &_sequence_id, &_stream_global_item_num, &_stream_work_group_item_num);"
+                    << "if (_GfnStreamSeqExec(_kernel_info->stream_seq_start_idx, _kernel_info->stream_seq_end_idx)) {";
             }
             
         worker_func_def
@@ -863,8 +862,8 @@ TL::Source ParallelFor::do_parallel_for()
             {
                 worker_func_def
                     << "}"
-                    << "_GfnStreamSeqKernelFinishSequence(_kernel_id);"
-                    << "if (_stream_completed) break;"
+                    << "_GfnStreamSeqKernelFinishSequence(" << kernel_info_var << ");"
+                    << "if (_kernel_info->is_complete) break;"
                     << "}";
             }
             

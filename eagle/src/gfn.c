@@ -1350,7 +1350,7 @@ int _GfnFinishGatherArray()
 
 
 // Stream sequence
-int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step)
+int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_end, int loop_start, int loop_end, int loop_step, struct _kernel_information **out_ker_info)
 {
 	int found = 0;
 	struct _kernel_information *ker_info;
@@ -1383,37 +1383,23 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->scatter_var_num = 0;
 	ker_info->gather_var_num = 0;
 	
+	ker_info->has_exec_evt = 0;
+	
 	if (!found) _insert_to_kernel_table(kernel_id, ker_info);
+	
+	*out_ker_info = ker_info;
 }
 
-int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, int *seq_end_idx, int *seq_id, 
-                                       size_t *stream_global_item_num, size_t *stream_work_group_item_num,
-                                       int *is_completed)
+int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int *seq_id, 
+                                       size_t *stream_global_item_num, size_t *stream_work_group_item_num)
 {
-	int found = 0;
-	struct _kernel_information *ker_info;
-	
-	_retieve_kernel_table(kernel_id, &ker_info, &found);
-	
-	if (!found) {
-		fprintf(stderr, "ERROR %s:%d : Don't found kernel id %lld\n",
-			__FILE__, __LINE__, kernel_id);
-		return -11;
-	}
-	
-	
-	size_t var_num;
+	size_t var_num, gather_var_num;
 	int vit, i;
 	struct _data_information ** data_infos;
+	struct _data_information ** gather_data_infos;
 	_get_scatter_var_ids(ker_info, &data_infos, &var_num);
-	struct _data_information *first_data_info = NULL;
-	struct _data_information *last_data_info = NULL;
+	_get_scatter_var_ids(ker_info, &gather_data_infos, &gather_var_num);
 	MPI_Status status;
-	
-	if (var_num > 0) {
-		first_data_info = data_infos[0];
-		last_data_info = data_infos[var_num - 1];
-	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("SS: SEQUENCE NUMBER : %d\n", ker_info->curr_sequence_id);
@@ -1433,17 +1419,17 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
 		
-		*seq_start_idx = -1;
-		*seq_end_idx = -1;
+		ker_info->stream_seq_start_idx = -1;
+		ker_info->stream_seq_end_idx = -1;
         
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
 			
-			if (_debug_stream_seq && _gfn_rank == 0) {
+			/*if (_debug_stream_seq && _gfn_rank == 0) {
 				printf("last_partition_partition_size = %d\n", ker_info->last_partition_partition_size);
 				printf("last_partition_seq_start = %d\n", ker_info->last_partition_seq_start);
 				printf("last_partition_seq_end = %d\n", ker_info->last_partition_seq_end);
-			}
+			}*/
 			
 			// Initialize cnts for first partition
 			for (i = 0; i < _gfn_num_proc; ++i) {
@@ -1459,7 +1445,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
                            r, data_info->end_disp[r] );
 			}
-			_GfnStreamSeqIScatter(kernel_id, data_info);
+			_GfnStreamSeqIScatter(data_info);
 		}
 	} else {
 		_update_kernel_info_seq(ker_info);
@@ -1471,10 +1457,10 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
 		
-		*seq_start_idx = (*seq_start_idx < 0)? ker_info->local_start : *seq_end_idx + 1;
-		*seq_end_idx = *seq_start_idx + ker_info->last_exec_partition_size - 1;
-		if (*seq_end_idx > ker_info->local_end)
-			*seq_end_idx = ker_info->local_end;
+		ker_info->stream_seq_start_idx = (ker_info->stream_seq_start_idx < 0)? ker_info->local_start : ker_info->stream_seq_end_idx + 1;
+		ker_info->stream_seq_end_idx = ker_info->stream_seq_start_idx + ker_info->last_exec_partition_size - 1;
+		if (ker_info->stream_seq_end_idx > ker_info->local_end)
+			ker_info->stream_seq_end_idx = ker_info->local_end;
 		
 		// 2. for variable 2 - last
 		for (vit = 0; vit < var_num; ++vit) {
@@ -1508,7 +1494,7 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
 			if (data_info->has_iscatter_req) MPI_Wait(&(data_info->last_iscatter_req), &status);
-			_GfnStreamSeqIScatter(kernel_id, data_info);
+			_GfnStreamSeqIScatter(data_info);
 		}
         
 		for (vit = 0; vit < var_num; ++vit) {
@@ -1522,53 +1508,146 @@ int _GfnStreamSeqKernelGetNextSequence(long long kernel_id, int *seq_start_idx, 
 					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
 			}
 			if (data_info->has_upload_evt) clWaitForEvents(1, &(data_info->last_upload_evt));
-			_GfnStreamSeqWriteBuffer(kernel_id, data_info);
+			_GfnStreamSeqWriteBuffer(data_info);
 		}
 		
 		if (_debug_stream_seq && ker_info->curr_sequence_id >= 2) {
-			printf("SS: EXECUTION START[%d] = %d , END = %d\n", _gfn_rank, *seq_start_idx, *seq_end_idx);
+			printf("SS: EXECUTION START[%d] = %d , END = %d\n", _gfn_rank, ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx);
 		}
+	}
+	
+	size_t _work_item_num = (size_t)_CalcLoopSize(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx, ker_info->loop_step);
+	*stream_work_group_item_num = 64; // TODO: optimization this value
+	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
+	
+	ker_info->has_exec_evt = 0; // set to 1 if execute
+	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
+	
+	ker_info->is_complete = 0;
+	
+	return 0;
+}
+
+int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
+{
+	size_t var_num;
+	int vit, i;
+	int has_gather = 1;
+	struct _data_information ** data_infos;
+	_get_gather_var_ids(ker_info, &data_infos, &var_num);
+	MPI_Status status;
+	
+	if (ker_info->curr_sequence_id == 0) {
+		// Initialize gather variable information
+		for (vit = 0; vit < var_num; ++vit) {
+			struct _data_information * data_info = data_infos[vit];
+			for (i = 0; i < _gfn_num_proc; ++i) {
+				if (data_info->last_partition_cnts[i] > ker_info->last_partition_partition_size) {
+					data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size/* * data_info->block_size*/;
+				}
+				
+				data_info->last_upload_cnts[i] = -1;
+				data_info->last_upload_disp[i] = -1;
+				
+				data_info->last_exec_cnts[i] = -1;
+				data_info->last_exec_disp[i] = -1;
+				
+				data_info->last_download_cnts[i] = -1;
+				data_info->last_download_disp[i] = -1;
+				
+				data_info->last_gather_cnts[i] = -1;
+				data_info->last_gather_disp[i] = -1;
+			}
+		}
+	}
+	else {
+		// update gather variable information
+		for (vit = 0; vit < var_num; ++vit) {
+			struct _data_information * data_info = data_infos[vit];		
+			for (i = 0; i < _gfn_num_proc; ++i) {
+				// new gather counts
+				data_info->last_gather_cnts[i] = data_info->last_download_cnts[i];
+				data_info->last_gather_disp[i] = data_info->last_download_disp[i];
+				if (data_info->last_gather_cnts[i] == -1) has_gather = 0;
+				
+				// new download counts
+				data_info->last_download_cnts[i] = data_info->last_exec_cnts[i];
+				data_info->last_download_disp[i] = data_info->last_exec_disp[i];
+				
+				// new exec counts
+				data_info->last_exec_cnts[i] = data_info->last_upload_cnts[i];
+				data_info->last_exec_disp[i] = data_info->last_upload_disp[i];
+				
+				// new upload counts
+				data_info->last_upload_cnts[i] = data_info->last_partition_cnts[i];
+				data_info->last_upload_disp[i] = data_info->last_partition_disp[i];
+
+				// new partition counts
+				if (data_info->last_partition_disp[i] < 0) continue;
+				data_info->last_partition_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
+				data_info->last_partition_cnts[i] = ker_info->last_partition_partition_size/* * data_info->block_size*/;
+				
+				if (data_info->last_partition_disp[i] >= data_info->end_disp[i])
+				{
+					data_info->last_partition_cnts[i] = -1;
+					data_info->last_partition_disp[i] = -1;
+				}
+				else if (data_info->last_partition_disp[i] + data_info->last_partition_cnts[i]  > data_info->end_disp[i])
+				{
+					data_info->last_partition_cnts[i] = data_info->end_disp[i] - data_info->last_partition_disp[i];
+				}
+			}
+		}
+	}
+	
+	for (vit = 0; vit < var_num; ++vit) {
+		struct _data_information * data_info = data_infos[vit];
+		
+		if (_debug_stream_seq && _gfn_rank == 0) {
+			int r;
+			for (r = 0; r < _gfn_num_proc; ++r)
+				printf("SS: GATHER CNTS[%d] = %d , DISP[%d] = %d\n", 
+				       r, data_info->last_gather_cnts[r], r, data_info->last_gather_disp[r]);
+		}
+		if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
+		_GfnStreamSeqIGather(data_info);
+	}
+	
+	for (vit = 0; vit < var_num; ++vit) {
+		struct _data_information * data_info = data_infos[vit];
+
+		if (_debug_stream_seq && _gfn_rank == 0) {
+			int r;
+			for (r = 0; r < _gfn_num_proc; ++r)
+				printf("SS: READ CNTS[%d] = %d , DISP[%d] = %d\n", 
+				       r, data_info->last_download_cnts[r], r, data_info->last_download_disp[r]);
+		}
+		if (data_info->has_download_evt) clWaitForEvents(1, &(data_info->last_download_evt));
+		_GfnStreamSeqReadBuffer(data_info);
 	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("========================================\n\n");
 	}
 	
-	size_t _work_item_num = (size_t)_CalcLoopSize(*seq_start_idx, *seq_end_idx, ker_info->loop_step);
-	*stream_work_group_item_num = 64; // TODO: optimization this value
-	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
+	// wait for execution
+	// TODO: move to before next conputation
+	if (ker_info->has_exec_evt) clWaitForEvents(1, &(ker_info->exec_evt));
 	
-	if (ker_info->curr_sequence_id < 2) {
-		*is_completed = 0;
-	} else {
-		// TODO: calculate increment step
-		if (*seq_start_idx > ker_info->local_end) *is_completed = 1;
-		else *is_completed = 0;
+	//printf("stream %d:%d\n", ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx);
+	//printf("stream = %d\n", _GfnStreamSeqExec(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx));
+	
+	if (ker_info->curr_sequence_id > 2 &&
+		_GfnStreamSeqExec(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx) == 0 
+		&& has_gather == 0) {
+		ker_info->is_complete = 1;
 	}
-	
-	if (*is_completed) return 0;
-	
-	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
-	
-	return 0;
-}
-
-int _GfnStreamSeqKernelFinishSequence(long long kernel_id)
-{
-	int current_start;
-	int local_end;
-	int last_partition_size;
-	int found = 0;
-	int sequence_id = 0;
-	struct _kernel_information *ker_info;
-	
-	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	
 	// update kernel info
 	ker_info->curr_sequence_id += 1;
 }
 
-int _GfnStreamSeqEnqueueScatterND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqEnqueueScatterND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
@@ -1655,8 +1734,6 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_MASTER_SEND(long long int,MPI_LONG_LONG_INT); break;
 	}
 	
-	struct _kernel_information *ker_info;
-	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	_add_scatter_var_id( ker_info, data_info ); // Register to kernel
 	
 	// Calculate disp (cnts is depend on partition size)
@@ -1878,7 +1955,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	return 0;
 }
 
-int _GfnStreamSeqIScatter(long long kernel_id, struct _data_information *data_info)
+int _GfnStreamSeqIScatter(struct _data_information *data_info)
 {	
 	int *cnts = data_info->last_partition_cnts;
 	int *disp = data_info->last_partition_disp;
@@ -1923,7 +2000,7 @@ do { \
 }
 
 // write sub buffer to accelerator
-int _GfnStreamSeqWriteBuffer(long long kernel_id, struct _data_information *data_info)
+int _GfnStreamSeqWriteBuffer(struct _data_information *data_info)
 {
 	cl_buffer_region info;
 	cl_mem subbuf;
@@ -1991,7 +2068,7 @@ int _GfnStreamSeqFinishDistributeArray()
 	return 0;
 }
 
-int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqEnqueueGatherND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ... )
 {
@@ -2053,9 +2130,6 @@ int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr,
 	
 	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
 
-	
-	struct _kernel_information *ker_info;
-	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	_add_gather_var_id( ker_info, data_info ); // Register to kernel
 	
 	// Calculate disp (cnts is depend on partition size)
@@ -2078,7 +2152,7 @@ int _GfnStreamSeqEnqueueGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr,
 }
 
 
-int _GfnStreamSeqFinishGatherND(long long kernel_id, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
+int _GfnStreamSeqFinishGatherND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
 						int loop_start, int loop_end, int loop_step, int partitioned_dim, int pattern_type, 
 						int level1_cond, int level2_cond, int size_n, int pattern_n, ...)
 {
@@ -2127,7 +2201,7 @@ do { \
 	}
 }
 
-int _GfnStreamSeqIGather(long long kernel_id, struct _data_information *data_info)
+int _GfnStreamSeqIGather(struct _data_information *data_info)
 {
 	int *cnts = data_info->last_gather_cnts;
 	int *disp = data_info->last_gather_disp;
@@ -2169,7 +2243,7 @@ do { \
 	}
 }
 
-int _GfnStreamSeqReadBuffer(long long kernel_id, struct _data_information *data_info)
+int _GfnStreamSeqReadBuffer(struct _data_information *data_info)
 {
 	cl_buffer_region info;
 	cl_mem subbuf;
@@ -2220,6 +2294,13 @@ int _GfnStreamSeqFinishGatherArray()
 	return 0;
 }
 
+int _GfnStreamSeqExec(int start, int end)
+{
+	if (end == -1 || (start > end))
+		return 0; /* FALSE */
+	else
+		return 1; /* TRUE */
+}
 
 
 int _GfnLockTransfer(long long id)
@@ -2757,21 +2838,37 @@ void _GfnSetKernelArg(cl_kernel kernel, int arg_num, size_t size, void *ptr)
 	_GfnCheckCLStatus2(_gfn_status, "SET KERNEL ARG", arg_num);
 }
 
-void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size)
+void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t *local_size, struct _kernel_information *ker_info)
 {
 	long long run_kernel_start_t, run_kernel_end_t;
 
 	run_kernel_start_t = get_time();			/* start time */
 
-	_gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue, 	/* command queue */
-									kernel, 				/* kernel */
-									1, 						/* work dimension */
-									0, 						/* global work offset */
-									global_size, 			/* global work size */
-									local_size, 			/* local work size */
-									0, 						/* number of event in wait list */
-									0, 						/* event wait list */
-									0);						/* event */
+	if (ker_info)
+	{
+		_gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue,   /* command queue */
+							kernel,        /* kernel */
+							1,             /* work dimension */
+							0,             /* global work offset */
+							global_size,   /* global work size */
+							local_size,    /* local work size */
+							0,             /* number of event in wait list */
+							0,             /* event wait list */
+							&(ker_info->exec_evt));  /* event */
+		ker_info->has_exec_evt = 1;
+	}
+	else
+	{
+		_gfn_status = clEnqueueNDRangeKernel(_gfn_cmd_queue,   /* command queue */
+							kernel,        /* kernel */
+							1,             /* work dimension */
+							0,             /* global work offset */
+							global_size,   /* global work size */
+							local_size,    /* local work size */
+							0,             /* number of event in wait list */
+							0,             /* event wait list */
+							0);            /* event */
+	}
 	_GfnCheckCLStatus(_gfn_status, "LAUNCH KERNEL");
 
 	_gfn_status = clFinish(_gfn_cmd_queue);
@@ -2835,6 +2932,16 @@ void _set_data_info_variable(struct _data_information *data_info,
 
 void _update_kernel_info_seq(struct _kernel_information *ker_info)
 {
+	ker_info->last_gather_seq_start = ker_info->last_download_seq_start;
+	ker_info->last_gather_seq_end = ker_info->last_download_seq_end;
+	ker_info->last_gather_partition_size = ker_info->last_download_partition_size;
+	
+	ker_info->last_download_seq_start = ker_info->save_exec_seq_start;
+	ker_info->last_download_seq_end = ker_info->save_exec_seq_end;
+	ker_info->last_download_partition_size = ker_info->last_exec_partition_size;
+	
+	ker_info->save_exec_seq_start = ker_info->last_upload_seq_start;
+	ker_info->save_exec_seq_end = ker_info->last_upload_seq_end;
 	ker_info->last_exec_partition_size = ker_info->last_upload_partition_size;
 	
 	ker_info->last_upload_seq_start = ker_info->last_partition_seq_start;
@@ -2853,5 +2960,13 @@ void _get_scatter_var_ids( struct _kernel_information *ker_info, struct _data_in
 	*var_datas = ker_info->scatter_var_datas;
 }
 
-void _add_gather_var_id( struct _kernel_information *ker_info, struct _data_information *var_data ) {}
-void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num ) {}
+void _add_gather_var_id( struct _kernel_information *ker_info, struct _data_information *var_data ) {
+	size_t cur_var_num = ker_info->gather_var_num;
+	ker_info->gather_var_datas[cur_var_num] = var_data;
+	ker_info->gather_var_num += 1;
+}
+
+void _get_gather_var_ids( struct _kernel_information *ker_info, struct _data_information ***var_datas, size_t *var_num ) {
+	*var_num = ker_info->gather_var_num;
+	*var_datas = ker_info->gather_var_datas;
+}
