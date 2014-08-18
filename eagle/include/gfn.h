@@ -95,7 +95,6 @@ struct _data_information {
 	MPI_Request last_igather_req;
 };
 
-void _init_data_info(struct _data_information *data_info);
 void _set_data_info_variable(struct _data_information *data_info,
 			long long unique_id, void *ptr, cl_mem cl_ptr,
 			cl_map_flags mem_type, int type_id);

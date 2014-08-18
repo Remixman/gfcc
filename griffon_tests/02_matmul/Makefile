@@ -9,7 +9,7 @@ CFLAGS = -g -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON matmul.c -lrt -D_GFN -lm
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON matmul.c -lrt -D_GFN -lm
 	rm matmul.o
 	
 master: trans
@@ -19,7 +19,19 @@ worker: trans
 	workergen matmul.c.kerdecl.c
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
 	
+opt: workeropt masteropt
+
+transopt:
+	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON matmul.c -lrt -D_GFN -lm
+	rm matmul.o
 	
+masteropt: transopt
+	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lm
+	
+workeropt: transopt
+	workergen matmul.c.kerdecl.c
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+
 modify:
 	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lm
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm

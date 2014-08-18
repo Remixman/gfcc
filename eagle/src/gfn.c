@@ -40,9 +40,6 @@ int stream_seq_factor = 1;
 
 char current_kernel_name[50];
 
-Ibcast_handle *send_scalar_handles[MAX_IBCAST_HANDLE_LIST];
-int send_scalar_curr_idx;
-
 static int _cluster_malloc_time;
 static int _cluster_scatter_time;
 static int _cluster_bcast_time;
@@ -94,6 +91,48 @@ static int round_to(int x, int r) {
 	return d * r;
 }
 
+//// Function for data information
+inline void _init_data_info(struct _data_information *data_info)
+{
+	data_info->ptr = NULL;
+	data_info->dim_n = 0;
+	
+	data_info->has_upload_evt = 0;
+	data_info->has_download_evt = 0;
+	data_info->has_iscatter_req = 0;
+	data_info->has_igather_req = 0;
+}
+
+inline void _set_data_info_loop(struct _data_information *data_info, 
+			int loop_start, int loop_end, int loop_step)
+{
+	data_info->loop_start = loop_start;
+	data_info->loop_end = loop_end;
+	data_info->loop_step = loop_step;
+}
+
+inline void _set_data_info_pattern(struct _data_information *data_info,
+			int pattern_type, int pattern_num, int *pattern_array)
+{
+	int i;
+	
+	data_info->pattern_type = pattern_type;
+	data_info->pattern_num = pattern_num;
+	for (i = 0; i < pattern_num; ++i)
+		data_info->pattern_array[i] = pattern_array[i];
+}
+
+inline void _set_data_info_variable(struct _data_information *data_info,
+			long long unique_id, void *ptr, cl_mem cl_ptr,
+			cl_map_flags mem_type, int type_id)
+{
+	data_info->unique_id = unique_id;
+	data_info->ptr = ptr;
+	data_info->cl_ptr = cl_ptr;
+	data_info->mem_type = mem_type;
+	data_info->type_id = type_id;
+}
+
 // API for user
 int gfn_get_num_process()
 {
@@ -130,9 +169,6 @@ int _GfnInit(int *argc, char **argv[])
 		is_overlap_node_dev_trans = TRUE;
 		_gfn_opt_level = opt_level - '0';
 	}
-
-	/* Send scalar list */
-	send_scalar_curr_idx = 0;
 
 	/* Chunk size */
 	stream_seq_factor = 1;
@@ -270,28 +306,22 @@ do { \
 	TRACE_LOG ("node-transfer end %lld\n", bcast_end_t); \
 } while(0)
 
-#define SWITCH_IBCAST(mpi_type) \
-do { \
-	Ibcast(ptr, 1, mpi_type, 0, MPI_COMM_WORLD, &(send_scalar_handles[send_scalar_curr_idx])); \
-	send_scalar_curr_idx++; \
-} while(0)
-
 	if (_gfn_rank == 0) _RecvInputMsg(ptr, _CalcTypeSize(type_id));
     
 	switch(type_id)
 	{
-	case TYPE_CHAR:           SWITCH_IBCAST(MPI_CHAR); break;
-	case TYPE_UNSIGNED_CHAR:  SWITCH_IBCAST(MPI_UNSIGNED_CHAR); break;
-	case TYPE_SHORT:          SWITCH_IBCAST(MPI_SHORT); break;
-	case TYPE_UNSIGNED_SHORT: SWITCH_IBCAST(MPI_UNSIGNED_SHORT); break;
-	case TYPE_INT:            SWITCH_IBCAST(MPI_INT); break;
-	case TYPE_UNSIGNED:       SWITCH_IBCAST(MPI_UNSIGNED); break;
-	case TYPE_LONG:           SWITCH_IBCAST(MPI_LONG); break;
-	case TYPE_UNSIGNED_LONG:  SWITCH_IBCAST(MPI_UNSIGNED_LONG); break;
-	case TYPE_FLOAT:          SWITCH_IBCAST(MPI_FLOAT); break;
-	case TYPE_DOUBLE:         SWITCH_IBCAST(MPI_DOUBLE); break;
-	case TYPE_LONG_DOUBLE:    SWITCH_IBCAST(MPI_LONG_DOUBLE); break;
-	case TYPE_LONG_LONG_INT:  SWITCH_IBCAST(MPI_LONG_LONG_INT); break;
+	case TYPE_CHAR:           SWITCH_BCAST(MPI_CHAR); break;
+	case TYPE_UNSIGNED_CHAR:  SWITCH_BCAST(MPI_UNSIGNED_CHAR); break;
+	case TYPE_SHORT:          SWITCH_BCAST(MPI_SHORT); break;
+	case TYPE_UNSIGNED_SHORT: SWITCH_BCAST(MPI_UNSIGNED_SHORT); break;
+	case TYPE_INT:            SWITCH_BCAST(MPI_INT); break;
+	case TYPE_UNSIGNED:       SWITCH_BCAST(MPI_UNSIGNED); break;
+	case TYPE_LONG:           SWITCH_BCAST(MPI_LONG); break;
+	case TYPE_UNSIGNED_LONG:  SWITCH_BCAST(MPI_UNSIGNED_LONG); break;
+	case TYPE_FLOAT:          SWITCH_BCAST(MPI_FLOAT); break;
+	case TYPE_DOUBLE:         SWITCH_BCAST(MPI_DOUBLE); break;
+	case TYPE_LONG_DOUBLE:    SWITCH_BCAST(MPI_LONG_DOUBLE); break;
+	case TYPE_LONG_LONG_INT:  SWITCH_BCAST(MPI_LONG_LONG_INT); break;
 	}
 
 	IF_TIMING (_cluster_bcast_time)
@@ -303,11 +333,6 @@ do { \
 
 int _GfnFinishBroadcastScalar()
 {
-	int i;
-	for (i = 0; i < send_scalar_curr_idx; ++i)
-		Ibcast_wait(&(send_scalar_handles[i]));
-
-	send_scalar_curr_idx = 0;
 	return 0;
 }
 
@@ -360,6 +385,7 @@ int _GfnFinishReduceScalar()
 int _GfnMalloc1D(void ** ptr, cl_mem *cl_ptr, long long unique_id, int type_id, size_t dim1_size, cl_mem_flags mem_type, int level1_cond, int level2_cond)
 {
 	long long malloc_start_t, malloc_end_t;
+	long long map_start_t, map_end_t;
 	long long create_buf_start_t, create_buf_end_t;
 	long long insert_vtab_start_t, insert_vtab_end_t;
 
@@ -425,10 +451,12 @@ do { \
 	
 #define SWITCH_MAP_BUFFER(type,size1) \
 do { \
+	map_start_t = get_time(); \
 	*ptr = (double*) clEnqueueMapBuffer(_gfn_cmd_queue, *cl_ptr, CL_TRUE, map_type, 0, sizeof(type)*size1, 0,NULL, NULL, NULL); \
+	map_end_t = get_time(); \
 } while(0)
 
-	if (_gfn_opt_level >= 3)
+	//if (_gfn_opt_level >= 3)
 	{
 		switch(type_id)
 		{
@@ -454,6 +482,8 @@ do { \
 		printf("[%d] Allocate %p on device : %.10f s.\n", _gfn_rank, *ptr, 
 			(float)(create_buf_end_t-create_buf_start_t)/1000000);
 	//IF_TIMING (_mm_overhead_time)
+		
+	printf("[%d] Map %p : %.10f s.\n", _gfn_rank, *ptr, (float)(map_end_t-map_start_t)/1000000.0 );
 	
 	return 0;
 }
@@ -948,6 +978,7 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 	long long gpu_trans_start_t, gpu_trans_end_t;
 	long long scatter_start_t, scatter_end_t;
 	long long overall_scatter_start_t, overall_scatter_end_t;
+	long long socket_start_t, socket_end_t;
 
 	int i, k, r, value;
 	va_list vl;
@@ -1020,14 +1051,20 @@ int _GfnEnqueueScatterND(void * ptr, cl_mem cl_ptr, long long unique_id, int typ
 do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) { \
+		socket_start_t = get_time(); \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 						partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+		socket_end_t = get_time(); \
 	} \
 for (i = 0; i < recv_loop_num; ++i) { \
 	IF_TIMING (_cluster_scatter_time) scatter_start_t = get_time(); \
 	TRACE_LOG ("node-transfer start %lld\n", scatter_start_t); \
-	MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
-		tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
+	if (_gfn_rank == 0) \
+		MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
+			MPI_IN_PLACE, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
+	else \
+		MPI_Scatterv(tmp_ptr + recv_it_offset, cnts, disp, mpi_type, \
+			tmp_ptr + recv_it_offset + recv_elem_offset, sub_size, mpi_type, 0, MPI_COMM_WORLD); \
 	IF_TIMING (_cluster_scatter_time) scatter_end_t = get_time(); \
 	TRACE_LOG ("node-transfer end %lld\n", scatter_end_t); \
 	if (level2_cond) { \
@@ -1664,6 +1701,8 @@ int _GfnStreamSeqEnqueueScatterND(struct _kernel_information *ker_info, void * p
 		if (pattern_n == 0) // no dependency
 			return 0;
 	}
+	
+	long long socket_start_t, socket_end_t;
   
 	int scatter_size;
 	int recv_it_offset = 0;		/* increase for (+=) (elem_num * block_size) */
@@ -1724,8 +1763,10 @@ int _GfnStreamSeqEnqueueScatterND(struct _kernel_information *ker_info, void * p
 do { \
 	type * tmp_ptr = (type *) ptr; \
 	if (_gfn_rank == 0) { \
+		socket_start_t = get_time(); \
 		_RecvInputNDMsgCore(tmp_ptr,type_id,loop_start,loop_end,loop_step, \
 			partitioned_dim,pattern_type,size_n,pattern_n,size_array,pattern_array); \
+		socket_end_t = get_time(); \
 	} \
 } while (0)
 	case TYPE_CHAR:           SWITCH_STREAMSEQ_MASTER_SEND(char,MPI_CHAR); break;
@@ -2127,17 +2168,7 @@ int _GfnStreamSeqEnqueueGatherND(struct _kernel_information *ker_info, void * pt
 		loop_step = 1;
 	}
 	_set_data_info_loop(data_info, loop_start, loop_end, loop_step);
-
-	// Not have information case
-	/*if (size_n == 0) {
-		// TODO: get other information from var table
-		_get_var_info(unique_id, &mem_type, &found);
-		if (!found)
-			fprintf(stdout, "ERROR %s:%d : cannot get variable info in _GfnEnqueueScatterND", __FILE__, __LINE__);
-	}*/
-	
 	_set_data_info_variable(data_info, unique_id, ptr, cl_ptr, mem_type, type_id);
-
 	_add_gather_var_id( ker_info, data_info ); // Register to kernel
 	
 	// Calculate disp (cnts is depend on partition size)
@@ -2905,50 +2936,6 @@ void _GfnLaunchKernel(cl_kernel kernel, const size_t *global_size, const size_t 
 
 }
 
-
-
-
-//// Function for data information
-void _init_data_info(struct _data_information *data_info)
-{
-	data_info->ptr = NULL;
-	data_info->dim_n = 0;
-	
-	data_info->has_upload_evt = 0;
-	data_info->has_download_evt = 0;
-	data_info->has_iscatter_req = 0;
-	data_info->has_igather_req = 0;
-}
-
-void _set_data_info_loop(struct _data_information *data_info, 
-			int loop_start, int loop_end, int loop_step)
-{
-	data_info->loop_start = loop_start;
-	data_info->loop_end = loop_end;
-	data_info->loop_step = loop_step;
-}
-
-void _set_data_info_pattern(struct _data_information *data_info,
-			int pattern_type, int pattern_num, int *pattern_array)
-{
-	int i;
-	
-	data_info->pattern_type = pattern_type;
-	data_info->pattern_num = pattern_num;
-	for (i = 0; i < pattern_num; ++i)
-		data_info->pattern_array[i] = pattern_array[i];
-}
-
-void _set_data_info_variable(struct _data_information *data_info,
-			long long unique_id, void *ptr, cl_mem cl_ptr,
-			cl_map_flags mem_type, int type_id)
-{
-	data_info->unique_id = unique_id;
-	data_info->ptr = ptr;
-	data_info->cl_ptr = cl_ptr;
-	data_info->mem_type = mem_type;
-	data_info->type_id = type_id;
-}
 
 
 void _update_kernel_info_seq(struct _kernel_information *ker_info)
