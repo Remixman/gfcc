@@ -1569,7 +1569,7 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 {
 	size_t var_num;
 	int vit, i;
-	int has_gather = 1;
+	int has_gather = 1, has_download = 1;
 	struct _data_information ** data_infos;
 	_get_gather_var_ids(ker_info, &data_infos, &var_num);
 	MPI_Status status;
@@ -1610,6 +1610,7 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 				// new download counts
 				data_info->last_download_cnts[i] = data_info->last_exec_cnts[i];
 				data_info->last_download_disp[i] = data_info->last_exec_disp[i];
+				if (data_info->last_download_cnts[i] == -1) has_download = 0;
 				
 				// new exec counts
 				data_info->last_exec_cnts[i] = data_info->last_upload_cnts[i];
@@ -1676,16 +1677,16 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 	
 	if (ker_info->curr_sequence_id > 2 &&
 		_GfnStreamSeqExec(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx) == 0 
-		&& has_gather == 0) {
+		&& has_gather == 0 && has_download == 0) {
 		ker_info->is_complete = 1;
 	}
 	
 	// last iteration block for all download and gather
 	if (ker_info->is_complete) {
 		for (vit = 0; vit < var_num; ++vit) {
-		struct _data_information * data_info = data_infos[vit];
-		if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
-	}
+			struct _data_information * data_info = data_infos[vit];
+			if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
+		}
 	}
 	
 	// update kernel info
