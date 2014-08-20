@@ -1395,6 +1395,7 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	_retieve_kernel_table(kernel_id, &ker_info, &found);
 	
 	if (!found) ker_info = (struct _kernel_information *)malloc(sizeof(struct _kernel_information));
+	memset(ker_info, 0, sizeof(struct _kernel_information));
 	
 	ker_info->kernel_id = kernel_id;
 	ker_info->local_start = local_start;
@@ -1403,24 +1404,7 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->loop_end = loop_end;
 	ker_info->loop_step = loop_step;
 	
-    //printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start,
-      //  ker_info->local_end, ker_info->loop_step);
-    
-	ker_info->curr_sequence_id = 0;
-	
-	ker_info->last_exec_partition_size = 0;
-	ker_info->last_upload_seq_start = 0;
-	ker_info->last_upload_seq_end = 0;
-	ker_info->last_upload_partition_size = 0;
-	ker_info->last_partition_seq_start = 0;
-	ker_info->last_partition_seq_end = 0;
-	ker_info->last_partition_partition_size = 0;
-	
-	ker_info->bcast_var_num = 0;
-	ker_info->scatter_var_num = 0;
-	ker_info->gather_var_num = 0;
-	
-	ker_info->has_exec_evt = 0;
+	//printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start, ker_info->local_end, ker_info->loop_step);
 	
 	if (!found) _insert_to_kernel_table(kernel_id, ker_info);
 	
@@ -1443,7 +1427,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	}
 	
 	// TODO: calculate partition size dynamically
-	//int curr_ite_partition_size = 200000;
 	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
 
 	
@@ -1461,12 +1444,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
         
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
-			
-			/*if (_debug_stream_seq && _gfn_rank == 0) {
-				printf("last_partition_partition_size = %d\n", ker_info->last_partition_partition_size);
-				printf("last_partition_seq_start = %d\n", ker_info->last_partition_seq_start);
-				printf("last_partition_seq_end = %d\n", ker_info->last_partition_seq_end);
-			}*/
 			
 			// Initialize cnts for first partition
 			for (i = 0; i < _gfn_num_proc; ++i) {
@@ -1557,7 +1534,10 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	*stream_work_group_item_num = 64; // TODO: optimization this value
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
 	
-	ker_info->has_exec_evt = 0; // set to 1 if execute
+	if (ker_info->has_exec_evt == 1) {
+		clWaitForEvents(1, &(ker_info->exec_evt));
+		ker_info->has_exec_evt = 0; // set to 1 if execute
+	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
 	
 	ker_info->is_complete = 0;
@@ -1667,10 +1647,6 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		printf("========================================\n\n");
 	}
-	
-	// wait for execution
-	// TODO: move to before next conputation
-	if (ker_info->has_exec_evt) clWaitForEvents(1, &(ker_info->exec_evt));
 	
 	//printf("stream %d:%d\n", ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx);
 	//printf("stream = %d\n", _GfnStreamSeqExec(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx));
