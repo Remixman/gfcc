@@ -1406,6 +1406,20 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	
 	//printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start, ker_info->local_end, ker_info->loop_step);
 	
+	ker_info->app_profile.upload_data_size = 0;
+	ker_info->app_profile.scatter_latency = 0;
+	ker_info->app_profile.scatter_bandwidth = 37.80 * 1024/* 37.80 (MB/sec) */;
+	ker_info->app_profile.upload_latency = 0;
+	ker_info->app_profile.upload_bandwidth = 2530.67 * 1024/* 2530.67 (MB/sec) */;
+	
+	ker_info->app_profile.download_data_size = 0;
+	ker_info->app_profile.download_latency = 0;
+	ker_info->app_profile.download_bandwidth = 1855.65 * 1024/* 1855.65 (MB/sec) */;
+	ker_info->app_profile.gather_latency = 0;
+	ker_info->app_profile.gather_bandwidth = 37.24 * 1024/* 37.24 (MB/sec) */;
+	
+	ker_info->app_profile.loop_size = 0;
+	
 	if (!found) _insert_to_kernel_table(kernel_id, ker_info);
 	
 	*out_ker_info = ker_info;
@@ -1778,6 +1792,11 @@ do { \
 	for (i = 0; i < _gfn_num_proc; ++i)
 		data_info->end_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
 	
+	
+	///////
+	ker_info->app_profile.upload_data_size += data_info->elem_num * data_info->block_size /* TODO * sizeof(type) */;
+	ker_info->app_profile.scatter_latency += 0.005971168 /* 5971.168 ms. */;
+	ker_info->app_profile.upload_latency += 0.001307204  /* 1307.204 ms. */;
 #if 0
 
 	/* Exchange boundary if stream number is -1 */
@@ -2164,6 +2183,10 @@ int _GfnStreamSeqEnqueueGatherND(struct _kernel_information *ker_info, void * pt
 	for (i = 0; i < _gfn_num_proc; ++i)
 		data_info->end_disp[i] = data_info->last_partition_disp[i] + data_info->last_partition_cnts[i];
 
+	ker_info->app_profile.download_data_size += data_info->elem_num * data_info->block_size /* TODO * sizeof(type) */;
+	ker_info->app_profile.download_latency += 0.001515679 /* 1515.679 ms. */;
+	ker_info->app_profile.gather_latency += 0.6029274 /* 6029.274 ms. */;
+	
 	return 0;
 }
 
@@ -2496,6 +2519,70 @@ int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step,
 	int range_size = (loop_end - loop_start + 1) / loop_step;
 	int next_start = _CalcOffset(range_size, num_proc, rank+1) * loop_step;
 	return loop_start + next_start - 1;
+}
+
+
+inline int round_to_quanta(double n, int quanta)
+{
+	return (round(n/quanta) * quanta);
+}
+
+double _GfnCalcStreamSeqTime(int chunk_num, struct _app_profile * ap)
+{
+	double term1, term2, term3, term4, term5, term6, term7, term8, term9;
+	
+	double ss_scatter_time = ap->scatter_latency + (ap->scatter_bandwidth * (ap->upload_data_size/chunk_num));
+	double ss_upload_time = ap->upload_latency + (ap->upload_bandwidth * (ap->upload_data_size/chunk_num));
+	double ss_download_time = ap->download_latency + (ap->download_bandwidth * (ap->download_data_size/chunk_num));
+	double ss_gather_time = ap->gather_latency + (ap->gather_bandwidth * (ap->download_data_size/chunk_num));
+	double ss_exec_time = 0.552;
+	
+	double max_ss_time = ss_scatter_time;
+	if (ss_upload_time > max_ss_time) max_ss_time = ss_upload_time;
+	if (ss_download_time > max_ss_time) max_ss_time = ss_download_time;
+	if (ss_gather_time > max_ss_time) max_ss_time = ss_gather_time;
+	if (ss_exec_time > max_ss_time) max_ss_time = ss_exec_time;
+	
+	term1 = ss_scatter_time;
+	term2 = MAX(ss_upload_time, term1);
+	term3 = MAX(ss_exec_time, term2);
+	term4 = MAX(ss_download_time, term3);
+	term5 = chunk_num * max_ss_time;
+	term9 = ss_download_time;
+	term8 = MAX(term9, ss_gather_time);
+	term7 = MAX(term8, ss_exec_time);
+	term6 = MAX(term7, ss_upload_time);
+	
+	return term1 + term2 + term3 + term4 + term5 + term6 + term7 + term8 + term9;
+}
+
+int _GfnCalcStreamSeqChunkSize(struct _app_profile * ap)
+{
+	int chunk_size;
+	
+	double mid_time, left_mid_time, right_mid_time;
+	
+	int quanta = 10;
+	int left_size = quanta;
+	int right_size = ap->loop_size;
+	int mid_size = round_to_quanta( ((right_size - left_size) / 2) , quanta );
+	int left_mid_size, right_mid_size;
+	while (1) {
+		left_mid_size = round_to_quanta( ((mid_size - left_size) / 2) , quanta );
+		right_mid_size = round_to_quanta( ((right_size - mid_size) / 2) , quanta );
+		
+		// TODO: memoization
+		mid_time = _GfnCalcStreamSeqTime(mid_size, ap);
+		left_mid_time = _GfnCalcStreamSeqTime(left_mid_size, ap);
+		right_mid_time = _GfnCalcStreamSeqTime(right_mid_size, ap);
+		
+		if ((mid_time <= left_mid_time) && (mid_time <= right_mid_time)) {
+			chunk_size = mid_size;
+			break;
+		}
+	}
+	
+	return chunk_size;
 }
 
 int _CalcLoopSize(int start, int end, int incre)
