@@ -1441,7 +1441,13 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	}
 	
 	// TODO: calculate partition size dynamically
-	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
+	int curr_ite_partition_size;// = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
+	if (ker_info->curr_sequence_id % 2 == 0)
+		curr_ite_partition_size = 2000;
+	else if (ker_info->curr_sequence_id % 3 == 0)
+		curr_ite_partition_size = 2500;
+	else
+		curr_ite_partition_size = 1000;
 
 	
 	// ONLY BROADCAST AND SCATTER DATA
