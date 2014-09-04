@@ -18,7 +18,7 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
-int _debug_stream_seq = 0;
+int _debug_stream_seq = 1;
 
 /* buffer for reduction */
 char *char_sum_buffer;
@@ -1450,11 +1450,12 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		curr_ite_partition_size = 1000;
 
 	
+	ker_info->last_partition_partition_size = curr_ite_partition_size;
+	
 	// ONLY BROADCAST AND SCATTER DATA
 	if (ker_info->curr_sequence_id == 0) {
 		// get sequence start and end index
 		ker_info->last_partition_seq_start = ker_info->local_start;
-		ker_info->last_partition_partition_size = curr_ite_partition_size;
 		ker_info->last_partition_seq_end = ker_info->last_partition_seq_start + ker_info->last_partition_partition_size;
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
@@ -1486,7 +1487,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		
 		// get sequence start and end index
 		ker_info->last_partition_seq_start += ker_info->last_partition_partition_size;
-		// ker_info->last_partition_partition_size = 1000;
 		ker_info->last_partition_seq_end = ker_info->last_partition_seq_start + ker_info->last_partition_partition_size;
 		if (ker_info->last_partition_seq_end > ker_info->local_end)
 			ker_info->last_partition_seq_end = ker_info->local_end;
