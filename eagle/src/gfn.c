@@ -18,7 +18,7 @@ cl_command_queue _gfn_cmd_queue;
 cl_int _gfn_status;
 cl_program _gfn_cl_program;
 
-int _debug_stream_seq = 1;
+int _debug_stream_seq = 0;
 
 /* buffer for reduction */
 char *char_sum_buffer;
@@ -161,7 +161,6 @@ int _GfnInit(int *argc, char **argv[])
 	char opt_level = '0';
 	char *opt_env = getenv("GFN_OPT");
 	if (opt_env) opt_level = opt_env[0];
-	opt_level = 3;
 
 	MPI_Bcast(&opt_level, 1, MPI_CHAR, 0, MPI_COMM_WORLD);	
 	if (_gfn_rank == 0) printf("GFN_OPT = %c\n", opt_level);
