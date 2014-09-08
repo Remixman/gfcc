@@ -1548,7 +1548,11 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
 	
 	if (ker_info->has_exec_evt == 1) {
+		cl_ulong start_t, end_t;
 		clWaitForEvents(1, &(ker_info->exec_evt));
+		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
+		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
+		printf("%lf, ", (end_t - start_t) / 1000000.0);
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
@@ -2530,10 +2534,10 @@ double _GfnCalcStreamSeqTime(int chunk_num, struct _app_profile * ap)
 {
 	double term1, term2, term3, term4, term5, term6, term7, term8, term9;
 	
-	double ss_scatter_time = ap->scatter_latency + (ap->scatter_bandwidth * (ap->upload_data_size/chunk_num));
-	double ss_upload_time = ap->upload_latency + (ap->upload_bandwidth * (ap->upload_data_size/chunk_num));
-	double ss_download_time = ap->download_latency + (ap->download_bandwidth * (ap->download_data_size/chunk_num));
-	double ss_gather_time = ap->gather_latency + (ap->gather_bandwidth * (ap->download_data_size/chunk_num));
+	double ss_scatter_time = ap->scatter_latency + ((ap->upload_data_size/chunk_num) / ap->scatter_bandwidth);
+	double ss_upload_time = ap->upload_latency + ((ap->upload_data_size/chunk_num) / ap->upload_bandwidth);
+	double ss_download_time = ap->download_latency + ((ap->download_data_size/chunk_num) / ap->download_bandwidth);
+	double ss_gather_time = ap->gather_latency + ((ap->download_data_size/chunk_num) / ap->gather_bandwidth);
 	double ss_exec_time = 0.552;
 	
 	double max_ss_time = ss_scatter_time;
@@ -2867,7 +2871,7 @@ void _InitOpenCL()
 		NULL, NULL, &_gfn_status);
 	_GfnCheckCLStatus(_gfn_status, "clCreateContext");
 
-	_gfn_cmd_queue = clCreateCommandQueue(_gfn_context, _gfn_device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &_gfn_status);
+	_gfn_cmd_queue = clCreateCommandQueue(_gfn_context, _gfn_device_id, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE, &_gfn_status);
 	_GfnCheckCLStatus(_gfn_status, "clCreateCommandQueue");
 }
 
