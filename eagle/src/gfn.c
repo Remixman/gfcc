@@ -1552,7 +1552,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		clWaitForEvents(1, &(ker_info->exec_evt));
 		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
 		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
-		printf("%lf, ", (end_t - start_t) / 1000000.0);
+		if (_gfn_rank == 0) printf("%lf, ", (end_t - start_t) / 1000000.0);
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
