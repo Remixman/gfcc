@@ -91,6 +91,15 @@ static int round_to(int x, int r) {
 	return d * r;
 }
 
+static int upload_print_count = 0;
+static int kernel_print_count = 0;
+static void print_cl_event_profile(const char *phase, cl_event evt) {
+	cl_ulong start_t, end_t;
+	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
+	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
+	if (_gfn_rank == 0) printf("%s : %.6lf", phase, (end_t - start_t) / 1000000.0);
+}
+
 //// Function for data information
 inline void _init_data_info(struct _data_information *data_info)
 {
@@ -1534,7 +1543,13 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
 			}
-			if (data_info->has_upload_evt) clWaitForEvents(1, &(data_info->last_upload_evt));
+			if (data_info->has_upload_evt) {
+				clWaitForEvents(1, &(data_info->last_upload_evt));
+				if (upload_print_count == 0) {
+					print_cl_event_profile("Stream Sequence Write Buffer", ker_info->exec_evt);
+					upload_print_count++;
+				}
+			}
 			_GfnStreamSeqWriteBuffer(data_info);
 		}
 		
@@ -1548,11 +1563,11 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
 	
 	if (ker_info->has_exec_evt == 1) {
-		cl_ulong start_t, end_t;
 		clWaitForEvents(1, &(ker_info->exec_evt));
-		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
-		clGetEventProfilingInfo(ker_info->exec_evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
-		if (_gfn_rank == 0) printf("%lf, ", (end_t - start_t) / 1000000.0);
+		if (kernel_print_count == 0) {
+			print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
+			kernel_print_count++;
+		}
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
