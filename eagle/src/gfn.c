@@ -1546,7 +1546,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			if (data_info->has_upload_evt) {
 				clWaitForEvents(1, &(data_info->last_upload_evt));
 				if (upload_print_count == 0) {
-					print_cl_event_profile("Stream Sequence Write Buffer", ker_info->exec_evt);
+					print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
 					upload_print_count++;
 				}
 			}
