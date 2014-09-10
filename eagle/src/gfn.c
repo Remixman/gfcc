@@ -97,7 +97,7 @@ static void print_cl_event_profile(const char *phase, cl_event evt) {
 	cl_ulong start_t, end_t;
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
-	if (_gfn_rank == 0) printf("%s : %.6lf", phase, (end_t - start_t) / 1000000.0);
+	if (_gfn_rank == 0) printf("%s : %.6lf\n", phase, (end_t - start_t) / 1000000.0);
 }
 
 //// Function for data information
