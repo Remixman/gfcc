@@ -91,6 +91,11 @@ static int round_to(int x, int r) {
 	return d * r;
 }
 
+static long long scatter_start, scatter_end;
+static int scatter_print_count = 0;
+static long long gather_start, gather_end;
+static int gather_print_count = 0;
+static int download_print_count = 0;
 static int upload_print_count = 0;
 static int kernel_print_count = 0;
 static void print_cl_event_profile(const char *phase, cl_event evt) {
@@ -1482,6 +1487,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
                            r, data_info->end_disp[r] );
 			}
+			scatter_start = get_time();
 			_GfnStreamSeqIScatter(data_info);
 		}
 	} else {
@@ -1529,7 +1535,15 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
 					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
 			}
-			if (data_info->has_iscatter_req) MPI_Wait(&(data_info->last_iscatter_req), &status);
+			if (data_info->has_iscatter_req) {
+                MPI_Wait(&(data_info->last_iscatter_req), &status);
+                if (scatter_print_count == 0) {
+                    scatter_end = get_time();
+                    if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IScatter", (scatter_end - scatter_start) / 1000000.0);
+                    scatter_print_count++;
+                }
+            }
+            
 			_GfnStreamSeqIScatter(data_info);
 		}
         
@@ -1659,7 +1673,16 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 				printf("SS: GATHER CNTS[%d] = %d , DISP[%d] = %d\n", 
 				       r, data_info->last_gather_cnts[r], r, data_info->last_gather_disp[r]);
 		}
-		if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
+		if (data_info->has_igather_req) {
+            MPI_Wait(&(data_info->last_igather_req), &status);
+            if (gather_print_count == 0) {
+                gather_end = get_time();
+                if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IGather", (gather_end - gather_start) / 1000000.0);
+                gather_print_count++;
+            }
+        }
+            
+        gather_start = get_time();
 		_GfnStreamSeqIGather(data_info);
 	}
 	
@@ -1672,7 +1695,14 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 				printf("SS: READ CNTS[%d] = %d , DISP[%d] = %d\n", 
 				       r, data_info->last_download_cnts[r], r, data_info->last_download_disp[r]);
 		}
-		//if (data_info->has_download_evt) clWaitForEvents(1, &(data_info->last_download_evt));
+		if (data_info->has_download_evt) {
+            clWaitForEvents(1, &(data_info->last_download_evt));
+            if (download_print_count == 0) {
+                print_cl_event_profile("Stream Sequence Read Buffer", data_info->last_download_evt);
+                download_print_count++;
+            }
+        }
+        
 		_GfnStreamSeqReadBuffer(data_info);
 	}
 	
@@ -2316,7 +2346,7 @@ int _GfnStreamSeqReadBuffer(struct _data_information *data_info)
 	data_info->has_download_evt = 1; /* TRUE */
 	
 	// TODO: subbuffer memtype should map to pinned memory ??
-/*#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
+#define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
 do { \
 	type * tmp_ptr = (type *) data_info->ptr; \
 	info.origin = (size_t)(elem_offset * sizeof(type)); \
@@ -2327,8 +2357,9 @@ do { \
 	_GfnCheckCLStatus(_gfn_status, "READ BUFFER"); \
 	_gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
-} while (0)*/
+} while (0)
 
+#if 0
 #define SWITCH_STREAM_READ_BUFFER(type, mpi_type) \
 do { \
 	type * tmp_ptr = (type *) data_info->ptr; \
@@ -2341,6 +2372,7 @@ do { \
 	_gfn_status = clReleaseMemObject(subbuf); \
 	_GfnCheckCLStatus(_gfn_status, "RELEASE SUB BUFFER"); \
 } while (0)
+#endif
 
 	switch(data_info->type_id)
 	{
