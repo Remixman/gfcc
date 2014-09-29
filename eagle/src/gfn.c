@@ -1457,6 +1457,10 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	// TODO: calculate partition size dynamically
 	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
 
+#define WRAP_SIZE 32
+	// ceil to wrap size
+	curr_ite_partition_size = (curr_ite_partition_size + WRAP_SIZE - 1) / WRAP_SIZE * WRAP_SIZE;
+
 	ker_info->last_partition_partition_size = curr_ite_partition_size;
 	
 	// ONLY BROADCAST AND SCATTER DATA
