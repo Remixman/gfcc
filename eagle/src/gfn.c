@@ -37,6 +37,7 @@ long long int *long_long_int_sum_buffer;
 long long _gfn_last_kernel_time;
 int is_overlap_node_dev_trans;
 int stream_seq_factor = 1;
+int stream_seq_size = 0;
 
 char current_kernel_name[50];
 
@@ -184,13 +185,20 @@ int _GfnInit(int *argc, char **argv[])
 		_gfn_opt_level = opt_level - '0';
 	}
 
-	/* Chunk size */
+	/* Chunk num */
 	stream_seq_factor = 1;
 	char *opt_stream_factor = getenv("GFN_OPT_STREAM_FACTOR");
 	if (opt_stream_factor) sscanf(opt_stream_factor, "%d", &stream_seq_factor);
 	MPI_Bcast(&stream_seq_factor, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	if (_gfn_rank == 0) printf("GFN_OPT_STREAM_FACTOR = %d\n", stream_seq_factor);
 
+	/* Chunk size */
+	stream_seq_size = 0;
+	char *opt_stream_size = getenv("GFN_OPT_STREAM_SIZE");
+	if (opt_stream_size) sscanf(opt_stream_size, "%d", &stream_seq_size);
+	MPI_Bcast(&stream_seq_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if (_gfn_rank == 0) printf("GFN_OPT_STREAM_SIZE = %d\n", stream_seq_size);
+	
 
 	/* Reduction buffer */
 	double_sum_buffer = NULL;
@@ -1456,6 +1464,9 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	
 	// TODO: calculate partition size dynamically
 	int curr_ite_partition_size = _CalcLoopSize(ker_info->loop_start, ker_info->loop_end, ker_info->loop_step) / (_gfn_num_proc * stream_seq_factor);
+	if (stream_seq_size > 0) {
+		curr_ite_partition_size = stream_seq_size;
+	}
 
 #define WRAP_SIZE 32
 	// ceil to wrap size
