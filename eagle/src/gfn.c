@@ -38,6 +38,7 @@ long long _gfn_last_kernel_time;
 int is_overlap_node_dev_trans;
 int stream_seq_factor = 1;
 int stream_seq_size = 0;
+int thread_block_size = 128;
 
 char current_kernel_name[50];
 
@@ -198,6 +199,14 @@ int _GfnInit(int *argc, char **argv[])
 	if (opt_stream_size) sscanf(opt_stream_size, "%d", &stream_seq_size);
 	MPI_Bcast(&stream_seq_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	if (_gfn_rank == 0) printf("GFN_OPT_STREAM_SIZE = %d\n", stream_seq_size);
+	
+	/* Thread block size */
+	thread_block_size = 128;
+	char *opt_block_size = getenv("GFN_THREAD_BLOCK_SIZE");
+	if (opt_block_size) sscanf(opt_block_size, "%d", &thread_block_size);
+	MPI_Bcast(&thread_block_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	if (_gfn_rank == 0) printf("GFN_THREAD_BLOCK_SIZE = %d\n", thread_block_size);
+	
 	
 
 	/* Reduction buffer */
@@ -1589,7 +1598,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	}
 	
 	size_t _work_item_num = (size_t)_CalcLoopSize(ker_info->stream_seq_start_idx, ker_info->stream_seq_end_idx, ker_info->loop_step);
-	*stream_work_group_item_num = 64; // TODO: optimization this value
+	*stream_work_group_item_num = thread_block_size; // TODO: optimization this value
 	*stream_global_item_num = _GfnCalcGlobalItemNum(_work_item_num, *stream_work_group_item_num);
 	
 	if (ker_info->has_exec_evt == 1) {
