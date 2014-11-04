@@ -1595,7 +1595,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
 			if (data_info->has_upload_evt) {
 				clWaitForEvents(1, &(data_info->last_upload_evt));
-				total_download_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
+				total_upload_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
 			}
 			_GfnStreamSeqWriteBuffer(data_info);
 		}
@@ -1725,7 +1725,7 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 		}
 		if (data_info->has_download_evt) {
 			clWaitForEvents(1, &(data_info->last_download_evt));
-			total_gather_time += print_cl_event_profile("Stream Sequence Read Buffer", data_info->last_download_evt);
+			total_download_time += print_cl_event_profile("Stream Sequence Read Buffer", data_info->last_download_evt);
 		}
         
 		_GfnStreamSeqReadBuffer(data_info);
