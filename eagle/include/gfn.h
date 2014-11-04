@@ -61,7 +61,7 @@ struct _data_information {
 	int loop_step;
 	
 	int pattern_type;
-	int pattern_array[20];
+	int pattern_array[40];
 	int pattern_num;
 	
 	// For gather
