@@ -1579,6 +1579,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IScatter", (scatter_end - scatter_start) / 1000000.0);
 			}
             
+			scatter_start = get_time();
 			_GfnStreamSeqIScatter(data_info);
 		}
         
@@ -1747,7 +1748,11 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 	if (ker_info->is_complete) {
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
-			if (data_info->has_igather_req) MPI_Wait(&(data_info->last_igather_req), &status);
+			if (data_info->has_igather_req) {
+				MPI_Wait(&(data_info->last_igather_req), &status);
+				gather_end = get_time();
+				if (_gfn_rank == 0) total_gather_time += (gather_end - gather_start) / 1000000.0;
+			}
 		}
 	}
 	
