@@ -1716,15 +1716,16 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 				       r, data_info->last_gather_cnts[r], r, data_info->last_gather_disp[r]);
 		}
 		if (data_info->has_igather_req) {
-            MPI_Wait(&(data_info->last_igather_req), &status);
-            if (gather_print_count == 0) {
-                gather_end = get_time();
-                if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IGather", (gather_end - gather_start) / 1000000.0);
-                gather_print_count++;
-            }
-        }
+			MPI_Wait(&(data_info->last_igather_req), &status);
+			if (gather_print_count == 0) {
+				gather_end = get_time();
+				if (_gfn_rank == 0) total_gather_time += (gather_end - gather_start) / 1000000.0;
+				//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IGather", (gather_end - gather_start) / 1000000.0);
+				gather_print_count++;
+			}
+		}
             
-        gather_start = get_time();
+		gather_start = get_time();
 		_GfnStreamSeqIGather(data_info);
 	}
 	
