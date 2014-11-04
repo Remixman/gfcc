@@ -95,23 +95,17 @@ static int round_to(int x, int r) {
 
 static long long scatter_start, scatter_end;
 static double total_scatter_time = 0.0;
-static int scatter_print_count = 0;
 static long long gather_start, gather_end;
 static double total_gather_time = 0.0;
 static double total_exec_time = 0.0;
 static double total_upload_time = 0.0;
 static double total_download_time = 0.0;
-static int gather_print_count = 0;
-static int download_print_count = 0;
-static int upload_print_count = 0;
-static int kernel_print_count = 0;
 static double print_cl_event_profile(const char *phase, cl_event evt) {
 	cl_ulong start_t, end_t;
 	double t;
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
 	t = (end_t - start_t) / 1000000.0;
-	//if (_gfn_rank == 0) printf("%s : %.6lf\n", phase, t);
 	return t;
 }
 
@@ -1578,12 +1572,9 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
 			if (data_info->has_iscatter_req) {
 				MPI_Wait(&(data_info->last_iscatter_req), &status);
-				if (scatter_print_count == 0) {
-					scatter_end = get_time();
-					if (_gfn_rank == 0) total_scatter_time += (scatter_end - scatter_start) / 1000000.0;
-					//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IScatter", (scatter_end - scatter_start) / 1000000.0);
-					scatter_print_count++;
-				}
+				scatter_end = get_time();
+				if (_gfn_rank == 0) total_scatter_time += (scatter_end - scatter_start) / 1000000.0;
+				//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IScatter", (scatter_end - scatter_start) / 1000000.0);
 			}
             
 			_GfnStreamSeqIScatter(data_info);
@@ -1601,10 +1592,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
 			if (data_info->has_upload_evt) {
 				clWaitForEvents(1, &(data_info->last_upload_evt));
-				if (upload_print_count == 0) {
-					total_download_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
-					upload_print_count++;
-				}
+				total_download_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
 			}
 			_GfnStreamSeqWriteBuffer(data_info);
 		}
@@ -1620,10 +1608,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	
 	if (ker_info->has_exec_evt == 1) {
 		clWaitForEvents(1, &(ker_info->exec_evt));
-		if (kernel_print_count == 0) {
-			total_exec_time += print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
-			kernel_print_count++;
-		}
+		total_exec_time += print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
@@ -1717,12 +1702,9 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 		}
 		if (data_info->has_igather_req) {
 			MPI_Wait(&(data_info->last_igather_req), &status);
-			if (gather_print_count == 0) {
-				gather_end = get_time();
-				if (_gfn_rank == 0) total_gather_time += (gather_end - gather_start) / 1000000.0;
-				//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IGather", (gather_end - gather_start) / 1000000.0);
-				gather_print_count++;
-			}
+			gather_end = get_time();
+			if (_gfn_rank == 0) total_gather_time += (gather_end - gather_start) / 1000000.0;
+			//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IGather", (gather_end - gather_start) / 1000000.0);
 		}
             
 		gather_start = get_time();
@@ -1740,10 +1722,7 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 		}
 		if (data_info->has_download_evt) {
 			clWaitForEvents(1, &(data_info->last_download_evt));
-			if (download_print_count == 0) {
-				total_gather_time += print_cl_event_profile("Stream Sequence Read Buffer", data_info->last_download_evt);
-				download_print_count++;
-			}
+			total_gather_time += print_cl_event_profile("Stream Sequence Read Buffer", data_info->last_download_evt);
 		}
         
 		_GfnStreamSeqReadBuffer(data_info);
