@@ -93,6 +93,7 @@ static int round_to(int x, int r) {
 	return d * r;
 }
 
+static int profiler_count = 0;
 static long long scatter_start, scatter_end;
 static double total_scatter_time = 0.0;
 static long long gather_start, gather_end;
@@ -1415,12 +1416,13 @@ for (i = 0; i < send_loop_num; ++i) { \
 
 int _GfnFinishGatherArray()
 {
-	if (_gfn_rank == 0) {
+	if (_gfn_rank == 0 && profiler_count == 0) {
 		printf("Stream Sequence IScatter : %.7lf\n", total_scatter_time);
 		printf("Stream Sequence Write Buffer : %.7lf\n", total_upload_time);
 		printf("Stream Sequence Kernel Execution : %.7lf\n", total_exec_time);
 		printf("Stream Sequence Read Buffer : %.7lf\n", total_download_time);
 		printf("Stream Sequence IGather : %.7lf\n", total_gather_time);
+		profiler_count++;
 	}
 	
 	return 0;
