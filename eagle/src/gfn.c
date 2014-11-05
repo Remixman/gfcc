@@ -106,7 +106,7 @@ static double print_cl_event_profile(const char *phase, cl_event evt) {
 	double t;
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_START, sizeof(start_t), &start_t, NULL);
 	clGetEventProfilingInfo(evt, CL_PROFILING_COMMAND_END, sizeof(end_t), &end_t, NULL);
-	t = (end_t - start_t) / 1000000.0;
+	t = (end_t - start_t) / (1000000.0 * 1000);
 	return t;
 }
 
