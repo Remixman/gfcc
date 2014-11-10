@@ -29,7 +29,8 @@ int main(int argc, char *argv[]) {
     
     time0 = get_time();
     for (it = 0; it < iteration; ++it) {
-        #pragma gfn parallel_for copyin(vec1[0:n{partition}]) copyout(vec2[0:n{partition}])
+        #pragma gfn parallel_for copyin(vec1[0:n{partition}]) copyout(vec2[0:n{partition}]) \
+            in_pattern(vec1:[-1,1])
         for (i = 0; i < n; ++i) {
         	if (i > 0 && i < n-1) vec2[i] = (vec1[i-1] + vec1[i] + vec1[i+1]) / 3.0;
         	else vec2[i] = vec1[i];
