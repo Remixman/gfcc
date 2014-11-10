@@ -18,9 +18,8 @@ int main(int argc, char *argv[]) {
     int passed = 1;
     long long time0, time1;
 
-    if (argc >= 2) {
-        n = atoi(argv[1]);
-    }
+    if (argc >= 2) n = atoi(argv[1]);
+    if (argc >= 3) iteration = atoi(argv[2]);
     
     vec1 = (int*) malloc(sizeof(int) * n);
     vec2 = (int*) malloc(sizeof(int) * n);
