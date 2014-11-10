@@ -517,7 +517,7 @@ do { \
 			(float)(create_buf_end_t-create_buf_start_t)/1000000);
 	//IF_TIMING (_mm_overhead_time)
 		
-	printf("[%d] Map %p : %.10f s.\n", _gfn_rank, *ptr, (float)(map_end_t-map_start_t)/1000000.0 );
+	//printf("[%d] Map %p : %.10f s.\n", _gfn_rank, *ptr, (float)(map_end_t-map_start_t)/1000000.0 );
 	
 	return 0;
 }
