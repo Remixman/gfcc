@@ -1518,13 +1518,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				}
 			}
 			
-			if (_debug_stream_seq && _gfn_rank == 0) {
-				int r;
-				for (r = 0; r < _gfn_num_proc; ++r)
-					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d, END[%d] = %d\n", 
-					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
-                           r, data_info->end_disp[r] );
-			}
 			scatter_start = get_time();
 			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id, last_seq);
 		}
@@ -1568,12 +1561,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
 			
 			// 2.1 IScatter (part I+1)
-			if (_debug_stream_seq && _gfn_rank == 0) {
-				int r;
-				for (r = 0; r < _gfn_num_proc; ++r)
-					printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r]);
-			}
 			if (data_info->has_iscatter_req) {
 				MPI_Wait(&(data_info->last_iscatter_req), &status);
 				scatter_end = get_time();
@@ -1589,12 +1576,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			struct _data_information * data_info = data_infos[vit];
             
 			// 2.2 WriteBuffer (part I)
-			if (_debug_stream_seq && _gfn_rank == 0) {
-				int r;
-				for (r = 0; r < _gfn_num_proc; ++r)
-					printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
-					       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
-			}
 			if (data_info->has_upload_evt) {
 				clWaitForEvents(1, &(data_info->last_upload_evt));
 				total_upload_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
@@ -2087,6 +2068,11 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int l
 	int sub_size = data_info->last_partition_cnts[_gfn_rank];
 	int elem_offset = data_info->last_partition_disp[_gfn_rank];
 	
+	if (sub_size == -1) {
+		data_info->has_iscatter_req = 0; /* FALSE */
+		return 0;
+	}
+	
 	if (data_info->pattern_num > 0) {
 		int lower_bound = data_info->pattern_array[0];
 		int upper_bound = data_info->pattern_array[1];
@@ -2107,11 +2093,13 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int l
 			}
 		}*/
 	}
-
 	
-	if (sub_size == -1) {
-		data_info->has_iscatter_req = 0; /* FALSE */
-		return 0;
+	if (_debug_stream_seq && _gfn_rank == 0) {
+		int r;
+		for (r = 0; r < _gfn_num_proc; ++r)
+			printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d, END[%d] = %d\n", 
+			       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
+                          r, data_info->end_disp[r] );
 	}
 	
 	data_info->has_iscatter_req = 1; /* TRUE */
@@ -2176,6 +2164,13 @@ int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id, in
 			elem_offset += data_info->pattern_array[0];
 		}
 	}*/
+	
+	if (_debug_stream_seq && _gfn_rank == 0) {
+		int r;
+		for (r = 0; r < _gfn_num_proc; ++r)
+		printf("SS: UPLOAD CNTS[%d] = %d , DISP[%d] = %d\n", 
+		       r, data_info->last_upload_cnts[r], r, data_info->last_upload_disp[r]);
+	}
 	
 	data_info->has_upload_evt = 1; /* TRUE */
 	
