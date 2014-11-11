@@ -2077,7 +2077,7 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int l
 		int lower_bound = data_info->pattern_array[0];
 		int upper_bound = data_info->pattern_array[1];
 		
-		/*cnts = (int*) malloc(sizeof(int) * _gfn_num_proc);
+		cnts = (int*) malloc(sizeof(int) * _gfn_num_proc);
 		disp = (int*) malloc(sizeof(int) * _gfn_num_proc);
 		
 		for (i = 0; i < _gfn_num_proc; i++) {
@@ -2091,7 +2091,7 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int l
 				cnts[i] = data_info->last_partition_cnts[i] + (upper_bound - lower_bound);
 				disp[i] = data_info->last_partition_disp[i] + lower_bound;
 			}
-		}*/
+		}
 	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
@@ -2153,7 +2153,7 @@ int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id, in
 		return 0;
 	}
 	
-	/*if (data_info->pattern_num > 0) {
+	if (data_info->pattern_num > 0) {
 		if (seq_id == 0 && _gfn_rank == 0) {
 			sub_size += data_info->pattern_array[1];
 		} else if (last_seq && _gfn_rank == _gfn_num_proc-1) {
@@ -2163,7 +2163,7 @@ int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id, in
 			sub_size += (data_info->pattern_array[1] - data_info->pattern_array[0]);
 			elem_offset += data_info->pattern_array[0];
 		}
-	}*/
+	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		int r;
