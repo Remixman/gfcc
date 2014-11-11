@@ -335,7 +335,7 @@ int _RecvInputNDMsgCore(void *ptr, int type_id,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, int *size_array, int *pattern_array )
 {
-	int start_offset, recv_size;
+	int i, start_offset, recv_size;
 	int nelem_size = 1, block_size = 1;
 
 #if 0
@@ -353,6 +353,11 @@ int _RecvInputNDMsgCore(void *ptr, int type_id,
 	_CalcStartOffsetAndSize(&start_offset, &recv_size, loop_start, loop_end, loop_step,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);	
+    
+    /* recv size for master-wroker communication */
+    for (i = 0; i < size_n; ++i)
+        if (i != partitioned_dim) block_size *= size_array[i];
+    recv_size = (loop_end - loop_start + 1) * block_size;
 
 #if 0
 	if (_gfn_rank == 0) {
@@ -420,7 +425,7 @@ int _SendOutputNDMsgCore(void *ptr, int type_id,
 						int partitioned_dim, int pattern_type,
 						int size_n, int pattern_n, int *size_array, int *pattern_array )
 {
-	int start_offset, send_size;
+	int i, start_offset, send_size;
 	int nelem_size = 1, block_size = 1;
 
 	_CalcStartOffsetAndSize(&start_offset, &send_size, loop_start, loop_end, loop_step,
@@ -433,6 +438,11 @@ int _SendOutputNDMsgCore(void *ptr, int type_id,
 		printf("SEND SIZE = %d\n", send_size);
 	}
 #endif
+
+    /* send size for master-wroker communication */
+    for (i = 0; i < size_n; ++i)
+        if (i != partitioned_dim) block_size *= size_array[i];
+    send_size = (loop_end - loop_start + 1) * block_size;
 
 #define SEND_OUTPUT_ARRAY(type) \
 do { \
