@@ -2079,7 +2079,7 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id)
 		disp = (int*) malloc(sizeof(int) * _gfn_num_proc);
 		
 		for (i = 0; i < _gfn_num_proc; i++) {
-			if (seq_id == 0 && _gfn_rank == 0) {
+			if (seq_id == 0 && i == 0) {
 				cnts[i] = data_info->last_partition_cnts[i] + upper_bound;
 				disp[i] = data_info->last_partition_disp[i];
 			} else {
@@ -2091,14 +2091,16 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id)
                 cnts[i] = data_info->end_disp[i] - disp[i];
             }
 		}
+		
+        sub_size = cnts[_gfn_rank];
+        elem_offset = disp[_gfn_rank];
 	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
 		int r;
 		for (r = 0; r < _gfn_num_proc; ++r)
 			printf("SS: PARTITION CNTS[%d] = %d , DISP[%d] = %d, END[%d] = %d\n", 
-			       r, data_info->last_partition_cnts[r], r, data_info->last_partition_disp[r],
-                          r, data_info->end_disp[r] );
+			       r, cnts[r], r, disp[r], r, data_info->end_disp[r] );
 	}
 	
 	data_info->has_iscatter_req = 1; /* TRUE */
