@@ -484,11 +484,11 @@ void _RecvCallFuncMsg(int *func_code) {
 
 void _SendMasterMsg(void *buffer, size_t size /*,status&*/) {
 	unsigned offset = 0;
-	size_t send_size = 0;
-	size_t total_send_size = 0;
+	int send_size = 0;
+	int total_send_size = 0;
 
 	while(offset < size) {
-		size_t write_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
+		int write_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
 		send_size = write(sockfd, buffer + offset, write_size);
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_send_size += send_size;
@@ -500,17 +500,17 @@ void _SendMasterMsg(void *buffer, size_t size /*,status&*/) {
 
 void _RecvMasterMsg(void *buffer, size_t size /*, status&*/) {
 	unsigned offset = 0;
-	size_t recv_size = 0;
-	size_t total_recv_size = 0;
+	int recv_size = 0;
+	int total_recv_size = 0;
 
 	while(offset < size) {
-		size_t read_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
+		int read_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
 		recv_size = read(sockfd, buffer + offset, read_size /* Desired size */);
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_recv_size += recv_size;
 	}	
 	if (total_recv_size != size) {
-		fprintf(stderr, "Error: _RecvMasterMsg, Expected size is %zu but transfered size is %zu\n",
+		fprintf(stderr, "Error: _RecvMasterMsg, Expected size is %zu but transfered size is %d\n",
 			size, total_recv_size);
 	}
 #ifdef DEBUG_INTER_PROC_COMM
@@ -520,11 +520,11 @@ void _RecvMasterMsg(void *buffer, size_t size /*, status&*/) {
 
 void _SendWorkerMsg(void *buffer, size_t size /*,status&*/) { 
 	unsigned offset = 0;
-	size_t send_size = 0;
-	size_t total_send_size = 0;
+	int send_size = 0;
+	int total_send_size = 0;
 
 	while(offset < size) {
-		size_t write_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
+		int write_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
 		send_size = write(connfd, buffer + offset, write_size);
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_send_size += send_size;
@@ -536,17 +536,17 @@ void _SendWorkerMsg(void *buffer, size_t size /*,status&*/) {
 
 void _RecvWorkerMsg(void *buffer, size_t size /*, status&*/) {
 	unsigned offset = 0;
-	size_t recv_size = 0;
-	size_t total_recv_size = 0;
+	int recv_size = 0;
+	int total_recv_size = 0;
 	
 	while(offset < size) {
-		size_t read_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
+		int read_size = MIN(MAX_SOCKET_BUFFER_SIZE, size - offset);
 		recv_size = read(connfd, buffer + offset, read_size /* Desired size */);
 		offset += MAX_SOCKET_BUFFER_SIZE;
 		total_recv_size += recv_size;
 	}	
 	if (total_recv_size != size) {
-		fprintf(stderr, "Error: _RecvWorkerMsg, Expected size is %zu but transfered size is %zu\n",
+		fprintf(stderr, "Error: _RecvWorkerMsg, Expected size is %zu but transfered size is %d\n",
 			size, recv_size);
 	}
 #ifdef DEBUG_INTER_PROC_COMM
