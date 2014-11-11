@@ -1473,7 +1473,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 {
 	size_t var_num, gather_var_num;
 	int vit, i;
-	int last_seq = 0;
 	struct _data_information ** data_infos;
 	struct _data_information ** gather_data_infos;
 	_get_scatter_var_ids(ker_info, &data_infos, &var_num);
@@ -1519,7 +1518,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
 			
 			scatter_start = get_time();
-			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id, last_seq);
+			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id);
 		}
 	} else {
 		_update_kernel_info_seq(ker_info);
@@ -1556,7 +1555,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				else if (data_info->last_partition_disp[i] + data_info->last_partition_cnts[i]  > data_info->end_disp[i])
 				{
 					data_info->last_partition_cnts[i] = data_info->end_disp[i] - data_info->last_partition_disp[i];
-					last_seq = 1;
 				}
 			}
 			
@@ -1569,7 +1567,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			}
             
 			scatter_start = get_time();
-			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id, last_seq);
+			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id);
 		}
         
 		for (vit = 0; vit < var_num; ++vit) {
@@ -1580,7 +1578,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				clWaitForEvents(1, &(data_info->last_upload_evt));
 				total_upload_time += print_cl_event_profile("Stream Sequence Write Buffer", data_info->last_upload_evt);
 			}
-			_GfnStreamSeqWriteBuffer(data_info, ker_info->curr_sequence_id, last_seq);
+			_GfnStreamSeqWriteBuffer(data_info, ker_info->curr_sequence_id);
 		}
 		
 		if (_debug_stream_seq && ker_info->curr_sequence_id >= 2) {
@@ -2060,7 +2058,7 @@ for (i = 0; i < recv_loop_num; ++i) { \
 	return 0;
 }
 
-int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int last_seq)
+int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id)
 {	
 	int i = 0;
 	int *cnts = data_info->last_partition_cnts;
@@ -2084,13 +2082,14 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id, int l
 			if (seq_id == 0 && _gfn_rank == 0) {
 				cnts[i] = data_info->last_partition_cnts[i] + upper_bound;
 				disp[i] = data_info->last_partition_disp[i];
-			} else if (last_seq && _gfn_rank == _gfn_num_proc - 1) {
-				cnts[i] = data_info->last_partition_cnts[i] - lower_bound;
-				disp[i] = data_info->last_partition_disp[i] + lower_bound;
 			} else {
 				cnts[i] = data_info->last_partition_cnts[i] + (upper_bound - lower_bound);
 				disp[i] = data_info->last_partition_disp[i] + lower_bound;
 			}
+			
+			if ((i == _gfn_num_proc-1) && (disp[i] + cnts[i] > data_info->end_disp[i])) {
+                cnts[i] = data_info->end_disp[i] - disp[i];
+            }
 		}
 	}
 	
@@ -2140,7 +2139,7 @@ do { \
 }
 
 // write sub buffer to accelerator
-int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id, int last_seq)
+int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id)
 {
 	cl_buffer_region info;
 	cl_mem subbuf;
@@ -2154,15 +2153,16 @@ int _GfnStreamSeqWriteBuffer(struct _data_information *data_info, int seq_id, in
 	}
 	
 	if (data_info->pattern_num > 0) {
-		if (seq_id == 0 && _gfn_rank == 0) {
+		if (seq_id == 1 && _gfn_rank == 0) {
 			sub_size += data_info->pattern_array[1];
-		} else if (last_seq && _gfn_rank == _gfn_num_proc-1) {
-			sub_size += (- data_info->pattern_array[0]);
-			elem_offset += data_info->pattern_array[0];
 		} else {
 			sub_size += (data_info->pattern_array[1] - data_info->pattern_array[0]);
 			elem_offset += data_info->pattern_array[0];
 		}
+		
+		if ((_gfn_rank == _gfn_num_proc-1) && (elem_offset + sub_size > data_info->end_disp[_gfn_rank])) {
+            sub_size = data_info->end_disp[_gfn_rank] - elem_offset;
+        }
 	}
 	
 	if (_debug_stream_seq && _gfn_rank == 0) {
