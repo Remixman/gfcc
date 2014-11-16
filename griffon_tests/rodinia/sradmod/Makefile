@@ -19,7 +19,19 @@ worker: trans
 	workergen main.c.kerdecl.c
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
 	
+opt: workeropt masteropt
+
+transopt:
+	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON main.c -lrt -D_GFN -lm
+	@rm main.o
 	
+masteropt: transopt
+	mpicc -o srad $(CFLAGS) plaincc_main.c -lrt -lOpenCL -lm
+	
+workeropt: transopt
+	workergen main.c.kerdecl.c
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+
 modify:
 	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL
 	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
