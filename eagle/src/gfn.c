@@ -899,6 +899,8 @@ do { \
 
 int _GfnFree(long long unique_id, int level1_cond, int level2_cond)
 {
+	trace_exec_time();
+	
 	// Don't free now
 	return 0;
 

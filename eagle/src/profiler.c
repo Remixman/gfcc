@@ -118,3 +118,15 @@ void init_profiler(int local_loop_size) {
 	push_chuck_stack(182208);
 	push_chuck_stack(210240);
 }
+
+void trace_exec_time() {
+	
+	FILE *f = fopen("exec_time.txt", "w");
+	
+	int i;
+	for (i = 0; i < STACK_SIZE; i++) {
+		fprintf(f, "%d\t%.7lf", _time_size[EXEC_TIME][i], _time_stack[EXEC_TIME][i]);
+	}
+	
+	fclose(f);
+}

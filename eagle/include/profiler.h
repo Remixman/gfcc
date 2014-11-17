@@ -26,4 +26,6 @@ int full_exec_time_stack();
 int full_download_time_stack();
 int full_gather_time_stack();
 
+void trace_exec_time();
+
 #endif
