@@ -2,10 +2,11 @@ CFLAGS = -g
 
 all:
 	mpicc $(CFLAGS) -c -o ./lib/var_table.o ./src/variable_id_table.c -I./include -lOpenCL
+	mpicc $(CFLAGS) -c -o ./lib/profiler.o ./src/profiler.c -I./include -lOpenCL -lgsl -lgslcblas -lm
 	mpicc $(CFLAGS) -c -o ./lib/kernel_table.o ./src/kernel_id_table.c -I./include -lOpenCL
 	mpicc $(CFLAGS) -c -o ./lib/ipc.o ./src/myipc_socket.c -I./include -lrt
 	mpicc $(CFLAGS) -c -o ./lib/gfn_api.o ./src/gfn.c -I./include -lrt -lOpenCL 
-	ld -r -o ./lib/gfn.o ./lib/ipc.o ./lib/gfn_api.o ./lib/var_table.o ./lib/kernel_table.o
+	ld -r -o ./lib/gfn.o ./lib/ipc.o ./lib/gfn_api.o ./lib/var_table.o ./lib/kernel_table.o ./lib/profiler.o
 	rm ./lib/ipc.o ./lib/gfn_api.o ./lib/var_table.o
 	
 test: all

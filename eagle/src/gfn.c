@@ -6,6 +6,7 @@
 #include "kernel_id_table.h"
 #include "variable_id_table.h"
 #include "gfn.h"
+#include "profiler.h"
 
 
 int _gfn_opt_level = 0;
