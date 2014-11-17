@@ -1448,6 +1448,9 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->loop_end = loop_end;
 	ker_info->loop_step = loop_step;
 	
+	int local_loop_size = _CalcLoopSize(loop_start, loop_end, loop_step) / _gfn_num_proc;
+	init_profiler(local_loop_size);
+	
 	//printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start, ker_info->local_end, ker_info->loop_step);
 	
 	ker_info->app_profile.upload_data_size = 0;
@@ -1492,7 +1495,15 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	curr_ite_partition_size = (curr_ite_partition_size + WRAP_SIZE - 1) / WRAP_SIZE * WRAP_SIZE;
 	
 	if (stream_seq_size > 0) {
-		curr_ite_partition_size = stream_seq_size;
+		if (!empty_check_stack()) {
+			curr_ite_partition_size = top_chuck_stack();
+			pop_chuck_stack();
+			
+			push_exec_size(curr_ite_partition_size);
+		}
+		else {
+			curr_ite_partition_size = stream_seq_size;
+		}
 	}
 
 	ker_info->last_partition_partition_size = curr_ite_partition_size;
@@ -1593,8 +1604,10 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 	
 	if (ker_info->has_exec_evt == 1) {
 		clWaitForEvents(1, &(ker_info->exec_evt));
-		total_exec_time += print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
+		double exec_t = print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
+		total_exec_time += exec_t;
 		ker_info->has_exec_evt = 0; // set to 1 if execute
+		if (!full_exec_time_stack()) push_exec_time(exec_t);
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
 	
