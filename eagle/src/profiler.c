@@ -114,7 +114,7 @@ void create_exec_time_function() {
 	double y[STACK_SIZE];
 	int i;
 	
-	if (empty_check_stack() && _exec_time_not_create == 1) {
+	if (empty_check_stack() && (_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
 		for (i = 0; i < STACK_SIZE; i++) {
 			int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
 			x[i] = _time_size[EXEC_TIME][i];
