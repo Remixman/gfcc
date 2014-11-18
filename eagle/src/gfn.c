@@ -1501,6 +1501,10 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			curr_ite_partition_size = top_chuck_stack();
 			pop_chuck_stack();
 			
+			if (empty_check_stack()) {
+				
+			}
+			
 			push_exec_size(curr_ite_partition_size);
 		}
 		else {

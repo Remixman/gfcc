@@ -102,9 +102,11 @@ double time_predict(double x) {
 	return (_coeff[2]*x*x) + (_coeff[1]*x) + (_coeff[0]);
 }
 
-
+int _local_loop_size;
 void init_profiler(int local_loop_size) {
 	int i;
+	
+	_local_loop_size = local_loop_size;
 	
 	_chunk_stack_idx = 0;
 	for (i = 0; i < TIME_SIZE; i++) _time_idx[i] = 0;
@@ -125,7 +127,9 @@ void trace_exec_time() {
 	
 	int i;
 	for (i = 0; i < STACK_SIZE; i++) {
-		fprintf(f, "%d\t%.7lf", _time_size[EXEC_TIME][i], _time_stack[EXEC_TIME][i]);
+		int chuck = _time_size[EXEC_TIME][i];
+		int seq_num = (_local_loop_size / chuck);
+		fprintf(f, "%d\t%.7lf\n", chuck, seq_num * _time_stack[EXEC_TIME][i]);
 	}
 	
 	fclose(f);
