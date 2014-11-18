@@ -28,11 +28,13 @@ double _time_stack[TIME_SIZE][STACK_SIZE];
 void push_size_stack(int time_type, int esize) {
 	int idx = _size_idx[time_type];
 	_time_size[time_type][idx] = esize;
+	printf("push size to _time_size[%d][%d] : %d", time_type, idx, esize);
 	_size_idx[time_type]++;
 }
-void push_time_stack(int time_type, int etime) {
+void push_time_stack(int time_type, double etime) {
 	int idx = _time_idx[time_type];
 	_time_stack[time_type][idx] = etime;
+	printf("push size to _time_size[%d][%d] : %.12lf", time_type, idx, etime);
 	_time_idx[time_type]++;
 }
 int full_time_stack(int time_type) {
@@ -109,7 +111,10 @@ void init_profiler(int local_loop_size) {
 	_local_loop_size = local_loop_size;
 	
 	_chunk_stack_idx = 0;
-	for (i = 0; i < TIME_SIZE; i++) _time_idx[i] = 0;
+	for (i = 0; i < TIME_SIZE; i++) {
+		_size_idx[i] = 0;
+		_time_idx[i] = 0;
+	}
 	
 	push_chuck_stack(14016);
 	push_chuck_stack(28032);
