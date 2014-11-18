@@ -1,9 +1,13 @@
 #include <gsl/gsl_multifit.h>
+#include <assert.h>
+#include <stdio.h>
 #include <math.h>
 #include "profiler.h"
 
 #define STACK_SIZE 8
 #define DEGREE 3
+
+int _local_loop_size;
 
 /* chuck stack abstraction */
 int _chunk_stack_idx;
@@ -28,13 +32,11 @@ double _time_stack[TIME_SIZE][STACK_SIZE];
 void push_size_stack(int time_type, int esize) {
 	int idx = _size_idx[time_type];
 	_time_size[time_type][idx] = esize;
-	printf("push size to _time_size[%d][%d] : %d", time_type, idx, esize);
 	_size_idx[time_type]++;
 }
 void push_time_stack(int time_type, double etime) {
 	int idx = _time_idx[time_type];
 	_time_stack[time_type][idx] = etime;
-	printf("push size to _time_size[%d][%d] : %.12lf", time_type, idx, etime);
 	_time_idx[time_type]++;
 }
 int full_time_stack(int time_type) {
@@ -61,7 +63,8 @@ int full_gather_time_stack() { return full_time_stack(GATHER_TIME); }
 //double 
 
 /* estimation function */
-double _coeff[DEGREE];
+double _exec_coeff[DEGREE];
+int _created_exec_time_function = 0;
 int polynomialfit(int obs, int degree, double *dx, double *dy, double *store) {
 	gsl_multifit_linear_workspace *ws;
 	gsl_matrix *cov, *X;
@@ -101,10 +104,26 @@ int polynomialfit(int obs, int degree, double *dx, double *dy, double *store) {
 	return 1; /* we do not "analyse" the result (cov matrix mainly) to know if the fit is "good" */
 }
 double time_predict(double x) {
-	return (_coeff[2]*x*x) + (_coeff[1]*x) + (_coeff[0]);
+	assert(_created_exec_time_function > 0);
+	return (_exec_coeff[2]*x*x) + (_exec_coeff[1]*x) + (_exec_coeff[0]);
+}
+void create_exec_time_function() {
+	int n = STACK_SIZE;
+	double x[STACK_SIZE];
+	double y[STACK_SIZE];
+	int i;
+	
+	for (i = 0; i < STACK_SIZE; i++) {
+		int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
+		x[i] = _time_size[EXEC_TIME][i];
+		y[i] = seq_num * _time_stack[EXEC_TIME][i];
+	}
+	
+	polynomialfit(n, DEGREE, x, y, _exec_coeff);
+	
+	_created_exec_time_function = 1;
 }
 
-int _local_loop_size;
 void init_profiler(int local_loop_size) {
 	int i;
 	

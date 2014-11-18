@@ -1501,10 +1501,6 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 			curr_ite_partition_size = top_chuck_stack();
 			pop_chuck_stack();
 			
-			if (empty_check_stack()) {
-				
-			}
-			
 			push_exec_size(curr_ite_partition_size);
 		}
 		else {
@@ -1613,7 +1609,13 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		double exec_t = print_cl_event_profile("Stream Sequence Kernel Execution", ker_info->exec_evt);
 		total_exec_time += exec_t;
 		ker_info->has_exec_evt = 0; // set to 1 if execute
-		if (!full_exec_time_stack()) push_exec_time(exec_t);
+		if (!full_exec_time_stack()) {
+			push_exec_time(exec_t);
+			if (_gfn_rank == 0 && empty_check_stack()) {
+				printf("EMPTY\n");
+				create_exec_time_function();
+			}
+		}
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable
 	
