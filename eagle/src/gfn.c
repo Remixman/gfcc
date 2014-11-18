@@ -1611,10 +1611,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 		if (!full_exec_time_stack()) {
 			push_exec_time(exec_t);
-			if (_gfn_rank == 0 && empty_check_stack()) {
-				printf("EMPTY\n");
-				create_exec_time_function();
-			}
+			create_exec_time_function();
 		}
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable

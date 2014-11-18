@@ -107,21 +107,27 @@ double time_predict(double x) {
 	assert(_created_exec_time_function > 0);
 	return (_exec_coeff[2]*x*x) + (_exec_coeff[1]*x) + (_exec_coeff[0]);
 }
+int _exec_time_not_create = 1;
 void create_exec_time_function() {
 	int n = STACK_SIZE;
 	double x[STACK_SIZE];
 	double y[STACK_SIZE];
 	int i;
 	
-	for (i = 0; i < STACK_SIZE; i++) {
-		int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
-		x[i] = _time_size[EXEC_TIME][i];
-		y[i] = seq_num * _time_stack[EXEC_TIME][i];
+	if (empty_check_stack() && _exec_time_not_create == 1) {
+		for (i = 0; i < STACK_SIZE; i++) {
+			int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
+			x[i] = _time_size[EXEC_TIME][i];
+			y[i] = seq_num * _time_stack[EXEC_TIME][i];
+		}
+		
+		polynomialfit(n, DEGREE, x, y, _exec_coeff);
+		
+		printf("INDEX : %d\n", _time_idx[EXEC_TIME]);
+		
+		_exec_time_not_create = 0;
+		_created_exec_time_function = 1;
 	}
-	
-	polynomialfit(n, DEGREE, x, y, _exec_coeff);
-	
-	_created_exec_time_function = 1;
 }
 
 void init_profiler(int local_loop_size) {
