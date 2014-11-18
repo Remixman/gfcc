@@ -209,10 +209,16 @@ int _SendInputNDMsgCore(void *ptr, int type_id,
 							partitioned_dim, pattern_type,
 							size_n, pattern_n, size_array, pattern_array);
 
-    /* recv size for master-wroker communication */
-    for (i = 0; i < size_n; ++i)
-        if (i != partitioned_dim) block_size *= size_array[i];
-    send_size = (loop_end - loop_start + 1) * block_size;
+	// FIXME: this quick fix for partition of loop and data isnot match
+	if (partitioned_dim >= 0) {
+		loop_start = 0;
+		loop_end = size_array[partitioned_dim] - 1;
+		loop_step = 1;
+	}
+	/* recv size for master-wroker communication */
+	for (i = 0; i < size_n; ++i)
+		if (i != partitioned_dim) block_size *= size_array[i];
+	send_size = (loop_end - loop_start + 1) * block_size;
     
 #if 0
 	printf("START OFFSET = %d\n", start_offset);
