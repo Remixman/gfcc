@@ -1451,7 +1451,7 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	ker_info->loop_step = loop_step;
 	
 	int local_loop_size = _CalcLoopSize(loop_start, loop_end, loop_step) / _gfn_num_proc;
-	//init_profiler(local_loop_size);
+	init_profiler(local_loop_size);
 	
 	//printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start, ker_info->local_end, ker_info->loop_step);
 	
