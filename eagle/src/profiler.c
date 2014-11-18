@@ -114,7 +114,7 @@ void create_exec_time_function() {
 	double y[STACK_SIZE];
 	int i;
 	
-	if (empty_check_stack() && (_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
+	if ((_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
 		for (i = 0; i < STACK_SIZE; i++) {
 			int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
 			x[i] = _time_size[EXEC_TIME][i];
@@ -123,7 +123,9 @@ void create_exec_time_function() {
 		
 		polynomialfit(n, DEGREE, x, y, _exec_coeff);
 		
-		printf("INDEX : %d\n", _time_idx[EXEC_TIME]);
+		printf("COEFF 2 : %d\n", _exec_coeff[2]);
+		printf("COEFF 1 : %d\n", _exec_coeff[1]);
+		printf("COEFF 0 : %d\n", _exec_coeff[0]);
 		
 		_exec_time_not_create = 0;
 		_created_exec_time_function = 1;
