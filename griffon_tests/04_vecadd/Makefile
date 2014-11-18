@@ -9,33 +9,33 @@ CFLAGS = -g -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON vecadd.c -lrt -D_GFN -lm
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON vecadd.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	rm vecadd.o
 	
 master: trans
-	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lm
+	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 worker: trans
 	workergen vecadd.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 
 opt: workeropt masteropt
 
 transopt:
-	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON vecadd.c -lrt -D_GFN -lm
+	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON vecadd.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	rm vecadd.o
 	
 masteropt: transopt
-	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lm
+	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 workeropt: transopt
 	workergen vecadd.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 modify:
-	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lm
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o vecadd $(CFLAGS) plaincc_vecadd.c -lrt -lOpenCL -lgsl -lgslcblas -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 hand:

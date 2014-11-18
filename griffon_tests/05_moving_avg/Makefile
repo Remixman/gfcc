@@ -9,33 +9,33 @@ CFLAGS = -g -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ma.c -lrt -D_GFN -lm
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ma.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	rm ma.o
 	
 master: trans
-	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lm
+	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 worker: trans
 	workergen ma.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 
 opt: workeropt masteropt
 
 transopt:
-	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ma.c -lrt -D_GFN -lm
+	plaincc --ao 2 --cuda --gfn --keep-files $(CFLAGS) -c -D_GRIFFON ma.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	rm ma.o
 	
 masteropt: transopt
-	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lm
+	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 workeropt: transopt
 	workergen ma.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 modify:
-	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lm
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o ma $(CFLAGS) plaincc_ma.c -lrt -lOpenCL -lgsl -lgslcblas -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 hand:

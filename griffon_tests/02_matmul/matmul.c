@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
 	time1 = get_time();
 	
 	// assert with sequential solution
-	for (i = 0; i < n; i++) {
+	/*for (i = 0; i < n; i++) {
 		for (j = 0; j < n; j++) {
 			sum = 0.f;
 			for (k = 0; k < n; k++) {
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		if (!pass) break;
-	}
+	}*/
 	
 	free(A[0]); free(A);
 	free(B[0]); free(B);
