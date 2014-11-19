@@ -124,15 +124,18 @@ void create_exec_time_function() {
 		
 		polynomialfit(n, DEGREE, x, y, _exec_coeff);
 		
-		printf("COEFF 2 : %.5lf\n", _exec_coeff[2]);
-		printf("COEFF 1 : %.5lf\n", _exec_coeff[1]);
-		printf("COEFF 0 : %.5lf\n", _exec_coeff[0]);
+		//printf("COEFF 2 : %.5lf\n", _exec_coeff[2]);
+		//printf("COEFF 1 : %.5lf\n", _exec_coeff[1]);
+		//printf("COEFF 0 : %.5lf\n", _exec_coeff[0]);
 		
 		_exec_time_not_create = 0;
 		_created_exec_time_function = 1;
         
 		_opt_size = find_optimal_size();
 		printf("OPTIMAL SIZE : %d\n", _opt_size);
+		
+		// TODO: broadcast time from rank 0
+		// TODO: set chuck size 
 	}
 }
 int find_optimal_size() {
@@ -152,7 +155,7 @@ int find_optimal_size() {
 		ay = time_predict(ax);
 		by = time_predict(bx);
 		
-		printf("MIN : %d - MAX : %d - TIME : %.12lf\n", (int)min_bound, (int)max_bound, time_predict(mid_size));
+		//printf("MIN : %d - MAX : %d - TIME : %.12lf\n", (int)min_bound, (int)max_bound, time_predict(mid_size));
 		
 		if (fabs(ay-by) < 0.000000001) break;
 		else if (ay < by) { max_bound = mid_size; }
