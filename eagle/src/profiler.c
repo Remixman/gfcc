@@ -108,6 +108,7 @@ double time_predict(double x) {
 	return (_exec_coeff[2]*x*x) + (_exec_coeff[1]*x) + (_exec_coeff[0]);
 }
 int _exec_time_not_create = 1;
+int _opt_size = 0;
 void create_exec_time_function() {
 	int n = STACK_SIZE;
 	double x[STACK_SIZE];
@@ -129,16 +130,36 @@ void create_exec_time_function() {
 		
 		_exec_time_not_create = 0;
 		_created_exec_time_function = 1;
+        
+        _opt_size = find_optimal_size();
+        printf("OPTIMAL SIZE : %d\n", _opt_size);
 	}
 }
 int find_optimal_size() {
-	int min_bound = 14016;
-	int max_bound = local_loop_size / 10;
+	double min_bound = 14016;
+	double max_bound = local_loop_size / 10;
+    double mid_size, ax, ay, bx, by;
+    mid_size = (min_bound + max_bound) / 2.0;
 	
-	while (1)
-	int mid_size = (min_bound + max_bound) / 2.0;
-	
-	// bisection method
+    // bisection method
+	while (1) {
+        if (fabs(min_bound - max_bound) < 1) break;
+        
+        mid_size = (min_bound + max_bound) / 2.0;
+        ax = (mid_size + min_bound) / 2.0;
+        bx = (mid_size + max_bound) / 2.0;
+        
+        ay = time_predict(ax);
+        by = time_predict(bx);
+        
+        printf("MIN : %d - MAX : %d - TIME : %.12lf\n", (int)min_bound, (int)max_bound, time_predict(mid_size));
+        
+        if (fabs(ay-by) < 0.000000001) break;
+        else if (ay < by) { max_bound = mid_size; }
+        else /*if (ay > by)*/ { min_bound = max_bound; }
+    }
+    
+    return mid_size;
 }
 
 void init_profiler(int local_loop_size) {
