@@ -123,13 +123,22 @@ void create_exec_time_function() {
 		
 		polynomialfit(n, DEGREE, x, y, _exec_coeff);
 		
-		printf("COEFF 2 : %d\n", _exec_coeff[2]);
-		printf("COEFF 1 : %d\n", _exec_coeff[1]);
-		printf("COEFF 0 : %d\n", _exec_coeff[0]);
+		printf("COEFF 2 : %.5lf\n", _exec_coeff[2]);
+		printf("COEFF 1 : %.5lf\n", _exec_coeff[1]);
+		printf("COEFF 0 : %.5lf\n", _exec_coeff[0]);
 		
 		_exec_time_not_create = 0;
 		_created_exec_time_function = 1;
 	}
+}
+int find_optimal_size() {
+	int min_bound = 14016;
+	int max_bound = local_loop_size / 10;
+	
+	while (1)
+	int mid_size = (min_bound + max_bound) / 2.0;
+	
+	// bisection method
 }
 
 void init_profiler(int local_loop_size) {
