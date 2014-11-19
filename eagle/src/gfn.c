@@ -1611,7 +1611,13 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		ker_info->has_exec_evt = 0; // set to 1 if execute
 		if (!full_exec_time_stack()) {
 			push_exec_time(exec_t);
-			create_exec_time_function();
+			int opt_size = create_exec_time_function();
+			
+			// FIXME : sync between all node
+			if (opt_size > 0) {
+				MPI_Bcast(&opt_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+				stream_seq_size = opt_size;
+			}
 		}
 	}
 	*seq_id = ker_info->curr_sequence_id; // seq_id is output variable

@@ -109,7 +109,7 @@ double time_predict(double x) {
 }
 int _exec_time_not_create = 1;
 int _opt_size = 0;
-void create_exec_time_function() {
+int create_exec_time_function() {
 	int n = STACK_SIZE;
 	double x[STACK_SIZE];
 	double y[STACK_SIZE];
@@ -136,7 +136,11 @@ void create_exec_time_function() {
 		
 		// TODO: broadcast time from rank 0
 		// TODO: set chuck size 
+		
+		return _opt_size;
 	}
+	
+	return 0;
 }
 int find_optimal_size() {
 	double min_bound = 14016;
