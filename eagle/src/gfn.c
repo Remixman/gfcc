@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>						/* getenv, */
@@ -2804,6 +2805,7 @@ void _InitOpenCL()
 #ifdef PHI
     cl_uint deviceCount;
     cl_device_id* devices;
+    cl_uint maxComputeUnits;
     
     _gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
     _GfnCheckCLStatus(_gfn_status, "clGetPlatformIDs");
@@ -2813,6 +2815,8 @@ void _InitOpenCL()
     
     _gfn_device_id = devices[_gfn_rank + 1];
     
+    clGetDeviceInfo(_gfn_device_id, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
+    assert(maxComputeUnits > 40);
 #else
 
 	_gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
