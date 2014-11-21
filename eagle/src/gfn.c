@@ -2801,12 +2801,27 @@ void _InitOpenCL()
 {
 	cl_uint /*num_platforms, */num_devices;
 	
+#ifdef PHI
+    cl_uint deviceCount;
+    cl_device_id* devices;
+    
+    _gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
+    _GfnCheckCLStatus(_gfn_status, "clGetPlatformIDs");
+    
+    devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
+    clGetDeviceIDs(_gfn_platform_id, CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
+    
+    _gfn_device_id = devices[_gfn_rank + 1];
+    
+#else
+
 	_gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
 	_GfnCheckCLStatus(_gfn_status, "clGetPlatformIDs");
 
 	_gfn_status = clGetDeviceIDs(_gfn_platform_id, CL_DEVICE_TYPE_DEFAULT/*CL_DEVICE_TYPE_GPU*/, 1,
 		&_gfn_device_id, &num_devices);
 	_GfnCheckCLStatus(_gfn_status, "clGetDeviceIDs");
+#endif
 
 	_gfn_context = clCreateContext(NULL, 1, &_gfn_device_id,
 		NULL, NULL, &_gfn_status);
