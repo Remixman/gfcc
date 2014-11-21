@@ -2833,6 +2833,8 @@ void _InitOpenCL()
     
     clGetDeviceInfo(_gfn_device_id, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(maxComputeUnits), &maxComputeUnits, NULL);
     assert(maxComputeUnits > 40);
+    
+    printf("Max compute unit of rank %d : %d\n", _gfn_rank, maxComputeUnits);
 #else
 
 	_gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
