@@ -325,6 +325,8 @@ int _GfnFreeReduceScalar(cl_mem cl_ptr, int level1_cond, int level2_cond)
 		_gfn_status = clReleaseMemObject(cl_ptr);
 		_GfnCheckCLStatus(_gfn_status, "RELEASE REDUCE BUFFER");
 	}
+	
+	return 0;
 }
 
 int _GfnEnqueueBroadcastScalar(void *ptr, int type_id)
@@ -1473,6 +1475,8 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	if (!found) _insert_to_kernel_table(kernel_id, ker_info);
 	
 	*out_ker_info = ker_info;
+    
+    return 0;
 }
 
 int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int *seq_id, 
@@ -1765,6 +1769,8 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 	
 	// update kernel info
 	ker_info->curr_sequence_id += 1;
+    
+    return 0;
 }
 
 int _GfnStreamSeqEnqueueScatterND(struct _kernel_information *ker_info, void * ptr, cl_mem cl_ptr, long long unique_id, int type_id, cl_mem_flags mem_type, 
@@ -1885,6 +1891,7 @@ do { \
 	return 0;
 }
 
+int _cnts_buffer[4], _disp_buffer[4];
 int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id)
 {	
 	int i = 0;
@@ -1902,8 +1909,8 @@ int _GfnStreamSeqIScatter(struct _data_information *data_info, int seq_id)
 		int lower_bound = data_info->pattern_array[0];
 		int upper_bound = data_info->pattern_array[1];
 		
-		cnts = (int*) malloc(sizeof(int) * _gfn_num_proc);
-		disp = (int*) malloc(sizeof(int) * _gfn_num_proc);
+		cnts = _cnts_buffer;
+		disp = _disp_buffer;
 		
 		for (i = 0; i < _gfn_num_proc; i++) {
 			if (seq_id == 0 && i == 0) {
@@ -1961,10 +1968,7 @@ do { \
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_SCATTER(long long int,MPI_LONG_LONG_INT); break;
 	}
 	
-	if (data_info->pattern_num > 0) {
-		/*free(cnts);
-		free(disp);*/
-	}
+	return 0;
 }
 
 // write sub buffer to accelerator
@@ -2049,6 +2053,8 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_WRITE_BUFFER(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_WRITE_BUFFER(long long int,MPI_LONG_LONG_INT); break;
 	}
+	
+	return 0;
 }
 
 int _GfnStreamSeqFinishDistributeArray()
@@ -2181,6 +2187,8 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAMSEQ_MASTER_RECV(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAMSEQ_MASTER_RECV(long long int,MPI_LONG_LONG_INT); break;
 	}
+	
+	return 0;
 }
 
 int _GfnStreamSeqIGather(struct _data_information *data_info)
@@ -2223,6 +2231,8 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_GATHER(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_GATHER(long long int,MPI_LONG_LONG_INT); break;
 	}
+	
+	return 0;
 }
 
 int _GfnStreamSeqReadBuffer(struct _data_information *data_info)
@@ -2284,6 +2294,8 @@ do { \
 	case TYPE_LONG_DOUBLE:    SWITCH_STREAM_READ_BUFFER(long double,MPI_LONG_DOUBLE); break;
 	case TYPE_LONG_LONG_INT:  SWITCH_STREAM_READ_BUFFER(long long int,MPI_LONG_LONG_INT); break;
 	}
+	
+	return 0;
 }
 
 int _GfnStreamSeqFinishGatherArray()
@@ -2621,6 +2633,9 @@ size_t _CalcTypeSize(int type_id)
 		case TYPE_LONG_DOUBLE:    return sizeof(long double);
 		case TYPE_LONG_LONG_INT:  return sizeof(long long int);
 	}
+	
+	assert(0);
+    return 0;
 }
 
 void _CalcPartitionInfo(int size, int block_size, int loop_start, int loop_end, int loop_step,
@@ -2810,6 +2825,7 @@ void _InitOpenCL()
     _gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
     _GfnCheckCLStatus(_gfn_status, "clGetPlatformIDs");
     
+    clGetDeviceIDs(_gfn_platform_id, CL_DEVICE_TYPE_ALL, 0, NULL, &deviceCount);
     devices = (cl_device_id*) malloc(sizeof(cl_device_id) * deviceCount);
     clGetDeviceIDs(_gfn_platform_id, CL_DEVICE_TYPE_ALL, deviceCount, devices, NULL);
     
