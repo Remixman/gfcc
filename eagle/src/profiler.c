@@ -132,7 +132,7 @@ int create_exec_time_function() {
 		_created_exec_time_function = 1;
         
 		_opt_size = find_optimal_size();
-		printf("OPTIMAL SIZE : %d\n", _opt_size);
+		//printf("OPTIMAL SIZE : %d\n", _opt_size);
 		
 		// TODO: broadcast time from rank 0
 		// TODO: set chuck size 
@@ -192,7 +192,7 @@ void init_profiler(int local_loop_size) {
 
 void trace_exec_time() {
 	
-	FILE *f = fopen("exec_time.txt", "w");
+	/*FILE *f = fopen("exec_time.txt", "w");
 	
 	int i;
 	for (i = 0; i < STACK_SIZE; i++) {
@@ -201,5 +201,5 @@ void trace_exec_time() {
 		fprintf(f, "%d\t%.7lf\n", chuck, seq_num * _time_stack[EXEC_TIME][i]);
 	}
 	
-	fclose(f);
+	fclose(f);*/
 }
