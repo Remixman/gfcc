@@ -2835,6 +2835,7 @@ void _InitOpenCL()
     assert(maxComputeUnits > 40);
     
     printf("Max compute unit of rank %d : %d\n", _gfn_rank, maxComputeUnits);
+    printf("CL_DEVICE_MEM_BASE_ADDR_ALIGN : %d\n", CL_DEVICE_MEM_BASE_ADDR_ALIGN);
 #else
 
 	_gfn_status = clGetPlatformIDs(1, &_gfn_platform_id, NULL/*&num_platforms*/);
