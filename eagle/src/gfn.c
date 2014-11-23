@@ -10,7 +10,7 @@
 #include "profiler.h"
 
 
-//#define PREDICT_TIME
+#define PREDICT_TIME
 
 int _gfn_opt_level = 0;
 int _gfn_rank;		/**/

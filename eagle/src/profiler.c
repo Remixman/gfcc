@@ -11,6 +11,13 @@
 
 int _local_loop_size;
 
+/* 
+ * 0 | 1 2 3 4 | 5 6 7 8 9 10 11 | 12 13 14 15 ... 
+ * Array : 0 4 11
+ */
+int _split_time_function_idx[20];  // if split i and i+1 insert i
+int _split_idx_idx = 0;
+
 /* chuck stack abstraction */
 int _chunk_stack_idx;
 int _chuck_stack[STACK_SIZE];
@@ -122,8 +129,51 @@ int _exec_time_not_create = 1;
 int _opt_size = 0;
 int create_exec_time_function() {
     
-    // TODO: merge exec time to estimate function here
-    
+    if ((_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
+        
+        int s, maxi, factor, i = 0;
+        double left_bound_time = 0;
+        double right_bound_time = 0;
+        int min_time_idx = 0;
+        
+        // estimate exec time function
+        int max_diff_time_idx = 0;
+        double diff, max_diff = 0;
+        for (i = 1; i < STACK_SIZE; i++) {
+            factor = (_local_loop_size / _time_size[EXEC_TIME][i]);
+            diff = _time_stack[EXEC_TIME][i] - _time_stack[EXEC_TIME][i-1];
+            if (diff > max_diff) {
+                max_diff_time_idx = i;
+                max_diff = diff;
+            }
+        }
+        printf("Separate at %d value = %d\n", max_diff_time_idx, _time_size[EXEC_TIME][max_diff_time_idx]);
+        // TODO: merge exec time to estimate function here
+#if 0
+            // merge with exec time
+            _estimate_time_list[i] = MAX(_estimate_time_list[i])
+#endif
+
+        
+        // find minimum time from each section
+        for (s = 0; s < _split_idx_idx; s++) {
+            maxi = _split_time_function_idx[i];
+
+            if (_estimate_time_list[i] < _estimate_time_list[maxi])
+                if (_estimate_time_list[i] < min_time_idx)
+                    min_time_idx = _estimate_time_list[i];
+            else
+                if (_estimate_time_list[maxi] < min_time_idx)
+                    min_time_idx = _estimate_time_list[maxi];
+            
+            i = maxi + 1;
+        }
+        
+        printf("OPTIMAL SIZE IS : %d\n", _scatter_size_list[min_time_idx]);
+        return _scatter_size_list[min_time_idx];
+    }
+
+#if 0
 	int n = STACK_SIZE;
 	double x[STACK_SIZE];
 	double y[STACK_SIZE];
@@ -153,6 +203,7 @@ int create_exec_time_function() {
 		
 		return _opt_size;
 	}
+#endif
 	
 	return 0;
 }
@@ -196,12 +247,10 @@ void init_profiler(int local_loop_size) {
 	
 	push_chuck_stack(14016);
 	push_chuck_stack(28032);
-	push_chuck_stack(42048);
 	push_chuck_stack(56064);
 	push_chuck_stack(112128);
-	push_chuck_stack(126144);
-	push_chuck_stack(182208);
-	push_chuck_stack(210240);
+	push_chuck_stack(224256);
+    push_chuck_stack(448512);
     
     /* Create estimate time list */
     for (i = 0; i < _gather_list_idx; i++) {
@@ -222,6 +271,7 @@ void init_profiler(int local_loop_size) {
         double threshold = alpha * _estimate_time_range;
         if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
             printf("Split %d and %d\n", _scatter_time_list[i-1], _scatter_time_list[i]);
+            _split_time_function_idx[_split_idx_idx++] = i;
         }
     }
 }
