@@ -227,7 +227,6 @@ int _GfnInit(int *argc, char **argv[])
         fscanf(f, "%s", str);
         while (1) {
             fscanf(f, "%d %lf", &size, &stime);
-            printf("Scatter %d %.12lf\n", size, stime);
             if (size == 0) break;
             push_scatter_time(size, stime);
         }
@@ -1485,7 +1484,7 @@ int _GfnStreamSeqKernelRegister(long long kernel_id, int local_start, int local_
 	
 	int local_loop_size = _CalcLoopSize(loop_start, loop_end, loop_step) / _gfn_num_proc;
 #ifdef PREDICT_TIME
-	init_profiler(local_loop_size);
+	init_profiler(local_loop_size, _gfn_rank);
 #endif
 	
 	//printf("RANK[%d] LOOP (%d,%d,%d)\n", _gfn_rank, ker_info->local_start, ker_info->local_end, ker_info->loop_step);

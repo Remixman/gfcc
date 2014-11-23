@@ -1,7 +1,7 @@
 #ifndef PROFILER_H
 #define PROFILER_H
 
-void init_profiler(int);
+void init_profiler(int, int);
 
 void push_chuck_stack(int);
 int top_chuck_stack();

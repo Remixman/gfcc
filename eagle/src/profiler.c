@@ -234,7 +234,7 @@ int find_optimal_size() {
 	return mid_size;
 }
 
-void init_profiler(int local_loop_size) {
+void init_profiler(int local_loop_size, int rank) {
 	int i;
 	
 	_local_loop_size = local_loop_size;
@@ -251,6 +251,8 @@ void init_profiler(int local_loop_size) {
 	push_chuck_stack(112128);
 	push_chuck_stack(224256);
     push_chuck_stack(448512);
+    
+    if (rank != 0) return;
     
     /* Create estimate time list */
     for (i = 0; i < _gather_list_idx; i++) {
