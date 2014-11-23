@@ -123,7 +123,6 @@ int polynomialfit(int obs, int degree, double *dx, double *dy, double *store) {
 	return 1; /* we do not "analyse" the result (cov matrix mainly) to know if the fit is "good" */
 }
 double time_predict(double x, double coeff[]) {
-	assert(_created_exec_time_function > 0);
 	return (coeff[1]*x) + coeff[0];
 }
 int _exec_time_not_create = 1;
@@ -191,7 +190,7 @@ int create_exec_time_function(int rank) {
                 pred_exec_time = time_predict(size, _exec_coeff_2);
             _estimate_time_list[i] = MAX(_estimate_time_list[i], pred_exec_time);
             
-            printf("%d\t%.16lf\n", size, _estimate_time_list[i]);
+            ///printf("%d\t%.16lf\n", size, _estimate_time_list[i]);
             
             if (_estimate_time_list[i] < min_time) {
                 min_time = _estimate_time_list[i];
@@ -199,13 +198,7 @@ int create_exec_time_function(int rank) {
             }
         }
         
-        printf("Separate at %d value = %d\n", max_diff_time_idx, _time_size[EXEC_TIME][max_diff_time_idx]);
-        // TODO: merge exec time to estimate function here
-#if 0
-            // merge with exec time
-            _estimate_time_list[i] = MAX(_estimate_time_list[i])
-#endif
-
+        //printf("Separate at %d value = %d\n", max_diff_time_idx, _time_size[EXEC_TIME][max_diff_time_idx]);
         
         // find minimum time from each section
         /*for (s = 0; s < _split_idx_idx; s++) {
@@ -224,7 +217,7 @@ int create_exec_time_function(int rank) {
         _exec_time_not_create = 0;
         _created_exec_time_function = 1;
         
-        printf("OPTIMAL SIZE IS : %d\n", _scatter_size_list[min_time_idx]);
+        //printf("OPTIMAL SIZE IS : %d\n", _scatter_size_list[min_time_idx]);
         return _scatter_size_list[min_time_idx];
     }
 	
@@ -295,7 +288,7 @@ void init_profiler(int local_loop_size, int rank) {
         double alpha = 0.3;
         double threshold = alpha * _estimate_time_range;
         if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
-            printf("Split %.10lf and %.10lf\n", _scatter_time_list[i-1], _scatter_time_list[i]);
+            //printf("Split %.10lf and %.10lf\n", _scatter_time_list[i-1], _scatter_time_list[i]);
             _split_time_function_idx[_split_idx_idx++] = i-1;
         }
     }
