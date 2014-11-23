@@ -127,7 +127,11 @@ double time_predict(double x) {
 }
 int _exec_time_not_create = 1;
 int _opt_size = 0;
-int create_exec_time_function() {
+int create_exec_time_function(int rank) {
+    
+    if (rank != 0 && (_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
+        return 1;
+    }
     
     if ((_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
         
@@ -273,8 +277,8 @@ void init_profiler(int local_loop_size, int rank) {
         double alpha = 0.3;
         double threshold = alpha * _estimate_time_range;
         if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
-            printf("Split %d and %d\n", _scatter_time_list[i-1], _scatter_time_list[i]);
-            _split_time_function_idx[_split_idx_idx++] = i;
+            printf("Split %.10lf and %.10lf\n", _scatter_time_list[i-1], _scatter_time_list[i]);
+            _split_time_function_idx[_split_idx_idx++] = i-1;
         }
     }
 }

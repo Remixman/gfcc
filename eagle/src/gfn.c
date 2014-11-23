@@ -1652,7 +1652,7 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 #ifdef PREDICT_TIME
 		if (!full_exec_time_stack()) {
 			push_exec_time(exec_t);
-			int opt_size = create_exec_time_function();
+			int opt_size = create_exec_time_function(_gfn_rank);
 			
 			// FIXME : sync between all node
 			if (opt_size > 0) {
