@@ -7,6 +7,8 @@
 #define STACK_SIZE 8
 #define DEGREE 3
 
+#define MAX(A,B) ((A)<(B)?(B):(A))
+
 int _local_loop_size;
 
 /* chuck stack abstraction */
@@ -205,7 +207,7 @@ void init_profiler(int local_loop_size) {
     for (i = 0; i < _gather_list_idx; i++) {
         int size = _gather_size_list[i];
         int factor = ceil((double)_local_loop_size / (size));
-        double est_time = fmax(_scatter_time_list[i] * factor, _gather_time_list[i] * factor);
+        double est_time = MAX(_scatter_time_list[i] * factor, _gather_time_list[i] * factor);
         
         if (est_time > _max_estimate_time) _max_estimate_time = est_time;
         if (est_time < _min_estimate_time) _min_estimate_time = est_time;
