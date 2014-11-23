@@ -220,10 +220,14 @@ int _GfnInit(int *argc, char **argv[])
         char str[100];
         int size; double stime;
         FILE *f = fopen("/san01/home/pisit_m/platfrom_prof.dat", "r");
+        
+        assert(f != NULL);
+        
         /* Read SCATTER */
         fscanf(f, "%s", str);
         while (1) {
             fscanf(f, "%d %lf", &size, &stime);
+            printf("Scatter %d %.12lf\n", size, stime);
             if (size == 0) break;
             push_scatter_time(size, stime);
         }
