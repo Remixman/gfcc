@@ -5,7 +5,7 @@
 #include "profiler.h"
 
 #define STACK_SIZE 6
-#define DEGREE 3
+#define DEGREE 2
 
 #define MAX(A,B) ((A)<(B)?(B):(A))
 
@@ -81,7 +81,8 @@ double _estimate_time_list[MAX_MPI_LOG];
 
 
 /* estimation function */
-double _exec_coeff[DEGREE];
+double _exec_coeff_1[DEGREE];
+double _exec_coeff_2[DEGREE];
 int _created_exec_time_function = 0;
 int polynomialfit(int obs, int degree, double *dx, double *dy, double *store) {
 	gsl_multifit_linear_workspace *ws;
@@ -121,9 +122,9 @@ int polynomialfit(int obs, int degree, double *dx, double *dy, double *store) {
 
 	return 1; /* we do not "analyse" the result (cov matrix mainly) to know if the fit is "good" */
 }
-double time_predict(double x) {
+double time_predict(double x, double coeff[]) {
 	assert(_created_exec_time_function > 0);
-	return (_exec_coeff[2]*x*x) + (_exec_coeff[1]*x) + (_exec_coeff[0]);
+	return (coeff[1]*x) + coeff[0];
 }
 int _exec_time_not_create = 1;
 int _opt_size = 0;
@@ -141,7 +142,9 @@ int create_exec_time_function(int rank) {
         int s, maxi, factor, i = 0;
         double left_bound_time = 0;
         double right_bound_time = 0;
+        double min_time = 1000000;
         int min_time_idx = 0;
+        double pred_exec_time;
         
         // estimate exec time function
         int max_diff_time_idx = 0;
@@ -154,6 +157,44 @@ int create_exec_time_function(int rank) {
                 max_diff = diff;
             }
         }
+        
+        // estimate function of second part
+        {
+            // estimate function of first part
+            int n = STACK_SIZE - max_diff_time_idx;
+            double x[n], y[n];
+            
+            polynomialfit(n, DEGREE, x, y, _exec_coeff_1);
+        }
+        
+        // estimate function of second part
+        {
+            int n = max_diff_time_idx;
+            double x[n], y[n];
+            
+            polynomialfit(n, DEGREE, x, y, _exec_coeff_2);
+            time_predict(, _exec_coeff_2);
+        
+            //printf("COEFF 1 : %.5lf\n", _exec_coeff_2[1]);
+            //printf("COEFF 0 : %.5lf\n", _exec_coeff_2[0]);
+        }
+        
+        for (i = 0; i < _gather_list_idx; i++) {
+            int size = _scatter_size_list[i];
+            if (size <= _time_stack[EXEC_TIME][max_diff_time_idx])
+                pred_exec_time = time_predict(size, _exec_coeff_1);
+            else
+                pred_exec_time = time_predict(size, _exec_coeff_2);
+            _estimate_time_list[i] = MAX(_estimate_time_list[i], pred_exec_time);
+            
+            printf("%d\t%.16lf\n", size, _estimate_time_list[i]);
+            
+            if (_estimate_time_list[i] < min_time) {
+                min_time = _estimate_time_list[i];
+                min_time_idx = i;
+            }
+        }
+        
         printf("Separate at %d value = %d\n", max_diff_time_idx, _time_size[EXEC_TIME][max_diff_time_idx]);
         // TODO: merge exec time to estimate function here
 #if 0
@@ -163,7 +204,7 @@ int create_exec_time_function(int rank) {
 
         
         // find minimum time from each section
-        for (s = 0; s < _split_idx_idx; s++) {
+        /*for (s = 0; s < _split_idx_idx; s++) {
             maxi = _split_time_function_idx[i];
 
             if (_estimate_time_list[i] < _estimate_time_list[maxi])
@@ -174,7 +215,7 @@ int create_exec_time_function(int rank) {
                     min_time_idx = _estimate_time_list[maxi];
             
             i = maxi + 1;
-        }
+        }*/
         
         _exec_time_not_create = 0;
         _created_exec_time_function = 1;
@@ -182,41 +223,10 @@ int create_exec_time_function(int rank) {
         printf("OPTIMAL SIZE IS : %d\n", _scatter_size_list[min_time_idx]);
         return _scatter_size_list[min_time_idx];
     }
-
-#if 0
-	int n = STACK_SIZE;
-	double x[STACK_SIZE];
-	double y[STACK_SIZE];
-	int i;
-	
-	if ((_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
-		for (i = 0; i < STACK_SIZE; i++) {
-			int seq_num = (_local_loop_size / _time_size[EXEC_TIME][i]);
-			x[i] = _time_size[EXEC_TIME][i];
-			y[i] = seq_num * _time_stack[EXEC_TIME][i];
-		}
-		
-		polynomialfit(n, DEGREE, x, y, _exec_coeff);
-		
-		//printf("COEFF 2 : %.5lf\n", _exec_coeff[2]);
-		//printf("COEFF 1 : %.5lf\n", _exec_coeff[1]);
-		//printf("COEFF 0 : %.5lf\n", _exec_coeff[0]);
-		
-		_exec_time_not_create = 0;
-		_created_exec_time_function = 1;
-        
-		_opt_size = find_optimal_size();
-		//printf("OPTIMAL SIZE : %d\n", _opt_size);
-		
-		// TODO: broadcast time from rank 0
-		// TODO: set chuck size 
-		
-		return _opt_size;
-	}
-#endif
 	
 	return 0;
 }
+#if 0
 int find_optimal_size() {
 	double min_bound = 14016;
 	double max_bound = _local_loop_size / 10;
@@ -243,7 +253,7 @@ int find_optimal_size() {
     
 	return mid_size;
 }
-
+#endif
 void init_profiler(int local_loop_size, int rank) {
 	int i;
 	
@@ -275,8 +285,6 @@ void init_profiler(int local_loop_size, int rank) {
         _estimate_time_list[i] = est_time;
     }
     _estimate_time_range = _max_estimate_time - _min_estimate_time;
-    printf("Size size is %d\n", _gather_list_idx);
-    printf("Estimate time range is %.16lf\n", _estimate_time_range);
     
     /* find split function point */
     for (i = 1; i < _gather_list_idx; i++) {
