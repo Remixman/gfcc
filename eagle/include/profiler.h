@@ -26,6 +26,8 @@ int full_exec_time_stack();
 int full_download_time_stack();
 int full_gather_time_stack();
 
+int create_exec_time_function();
+
 void push_scatter_time(int size, double stime);
 void push_gather_time(int size, double stime);
 

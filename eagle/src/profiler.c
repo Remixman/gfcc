@@ -77,6 +77,10 @@ void push_gather_time(int size, double stime) {
     _gather_time_list[_gather_list_idx] = stime;
     _gather_list_idx++;
 }
+double _min_estimate_time = 50000;
+double _max_estimate_time = 0;
+double _estimate_time_range;
+double _estimate_time_list[MAX_MPI_LOG];
 
 
 /* estimation function */
@@ -127,6 +131,9 @@ double time_predict(double x) {
 int _exec_time_not_create = 1;
 int _opt_size = 0;
 int create_exec_time_function() {
+    
+    // TODO: merge exec time to estimate function here
+    
 	int n = STACK_SIZE;
 	double x[STACK_SIZE];
 	double y[STACK_SIZE];
@@ -205,6 +212,28 @@ void init_profiler(int local_loop_size) {
 	push_chuck_stack(126144);
 	push_chuck_stack(182208);
 	push_chuck_stack(210240);
+    
+    /* Create estimate time list */
+    for (i = 0; i < _gather_list_idx; i++) {
+        int size = _gather_size_list[i];
+        int factor = ceil((double)_local_loop_size / (size));
+        double est_time = fmax(_scatter_time_list[i] * factor, _gather_time_list[i] * factor);
+        
+        if (est_time > _max_estimate_time) _max_estimate_time = est_time;
+        if (est_time < _min_estimate_time) _min_estimate_time = est_time;
+        _estimate_time_list[i] = est_time;
+    }
+    _estimate_time_range = _max_estimate_time - _min_estimate_time;
+    printf("Estimate time range is %.16lf\n", _estimate_time_range);
+    
+    /* find split function point */
+    for (i = 1; i < _gather_list_idx; i++) {
+        double alpha = 0.3;
+        double threshold = alpha * _estimate_time_range;
+        if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
+            printf("Split %d and %d\n", _scatter_time_list[i-1], _scatter_time_list[i]);
+        }
+    }
 }
 
 void trace_exec_time() {
