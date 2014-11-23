@@ -60,7 +60,24 @@ int full_gather_time_stack() { return full_time_stack(GATHER_TIME); }
 
 
 /* platform profile */
-//double 
+#define MAX_MPI_LOG 300
+int _scatter_size_list[MAX_MPI_LOG];
+double _scatter_time_list[MAX_MPI_LOG];
+int _scatter_list_idx = 0;
+void push_scatter_time(int size, double stime) {
+    _scatter_size_list[_scatter_list_idx] = size;
+    _scatter_time_list[_scatter_list_idx] = stime;
+    _scatter_list_idx++;
+}
+int _gather_size_list[MAX_MPI_LOG];
+double _gather_time_list[MAX_MPI_LOG];
+int _gather_list_idx = 0;
+void push_gather_time(int size, double stime) {
+    _gather_size_list[_gather_list_idx] = size;
+    _gather_time_list[_gather_list_idx] = stime;
+    _gather_list_idx++;
+}
+
 
 /* estimation function */
 double _exec_coeff[DEGREE];

@@ -212,7 +212,29 @@ int _GfnInit(int *argc, char **argv[])
 	MPI_Bcast(&thread_block_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	if (_gfn_rank == 0) printf("GFN_THREAD_BLOCK_SIZE = %d\n", thread_block_size);
 	
-	
+    /* Open platform profile file */
+	if (_gfn_rank == 0) {
+        char str[100];
+        int size; double stime;
+        FILE *f = fopen("/san01/home/pisit_m/platfrom_prof.dat", "r");
+        /* Read SCATTER */
+        fscanf(f, "%s", str);
+        while (1) {
+            fscanf(f, "%d %lf", &size, &stime);
+            if (size == 0) break;
+            push_scatter_time(size, stime);
+        }
+        
+        /* Read GATHER */
+        fscanf(f, "%s", str);
+        while (1) {
+            fscanf(f, "%d %lf", &size, &stime);
+            if (size == 0) break;
+            push_gather_time(size, stime);
+        }
+        
+        fclose(f);
+    }
 
 	/* Reduction buffer */
 	double_sum_buffer = NULL;
