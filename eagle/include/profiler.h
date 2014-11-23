@@ -8,17 +8,8 @@ int top_chuck_stack();
 void pop_chuck_stack();
 int empty_check_stack();
 
-void push_scatter_size(int esize);
-void push_upload_size(int esize);
 void push_exec_size(int esize);
-void push_download_size(int esize);
-void push_gather_size(int esize);
-
-void push_scatter_time(double etime);
-void push_upload_time(double etime);
 void push_exec_time(double etime);
-void push_download_time(double etime);
-void push_gather_time(double etime);
 
 int full_scatter_time_stack();
 int full_upload_time_stack();

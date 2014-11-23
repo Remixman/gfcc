@@ -42,21 +42,9 @@ void push_time_stack(int time_type, double etime) {
 int full_time_stack(int time_type) {
 	return (_time_idx[time_type] == STACK_SIZE);
 }
-void push_scatter_size(int esize) { push_size_stack(SCATTER_TIME, esize); }
-void push_upload_size(int esize) { push_size_stack(UPLOAD_TIME, esize); }
 void push_exec_size(int esize) { push_size_stack(EXEC_TIME, esize); }
-void push_download_size(int esize) { push_size_stack(DOWNLOAD_TIME, esize); }
-void push_gather_size(int esize) { push_size_stack(GATHER_TIME, esize); }
-void push_scatter_time(double etime) { push_time_stack(SCATTER_TIME, etime); }
-void push_upload_time(double etime) { push_time_stack(UPLOAD_TIME, etime); }
 void push_exec_time(double etime) { push_time_stack(EXEC_TIME, etime); }
-void push_download_time(double etime) { push_time_stack(DOWNLOAD_TIME, etime); }
-void push_gather_time(double etime) { push_time_stack(GATHER_TIME, etime); }
-int full_scatter_time_stack() { return full_time_stack(SCATTER_TIME); }
-int full_upload_time_stack() { return full_time_stack(UPLOAD_TIME); }
 int full_exec_time_stack() { return full_time_stack(EXEC_TIME); }
-int full_download_time_stack() { return full_time_stack(DOWNLOAD_TIME); }
-int full_gather_time_stack() { return full_time_stack(GATHER_TIME); }
 
 
 /* platform profile */
