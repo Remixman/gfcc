@@ -4,7 +4,7 @@
 #include <math.h>
 #include "profiler.h"
 
-#define STACK_SIZE 8
+#define STACK_SIZE 6
 #define DEGREE 3
 
 #define MAX(A,B) ((A)<(B)?(B):(A))
@@ -130,6 +130,9 @@ int _opt_size = 0;
 int create_exec_time_function(int rank) {
     
     if (rank != 0 && (_time_idx[EXEC_TIME]>=STACK_SIZE) && _exec_time_not_create == 1) {
+        _exec_time_not_create = 0;
+        _created_exec_time_function = 1;
+        
         return 1;
     }
     
@@ -145,7 +148,7 @@ int create_exec_time_function(int rank) {
         double diff, max_diff = 0;
         for (i = 1; i < STACK_SIZE; i++) {
             factor = (_local_loop_size / _time_size[EXEC_TIME][i]);
-            diff = _time_stack[EXEC_TIME][i] - _time_stack[EXEC_TIME][i-1];
+            diff = fabs(_time_stack[EXEC_TIME][i] - _time_stack[EXEC_TIME][i-1]);
             if (diff > max_diff) {
                 max_diff_time_idx = i;
                 max_diff = diff;
@@ -172,6 +175,9 @@ int create_exec_time_function(int rank) {
             
             i = maxi + 1;
         }
+        
+        _exec_time_not_create = 0;
+        _created_exec_time_function = 1;
         
         printf("OPTIMAL SIZE IS : %d\n", _scatter_size_list[min_time_idx]);
         return _scatter_size_list[min_time_idx];
