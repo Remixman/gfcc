@@ -252,8 +252,6 @@ void init_profiler(int local_loop_size) {
 	push_chuck_stack(224256);
     push_chuck_stack(448512);
     
-    if (_gfn_rank != 0) return;
-    
     /* Create estimate time list */
     for (i = 0; i < _gather_list_idx; i++) {
         int size = _gather_size_list[i];
