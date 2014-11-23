@@ -252,6 +252,8 @@ void init_profiler(int local_loop_size) {
 	push_chuck_stack(224256);
     push_chuck_stack(448512);
     
+    if (_gfn_rank != 0) return;
+    
     /* Create estimate time list */
     for (i = 0; i < _gather_list_idx; i++) {
         int size = _gather_size_list[i];
@@ -263,6 +265,7 @@ void init_profiler(int local_loop_size) {
         _estimate_time_list[i] = est_time;
     }
     _estimate_time_range = _max_estimate_time - _min_estimate_time;
+    printf("Size size is %d\n", _gather_list_idx);
     printf("Estimate time range is %.16lf\n", _estimate_time_range);
     
     /* find split function point */
