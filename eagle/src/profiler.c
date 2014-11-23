@@ -157,17 +157,18 @@ int create_exec_time_function(int rank) {
             }
         }
         
-        // estimate function of second part
+        // estimate function of first part
         {
-            // estimate function of first part
             int n = STACK_SIZE - max_diff_time_idx;
+            int degree;
             double x[n], y[n];
+            if (n == 1) degree = 1;
             for (i = 0; i < max_diff_time_idx; i++) {
                 x[i] = _time_size[EXEC_TIME][i+max_diff_time_idx];
                 y[i] = _time_stack[EXEC_TIME][i+max_diff_time_idx];
             }
             
-            polynomialfit(n, DEGREE, x, y, _exec_coeff_1);
+            polynomialfit(n, degree, x, y, _exec_coeff_1);
         }
         
         // estimate function of second part
