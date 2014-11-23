@@ -2513,7 +2513,7 @@ int _GfnCalcLocalLoopEndCore(int loop_start, int loop_end, int loop_step,
 }
 
 
-inline int round_to_quanta(double n, int quanta)
+/*inline int round_to_quanta(double n, int quanta)
 {
 	return (round(n/quanta) * quanta);
 }
@@ -2574,7 +2574,7 @@ int _GfnCalcStreamSeqChunkSize(struct _app_profile * ap)
 	}
 	
 	return chunk_size;
-}
+}*/
 
 int _CalcLoopSize(int start, int end, int incre)
 {
