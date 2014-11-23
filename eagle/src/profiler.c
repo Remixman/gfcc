@@ -163,6 +163,10 @@ int create_exec_time_function(int rank) {
             // estimate function of first part
             int n = STACK_SIZE - max_diff_time_idx;
             double x[n], y[n];
+            for (i = 0; i < max_diff_time_idx; i++) {
+                x[i] = _time_size[EXEC_TIME][i+max_diff_time_idx];
+                y[i] = _time_stack[EXEC_TIME][i+max_diff_time_idx];
+            }
             
             polynomialfit(n, DEGREE, x, y, _exec_coeff_1);
         }
@@ -171,12 +175,12 @@ int create_exec_time_function(int rank) {
         {
             int n = max_diff_time_idx;
             double x[n], y[n];
+            for (i = 0; i < max_diff_time_idx; i++) {
+                x[i] = _time_size[EXEC_TIME][i];
+                y[i] = _time_stack[EXEC_TIME][i];
+            }
             
             polynomialfit(n, DEGREE, x, y, _exec_coeff_2);
-            time_predict(, _exec_coeff_2);
-        
-            //printf("COEFF 1 : %.5lf\n", _exec_coeff_2[1]);
-            //printf("COEFF 0 : %.5lf\n", _exec_coeff_2[0]);
         }
         
         for (i = 0; i < _gather_list_idx; i++) {
