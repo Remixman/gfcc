@@ -263,36 +263,36 @@ void init_profiler(int local_loop_size, int rank) {
 		_time_idx[i] = 0;
 	}
 	
-	push_chuck_stack(14016);
-	push_chuck_stack(28032);
-	push_chuck_stack(56064);
-	push_chuck_stack(112128);
-	push_chuck_stack(224256);
-    push_chuck_stack(448512);
+	push_chuck_stack(14336);
+	push_chuck_stack(28672);
+	push_chuck_stack(57344);
+	push_chuck_stack(114688);
+	push_chuck_stack(229376);
+	push_chuck_stack(458752);
     
-    if (rank != 0) return;
+	if (rank != 0) return;
     
-    /* Create estimate time list */
-    for (i = 0; i < _gather_list_idx; i++) {
-        int size = _gather_size_list[i];
-        int factor = ceil((double)_local_loop_size / (size));
-        double est_time = MAX(_scatter_time_list[i] * factor, _gather_time_list[i] * factor);
+	/* Create estimate time list */
+	for (i = 0; i < _gather_list_idx; i++) {
+		int size = _gather_size_list[i];
+		int factor = ceil((double)_local_loop_size / (size));
+		double est_time = MAX(_scatter_time_list[i] * factor, _gather_time_list[i] * factor);
         
-        if (est_time > _max_estimate_time) _max_estimate_time = est_time;
-        if (est_time < _min_estimate_time) _min_estimate_time = est_time;
-        _estimate_time_list[i] = est_time;
-    }
-    _estimate_time_range = _max_estimate_time - _min_estimate_time;
+		if (est_time > _max_estimate_time) _max_estimate_time = est_time;
+		if (est_time < _min_estimate_time) _min_estimate_time = est_time;
+		_estimate_time_list[i] = est_time;
+	}
+	_estimate_time_range = _max_estimate_time - _min_estimate_time;
     
-    /* find split function point */
-    for (i = 1; i < _gather_list_idx; i++) {
-        double alpha = 0.3;
-        double threshold = alpha * _estimate_time_range;
-        if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
-            //printf("Split %.10lf and %.10lf\n", _scatter_time_list[i-1], _scatter_time_list[i]);
-            _split_time_function_idx[_split_idx_idx++] = i-1;
-        }
-    }
+	/* find split function point */
+	for (i = 1; i < _gather_list_idx; i++) {
+		double alpha = 0.3;
+		double threshold = alpha * _estimate_time_range;
+		if (fabs(_estimate_time_list[i] - _estimate_time_list[i-1]) > threshold) {
+			//printf("Split %.10lf and %.10lf\n", _scatter_time_list[i-1], _scatter_time_list[i]);
+			_split_time_function_idx[_split_idx_idx++] = i-1;
+		}
+	}
 }
 
 void trace_exec_time() {
