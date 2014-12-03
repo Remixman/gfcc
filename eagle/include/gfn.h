@@ -103,22 +103,6 @@ void _set_data_info_loop(struct _data_information *data_info,
 void _set_data_info_pattern(struct _data_information *data_info,
 			int pattern_type, int pattern_num, int *pattern_array);
 
-struct _app_profile {
-	int upload_data_size;
-	double scatter_latency;
-	double scatter_bandwidth;
-	double upload_latency;
-	double upload_bandwidth;
-	
-	int download_data_size;
-	double download_latency;
-	double download_bandwidth;
-	double gather_latency;
-	double gather_bandwidth;
-	
-	int loop_size;
-};
-
 struct _kernel_information {
 	
 	long long kernel_id;
@@ -170,8 +154,6 @@ struct _kernel_information {
 	// Gather
 	size_t gather_var_num;
 	struct _data_information *gather_var_datas[15]; // TODO: Don't fix array size
-	
-	struct _app_profile app_profile;
 };
 
 void _update_kernel_info_seq(struct _kernel_information *ker_info);

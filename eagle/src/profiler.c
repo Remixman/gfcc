@@ -160,7 +160,7 @@ int create_exec_time_function(int rank) {
         // estimate function of first part
         {
             int n = STACK_SIZE - max_diff_time_idx;
-            int degree;
+            int degree = DEGREE;
             double x[n], y[n];
             if (n == 1) degree = 1;
             for (i = 0; i < max_diff_time_idx; i++) {
