@@ -9,27 +9,27 @@ CFLAGS = -O3 -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c gaussblur.c -lrt -D_GFN
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c gaussblur.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	@rm gaussblur.o
 	
 master: trans
-	mpicc -o gaussblur $(CFLAGS) plaincc_gaussblur.c -lrt -lOpenCL
+	mpicc -o gaussblur $(CFLAGS) plaincc_gaussblur.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 worker: trans
 	workergen gaussblur.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 modify:
-	mpicc -o gaussblur $(CFLAGS) plaincc_gaussblur.c -lrt -lOpenCL
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	mpicc -o gaussblur $(CFLAGS) plaincc_gaussblur.c -lrt -lOpenCL -lgsl -lgslcblas -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 hand:
-	mpicc -o gaussblur_hand gaussblur_hand.c -lrt -lOpenCL
+	mpicc -O3 -o gaussblur_hand gaussblur_hand.c -lrt -lOpenCL
 
 seq:
-	gcc -o gaussblur gaussblur.c 
+	gcc -O3 -o gaussblur gaussblur.c 
 
 clean:
 	@rm -rf plaincc_gaussblur.c gaussblur.c.kerdecl.c gaussblur worker* gaussblur_hand

@@ -9,26 +9,26 @@ CFLAGS = -O3 -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --keep-files $(CFLAGS) -c main.c -lrt -D_GFN
+	plaincc --cuda --gfn --keep-files $(CFLAGS) -c main.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	@rm main.o
 	
 master: trans
-	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL
+	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 worker: trans
 	workergen main.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 modify:
-	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL  
+	mpicc -o srad $(CFLAGS) plaincc_main.c -lm -lrt -lOpenCL -lgsl -lgslcblas -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 hand:
 	mpicc -O3 -o srad_hand main_hand.c -lrt -lOpenCL
 	
 seq:
-	gcc -o srad main.c -lm
+	gcc -O3 -o srad main.c -lm
 
 clean:
 	@rm *.o srad worker* plaincc_main.c main.c.kerdecl.c srad_hand

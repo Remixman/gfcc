@@ -9,27 +9,27 @@ CFLAGS = -O3 -I$(CL_INC_PATH) -L$(CL_LIB_PATH) -I$(MPI_PATH) \
 all: worker master
 
 trans:
-	plaincc --cuda --gfn --ao=1 --keep-files $(CFLAGS) -c matmul.c -lrt -D_GFN -lm
+	plaincc --cuda --gfn --ao=1 --keep-files $(CFLAGS) -c matmul.c -lrt -D_GFN -lgsl -lgslcblas -lm
 	@rm matmul.o
 	
 master: trans
-	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lm
+	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 worker: trans
 	workergen matmul.c.kerdecl.c
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 modify:
-	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lm
-	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lm
+	mpicc -o matmul $(CFLAGS) plaincc_matmul.c -lrt -lOpenCL -lgsl -lgslcblas -lm
+	mpicc -o worker $(CFLAGS) worker.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 	
 	
 hand:
-	mpicc -o matmul_hand matmul_hand.c -lrt -lOpenCL -lm
+	mpicc -O3 -o matmul_hand matmul_hand.c -lrt -lOpenCL -lgsl -lgslcblas -lm
 
 seq:
-	gcc -o matmul matmul.c 
+	gcc -O3 -o matmul matmul.c 
 
 clean:
 	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker* matmul_hand
