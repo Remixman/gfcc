@@ -540,8 +540,13 @@ int main(int argc, char *argv []){
 	host_sum2_buffer = (double*) malloc(group_num * sizeof(double));
 	
 	// scatter image
-	MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
-		(void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
+            MPI_IN_PLACE, cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
+            (void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 		
 	// create subbuffer
 	cl_buffer_region sub_size_info;
@@ -895,8 +900,13 @@ int main(int argc, char *argv []){
 		(image[0])+disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	
-	MPI_Gatherv((void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
-		(void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        MPI_Gatherv(MPI_IN_PLACE, cnts[rank], MPI_DOUBLE,
+            (void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gatherv((void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
+            (void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 
 	time1 = get_time();
 

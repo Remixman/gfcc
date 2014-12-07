@@ -439,10 +439,17 @@ int main(int argc, char* argv[])
 	cl_w1 = clCreateBuffer(context, CL_MEM_READ_WRITE, nx * ny * sizeof(double), NULL, &status);
 
 	// scatter w0 and w1
-	MPI_Scatterv((void*)(w0[0]), cnts, disp, MPI_DOUBLE,
-		(void*)((w0[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
-	MPI_Scatterv((void*)(w1[0]), cnts, disp, MPI_DOUBLE,
-		(void*)((w1[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        MPI_Scatterv((void*)(w0[0]), cnts, disp, MPI_DOUBLE,
+            MPI_IN_PLACE, cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatterv((void*)(w1[0]), cnts, disp, MPI_DOUBLE,
+            MPI_IN_PLACE, cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Scatterv((void*)(w0[0]), cnts, disp, MPI_DOUBLE,
+            (void*)((w0[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatterv((void*)(w1[0]), cnts, disp, MPI_DOUBLE,
+            (void*)((w1[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 
 	// create subbuffer
 	cl_buffer_region sub_w_info;
@@ -512,8 +519,13 @@ int main(int argc, char* argv[])
 	status = clEnqueueReadBuffer(queue, cl_sub_w0, CL_TRUE, 0, cnts[rank] * sizeof(double), 
 		(w0[0])+disp[rank], 0, NULL, NULL);
 
-	MPI_Gatherv((void*)((w0[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
-		(void*)(w0[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        MPI_Gatherv(MPI_IN_PLACE, cnts[rank], MPI_DOUBLE,
+            (void*)(w0[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gatherv((void*)((w0[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
+            (void*)(w0[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 
 	time1 = get_time();
 
