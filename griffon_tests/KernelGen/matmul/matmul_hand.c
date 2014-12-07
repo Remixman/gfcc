@@ -176,9 +176,14 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	const size_t global_work_size = round_to((local_end - local_start + 1), 
 	                                         work_group_size);	
 	const size_t group_num = global_work_size/work_group_size;
-	
-	MPI_Scatterv((void*)A, A_cnts, A_disp, MPI_DOUBLE, 
-		(void*)(A+A_disp[rank]), A_cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        MPI_Scatterv((void*)A, A_cnts, A_disp, MPI_DOUBLE, 
+            MPI_IN_PLACE, A_cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Scatterv((void*)A, A_cnts, A_disp, MPI_DOUBLE, 
+            (void*)(A+A_disp[rank]), A_cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 	
 	MPI_Bcast(B, (ny * nz), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
@@ -228,9 +233,14 @@ void matmul_(int nx, int ny, int nz, double* A, double* B, double* C,
 	status = clEnqueueReadBuffer(queue, cl_subC, CL_TRUE, 0, C_cnts[rank] * sizeof(double), 
 							     C + C_disp[rank], 0, NULL, NULL);
 	clFinish(queue);
-    
-    MPI_Gatherv((void*)(C+C_disp[rank]), C_cnts[rank], MPI_DOUBLE,
-		(void*)C, C_cnts, C_disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        MPI_Gatherv(MPI_IN_PLACE, C_cnts[rank], MPI_DOUBLE,
+            (void*)C, C_cnts, C_disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    } else {
+        MPI_Gatherv((void*)(C+C_disp[rank]), C_cnts[rank], MPI_DOUBLE,
+            (void*)C, C_cnts, C_disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    }
 		
 	clReleaseMemObject(cl_A_buf);
 	clReleaseMemObject(cl_B_buf);
