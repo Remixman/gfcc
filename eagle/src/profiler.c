@@ -174,13 +174,15 @@ int create_exec_time_function(int rank) {
         // estimate function of second part
         {
             int n = max_diff_time_idx;
+	    int degree = DEGREE;
             double x[n], y[n];
+	    if (n == 1) degree = 1;
             for (i = 0; i < max_diff_time_idx; i++) {
                 x[i] = _time_size[EXEC_TIME][i];
                 y[i] = _time_stack[EXEC_TIME][i];
             }
             
-            polynomialfit(n, DEGREE, x, y, _exec_coeff_2);
+            polynomialfit(n, degree, x, y, _exec_coeff_2);
         }
         
         for (i = 0; i < _gather_list_idx; i++) {
