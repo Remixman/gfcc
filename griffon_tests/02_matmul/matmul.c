@@ -6,47 +6,48 @@
 #include <gfn.h>
 #endif
 
+#define double_rand() (((double)(rand() / (double)RAND_MAX) - 0.5) * 2)
+
 long long get_time() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
 
-void init(int n, float **A, float **B) {
+void init(int n, double **A, double **B) {
 	int i, j;
+	double meanA = 0.0f, meanB = 0.0f;
 	
-	srand(time(NULL));
-	
-	for (i = 0; i < n; i++) {
-		for (j = 0; j < n; j++) {
-			/* Random from 0.00 - 0.99 */
-			A[i][j] = (rand() % 100) / 100.f;
-			B[i][j] = (rand() % 100) / 100.f;
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < n; j++)
+		{
+			A[i][j] = double_rand();
+			meanA += A[i][j];
 		}
 	}
+	for (i = 0; i < n; i++)
+	{
+		for (j = 0; j < n; j++)
+		{
+			B[i][j] = double_rand();
+			meanB += B[i][j];
+		}
+	}
+	printf("initial mean = %f\n", (meanA / (n * n) + meanB / (n * n)));
 }
 
-void matmul_kernel(int n, float **A, float **B, float **C) {
+void matmul_kernel(int n, double **A, double **B, double **C) {
 	int tid;
 	int nsquare = n*n;
 	int i, j, k;
-
-	/*#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
-	for (i = 0; i < n; i++) {
-		for (j = 0; j < n; j++) {
-			C[i][j] = 0.f;
-			for (k = 0; k < n; k++) {
-				C[i][j] += A[i][k] * B[k][j];
-			}
-		}
-	}*/
 
 	#pragma gfn parallel_for copyin(A[0:n{partition}][0:n],B[0:n][0:n]) copyout(C[0:n{partition}][0:n])
 	for (tid = 0; tid < nsquare; ++tid) {
 		int i = tid / n;
 		int j = tid % n;
 		int k = 0;
-		float tmp = 0.0;
+		double tmp = 0.0;
 		for (k = 0; k < n; ++k)
 			tmp += A[i][k] * B[k][j];
 		C[i][j] = tmp;
@@ -56,8 +57,9 @@ void matmul_kernel(int n, float **A, float **B, float **C) {
 int main(int argc, char *argv[]) {
 	int ite, i, j, k, tid;
 	int n, pass = 1;
-	float **A, **B, **C, sum;
+	double **A, **B, **C, sum;
 	long long time0, time1;
+	double meanC = 0.0f;
 
 	n = 1000;
 	ite = 10;
@@ -66,12 +68,12 @@ int main(int argc, char *argv[]) {
 	if (argc > 2) ite = atoi(argv[2]);
 	
 	// allocate memory for A, B and C
-	A = (float **) malloc(n * sizeof(float*));
-	A[0] = (float *) malloc(n * n * sizeof(float));
-	B = (float **) malloc(n * sizeof(float*));
-	B[0] = (float *) malloc(n * n * sizeof(float));
-	C = (float **) malloc(n * sizeof(float*));
-	C[0] = (float *) malloc(n * n * sizeof(float));
+	A = (double **) malloc(n * sizeof(double*));
+	A[0] = (double *) malloc(n * n * sizeof(double));
+	B = (double **) malloc(n * sizeof(double*));
+	B[0] = (double *) malloc(n * n * sizeof(double));
+	C = (double **) malloc(n * sizeof(double*));
+	C[0] = (double *) malloc(n * n * sizeof(double));
 	for (i = 1; i < n; i++) {
 		A[i] = A[i-1] + n;
 		B[i] = B[i-1] + n;
@@ -87,23 +89,10 @@ int main(int argc, char *argv[]) {
 	for (i = 0; i < ite; i++) matmul_kernel(n, A, B, C);
 	time1 = get_time();
 	
-	// assert with sequential solution
-	/*for (i = 0; i < n; i++) {
-		for (j = 0; j < n; j++) {
-			sum = 0.f;
-			for (k = 0; k < n; k++) {
-				sum += A[i][k] * B[k][j];
-			}
-			if (fabs(sum-C[i][j]) > 0.1) {
-				printf("Error at [%d][%d]\n", i, j);
-				printf("C[%d][%d] is %.5f but expected value is %.5f\n", i, j,
-					C[i][j], sum);
-				pass = 0;
-				break;
-			}
-		}
-		if (!pass) break;
-	}*/
+	for (i = 0; i < n; i++)
+		for (j = 0; j < n; j++)
+			meanC += C[i][j];
+	printf("final mean = %f\n", meanC / (n * n));
 	
 	free(A[0]); free(A);
 	free(B[0]); free(B);
