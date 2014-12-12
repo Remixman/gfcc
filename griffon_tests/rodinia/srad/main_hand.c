@@ -316,9 +316,9 @@ int main(int argc, char *argv []){
 	long image_ori_elem;
 
     // inputs image, input paramenters
-    fp** image;															// input image
-    long Nr,Nc;													// IMAGE nbr of rows/cols/elements
-	long Ne;
+    fp* image;															// input image
+    int Nr,Nc;													// IMAGE nbr of rows/cols/elements
+	int Ne;
 
 	// algorithm parameters
     int niter;																// nbr of iterations
@@ -333,16 +333,13 @@ int main(int argc, char *argv []){
 
     // center pixel value
     fp Jc;
-
-	// directional derivatives
-	fp **dN,**dS,**dW,**dE;
     
     // calculation variables
     fp tmp,sum,sum2;
     fp G2,L,num,den,qsqr,D;
        
     // diffusion coefficient
-    fp **c; 
+    fp *c; 
 	fp cN,cS,cW,cE;
     
     // counters
@@ -413,6 +410,17 @@ int main(int argc, char *argv []){
 	image_ori_elem = image_ori_rows * image_ori_cols;
 
 	image_ori = (fp*)malloc(sizeof(fp) * image_ori_elem);
+	if (image_ori == NULL) {
+		printf("Allocation image_ori size %d error on rank %d\n", sizeof(fp) * image_ori_elem, rank);
+		perror("malloc");
+	}
+
+	Ne = Nr*Nc;
+	image = (fp*)malloc(sizeof(fp) * Ne);
+	if (image == NULL) {
+		printf("Allocation image size %d error on rank %d\n", sizeof(fp) * Ne, rank);
+		perror("malloc");
+	}
 
 	if (rank == 0) {
 		read_graphics(	fileinname,
@@ -420,8 +428,16 @@ int main(int argc, char *argv []){
 								image_ori_rows,
 								image_ori_cols,
 								1);
-	}
 	
+		resize(	image_ori,
+				image_ori_rows,
+				image_ori_cols,
+				image,
+				Nr,
+				Nc,
+				1);
+	}
+
 	// initial GPU
 	status = clGetPlatformIDs(1, &platform, NULL);
 	_GfnCheckCLStatus(status, "clGetPlatformIDs");
@@ -453,26 +469,6 @@ int main(int argc, char *argv []){
 	reduce_kernel = clCreateKernel(program, "reduce_process", &status);
 	_GfnCheckCLStatus(status, "CREATE REDUCE KERNEL");
 
-	//================================================================================80
-	// 	RESIZE IMAGE (ASSUMING COLUMN MAJOR STORAGE OF image_orig)
-	//================================================================================80
-
-	Ne = Nr*Nc;
-
-	image = (fp**)malloc(sizeof(fp*) * Nr);
-	image[0] = (fp*)malloc(sizeof(fp) * Ne);
-	for (i = 1; i < Nr; ++i)
-		image[i] = image[i-1] + Nc;
-
-	if (rank == 0) {
-		resize(	image_ori,
-				image_ori_rows,
-				image_ori_cols,
-				image[0],
-				Nr,
-				Nc,
-				1);
-	}
 
 	//================================================================================80
 	// 	SETUP
@@ -485,29 +481,9 @@ int main(int argc, char *argv []){
 
     // ROI image size    
     NeROI = (r2-r1+1)*(c2-c1+1);											// number of elements in ROI, ROI size
-    
-	// allocate variables for directional derivatives
-	dN = (fp**)malloc(sizeof(fp*)*Nr) ;
-    dN[0] = (fp*)malloc(sizeof(fp)*Ne);
-    dS = (fp**)malloc(sizeof(fp*)*Nr) ;
-    dS[0] = (fp*)malloc(sizeof(fp)*Ne);
-    dW = (fp**)malloc(sizeof(fp*)*Nr) ;
-    dW[0] = (fp*)malloc(sizeof(fp)*Ne);
-    dE = (fp**)malloc(sizeof(fp*)*Nr) ;
-    dE[0] = (fp*)malloc(sizeof(fp)*Ne);
-    for (i = 1; i < Nr; ++i) {
-    	dN[i] = dN[i-1] + Nc;
-    	dS[i] = dS[i-1] + Nc;
-    	dW[i] = dW[i-1] + Nc;
-    	dE[i] = dE[i-1] + Nc;
-    }
 
 	// allocate variable for diffusion coefficient
-    c  = (fp**)malloc(sizeof(fp*)*Nr) ;											// diffusion coefficient
-    c[0] = (fp*)malloc(sizeof(fp)*Ne);
-    for (i = 1; i < Nr; ++i)
-    	c[i] = c[i-1] + Nc;
-
+    c  = (fp*)malloc(sizeof(fp)*Ne);
     time0 = get_time();
 
 	// calculate counts and displacements
@@ -541,25 +517,26 @@ int main(int argc, char *argv []){
 	
 	// scatter image
     if (rank == 0) {
-        MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
+        MPI_Scatterv(image, cnts, disp, MPI_DOUBLE,
             MPI_IN_PLACE, cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
     } else {
-        MPI_Scatterv((void*)(image[0]), cnts, disp, MPI_DOUBLE,
-            (void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Scatterv(image, cnts, disp, MPI_DOUBLE,
+            image+disp[rank], cnts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 		
 	// create subbuffer
 	cl_buffer_region sub_size_info;
 	sub_size_info.origin = (size_t)(disp[rank] * sizeof(double));
 	sub_size_info.size = (size_t)(cnts[rank] * sizeof(double));
-	
+
 	cl_sub_img = clCreateSubBuffer(cl_image, CL_MEM_READ_WRITE, 
 		CL_BUFFER_CREATE_TYPE_REGION, &sub_size_info, &status);
 		
 	// send data to GPU
 	status = clEnqueueWriteBuffer(queue, cl_sub_img, CL_FALSE, 0, cnts[rank] * sizeof(double),
-		(image[0])+disp[rank], 0, NULL, NULL);
-
+		(image)+disp[rank], 0, NULL, NULL);
+		
+printf("[%d] send data to GPU\n", rank);
 	// create download upper bound subbuffer
 	cl_buffer_region d2h_upper_info;
 	if (rank != 0) {
@@ -766,29 +743,29 @@ int main(int argc, char *argv []){
         // download lower bound from GPU
 		if (rank != (node_size-1)) {
 			status = clEnqueueReadBuffer(queue, cl_d2h_lower, CL_FALSE, 0, 1 * Nc * sizeof(double), 
-				(image[0])+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
+				(image)+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
 		}
 
 		// download upper bound from GPU
 		if (rank != 0) {
 			status = clEnqueueReadBuffer(queue, cl_d2h_upper, CL_FALSE, 0, 1 * Nc * sizeof(double), 
-				(image[0])+disp[rank], 0, NULL, NULL);
+				(image)+disp[rank], 0, NULL, NULL);
 		}
 		
 		clFinish(queue);
 		
 		// exchange image bound
 		if (rank != (node_size-1))
-			MPI_Isend((void*)((image[0])+disp[rank+1]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank+1, 
+			MPI_Isend((void*)((image)+disp[rank+1]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank+1, 
 				0/*tag*/, MPI_COMM_WORLD, &send_lower_req);
 		if (rank != 0)
-			MPI_Isend((void*)((image[0])+disp[rank]), 1 * Nc, MPI_DOUBLE, rank-1, 
+			MPI_Isend((void*)((image)+disp[rank]), 1 * Nc, MPI_DOUBLE, rank-1, 
 				1/*tag*/, MPI_COMM_WORLD, &send_upper_req);
 		if (rank != (node_size-1))
-			MPI_Irecv((void*)((image[0])+disp[rank+1]), 1 * Nc, MPI_DOUBLE, rank+1,
+			MPI_Irecv((void*)((image)+disp[rank+1]), 1 * Nc, MPI_DOUBLE, rank+1,
 				1/*tag*/, MPI_COMM_WORLD, &recv_lower_req);
 		if (rank != 0)
-			MPI_Irecv((void*)((image[0])+disp[rank]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank-1,
+			MPI_Irecv((void*)((image)+disp[rank]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank-1,
 				0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 		if (rank != 0) MPI_Wait(&send_upper_req, &mstatus);
@@ -799,13 +776,13 @@ int main(int argc, char *argv []){
 		// upload upper bound to GPU
 		if (rank != 0) {
 			status = clEnqueueWriteBuffer(queue, cl_h2d_upper, CL_FALSE, 0, 1 * Nc * sizeof(double),
-				(image[0])+disp[rank]-(1 * Nc), 0, NULL, NULL);
+				(image)+disp[rank]-(1 * Nc), 0, NULL, NULL);
 		}
 
 		// upload lower bound to GPU
 		if (rank != (node_size-1)) {
 			status = clEnqueueWriteBuffer(queue, cl_h2d_lower, CL_FALSE, 0, 1 * Nc * sizeof(double),
-				(image[0])+disp[rank+1], 0, NULL, NULL);
+				(image)+disp[rank+1], 0, NULL, NULL);
 		}
 		
 		clFinish(queue);
@@ -826,29 +803,29 @@ int main(int argc, char *argv []){
         // download lower bound from GPU
 		if (rank != (node_size-1)) {
 			status = clEnqueueReadBuffer(queue, cl_d2h_c_lower, CL_FALSE, 0, 1 * Nc * sizeof(double), 
-				(c[0])+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
+				(c)+(disp[rank+1]-(1 * Nc)), 0, NULL, NULL);
 		}
 
 		// download upper bound from GPU
 		if (rank != 0) {
 			status = clEnqueueReadBuffer(queue, cl_d2h_c_upper, CL_FALSE, 0, 1 * Nc * sizeof(double), 
-				(c[0])+disp[rank], 0, NULL, NULL);
+				(c)+disp[rank], 0, NULL, NULL);
 		}
 		
 		clFinish(queue);
 
 		// exchange image bound
 		if (rank != (node_size-1))
-			MPI_Isend((void*)((c[0])+disp[rank+1]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank+1, 
+			MPI_Isend((void*)((c)+disp[rank+1]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank+1, 
 				0/*tag*/, MPI_COMM_WORLD, &send_lower_req);
 		if (rank != 0)
-			MPI_Isend((void*)((c[0])+disp[rank]), 1 * Nc, MPI_DOUBLE, rank-1, 
+			MPI_Isend((void*)((c)+disp[rank]), 1 * Nc, MPI_DOUBLE, rank-1, 
 				1/*tag*/, MPI_COMM_WORLD, &send_upper_req);
 		if (rank != (node_size-1))
-			MPI_Irecv((void*)((c[0])+disp[rank+1]), 1 * Nc, MPI_DOUBLE, rank+1,
+			MPI_Irecv((void*)((c)+disp[rank+1]), 1 * Nc, MPI_DOUBLE, rank+1,
 				1/*tag*/, MPI_COMM_WORLD, &recv_lower_req);
 		if (rank != 0)
-			MPI_Irecv((void*)((c[0])+disp[rank]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank-1,
+			MPI_Irecv((void*)((c)+disp[rank]-(1 * Nc)), 1 * Nc, MPI_DOUBLE, rank-1,
 				0/*tag*/, MPI_COMM_WORLD, &recv_upper_req);
 
 		if (rank != 0) MPI_Wait(&send_upper_req, &mstatus);
@@ -859,13 +836,13 @@ int main(int argc, char *argv []){
 		// upload upper bound to GPU
 		if (rank != 0) {
 			status = clEnqueueWriteBuffer(queue, cl_h2d_c_upper, CL_FALSE, 0, 1 * Nc * sizeof(double),
-				(c[0])+disp[rank]-(1 * Nc), 0, NULL, NULL);
+				(c)+disp[rank]-(1 * Nc), 0, NULL, NULL);
 		}
 
 		// upload lower bound to GPU
 		if (rank != (node_size-1)) {
 			status = clEnqueueWriteBuffer(queue, cl_h2d_c_lower, CL_FALSE, 0, 1 * Nc * sizeof(double),
-				(c[0])+disp[rank+1], 0, NULL, NULL);
+				(c)+disp[rank+1], 0, NULL, NULL);
 		}
 		
 		clFinish(queue);
@@ -897,15 +874,15 @@ int main(int argc, char *argv []){
 
 	// copy back image
 	status = clEnqueueReadBuffer(queue, cl_sub_img, CL_TRUE, 0, cnts[rank] * sizeof(double), 
-		(image[0])+disp[rank], 0, NULL, NULL);
+		(image)+disp[rank], 0, NULL, NULL);
 	clFinish(queue);
 	
     if (rank == 0) {
         MPI_Gatherv(MPI_IN_PLACE, cnts[rank], MPI_DOUBLE,
-            (void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            (void*)(image), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     } else {
-        MPI_Gatherv((void*)((image[0])+disp[rank]), cnts[rank], MPI_DOUBLE,
-            (void*)(image[0]), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Gatherv((void*)((image)+disp[rank]), cnts[rank], MPI_DOUBLE,
+            (void*)(image), cnts, disp, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
 	time1 = get_time();
@@ -924,7 +901,7 @@ int main(int argc, char *argv []){
 		sum = 0.0;
 		for (i=0;i<Nr;i++) 
 			for (j=0;j<Nc;j++)
-				sum += image[i][j];
+				sum += image[i*Nc+j];
 	}
 								
 	//================================================================================80
@@ -933,13 +910,9 @@ int main(int argc, char *argv []){
 
 
 	free(image_ori);
-	free(image[0]);
 	free(image);
 
-	free(dN[0]); free(dS[0]); free(dW[0]); free(dE[0]);
-    free(dN); free(dS); free(dW); free(dE);									// deallocate directional derivative memory
-    free(c[0]);
-    free(c);																// deallocate diffusion coefficient memory
+    free(c);
     
     free(host_sum_buffer);
     free(host_sum2_buffer);
