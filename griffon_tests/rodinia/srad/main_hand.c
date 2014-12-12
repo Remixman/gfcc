@@ -536,7 +536,6 @@ int main(int argc, char *argv []){
 	status = clEnqueueWriteBuffer(queue, cl_sub_img, CL_FALSE, 0, cnts[rank] * sizeof(double),
 		(image)+disp[rank], 0, NULL, NULL);
 		
-printf("[%d] send data to GPU\n", rank);
 	// create download upper bound subbuffer
 	cl_buffer_region d2h_upper_info;
 	if (rank != 0) {
