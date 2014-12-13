@@ -10,7 +10,8 @@
 #include "profiler.h"
 
 
-#define PREDICT_TIME
+//#define PREDICT_TIME
+#define TRACE_SS_OVERHEAD
 
 int _gfn_opt_level = 0;
 int _gfn_rank;		/**/
@@ -43,6 +44,11 @@ int is_overlap_node_dev_trans;
 int stream_seq_factor = 1;
 int stream_seq_size = 0;
 int thread_block_size = 128;
+
+#ifdef TRACE_SS_OVERHEAD
+long long _ss_tmp_start_time = 0;
+long long _ss_calc_time = 0;
+#endif
 
 char current_kernel_name[50];
 
@@ -1458,6 +1464,9 @@ int _GfnFinishGatherArray()
 		printf("Stream Sequence Read Buffer : %.7lf\n", total_download_time);
 		printf("Stream Sequence IGather : %.7lf\n", total_gather_time);
 		profiler_count++;
+#ifdef TRACE_SS_OVERHEAD
+        printf("Stream Sequence Calc Overhead : %.7lf\n", (double)_ss_calc_time/1000000.0);
+#endif
 	}
 	
 	return 0;
@@ -1550,6 +1559,9 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
 			
+#ifdef TRACE_SS_OVERHEAD
+_ss_tmp_start_time = get_time();
+#endif            
 			// Initialize cnts for first partition
 			for (i = 0; i < _gfn_num_proc; ++i) {
 				if (data_info->last_partition_cnts[i] > ker_info->last_partition_partition_size) {
@@ -1557,10 +1569,14 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				}
 			}
 			
+#ifdef TRACE_SS_OVERHEAD
+_ss_calc_time += get_time() - _ss_tmp_start_time;
+#endif
+			
 			scatter_start = get_time();
 			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id);
 		}
-	} else {
+	} else { 
 		_update_kernel_info_seq(ker_info);
 		
 		// get sequence start and end index
@@ -1576,6 +1592,9 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 		
 		// 2. for variable 2 - last
 		for (vit = 0; vit < var_num; ++vit) {
+#ifdef TRACE_SS_OVERHEAD
+_ss_tmp_start_time = get_time();
+#endif 
 			struct _data_information * data_info = data_infos[vit];
 			
 			// Update cnts and disp
@@ -1597,7 +1616,9 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 					data_info->last_partition_cnts[i] = data_info->end_disp[i] - data_info->last_partition_disp[i];
 				}
 			}
-			
+#ifdef TRACE_SS_OVERHEAD
+_ss_calc_time += get_time() - _ss_tmp_start_time;
+#endif
 			// 2.1 IScatter (part I+1)
 			if (data_info->has_iscatter_req) {
 				MPI_Wait(&(data_info->last_iscatter_req), &status);
@@ -1605,14 +1626,14 @@ int _GfnStreamSeqKernelGetNextSequence(struct _kernel_information *ker_info, int
 				if (_gfn_rank == 0) total_scatter_time += (scatter_end - scatter_start) / 1000000.0;
 				//if (_gfn_rank == 0) printf("%s : %.6lf\n", "Stream Sequence IScatter", (scatter_end - scatter_start) / 1000000.0);
 			}
-            
+			
 			scatter_start = get_time();
 			_GfnStreamSeqIScatter(data_info, ker_info->curr_sequence_id);
 		}
         
 		for (vit = 0; vit < var_num; ++vit) {
 			struct _data_information * data_info = data_infos[vit];
-            
+
 			// 2.2 WriteBuffer (part I)
 			if (data_info->has_upload_evt) {
 				clWaitForEvents(1, &(data_info->last_upload_evt));
@@ -1664,6 +1685,10 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 	_get_gather_var_ids(ker_info, &data_infos, &var_num);
 	MPI_Status status;
 	
+#ifdef TRACE_SS_OVERHEAD
+_ss_tmp_start_time = get_time();
+#endif 
+    
 	if (ker_info->curr_sequence_id == 0) {
 		// Initialize gather variable information
 		for (vit = 0; vit < var_num; ++vit) {
@@ -1727,6 +1752,10 @@ int _GfnStreamSeqKernelFinishSequence(struct _kernel_information *ker_info)
 			}
 		}
 	}
+	
+#ifdef TRACE_SS_OVERHEAD
+_ss_calc_time += get_time() - _ss_tmp_start_time;
+#endif
 	
 	for (vit = 0; vit < var_num; ++vit) {
 		struct _data_information * data_info = data_infos[vit];
