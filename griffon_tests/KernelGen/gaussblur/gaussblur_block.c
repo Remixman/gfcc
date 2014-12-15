@@ -79,13 +79,13 @@ void gaussblur(int nx, int ny,
 int main(int argc, char* argv[])
 {
     int i, j, it;
-    int nx, ny, nt, BLOCK_SIZE;
+    int nx, ny, nt;
     double **w0, **w1;
     double s0, s1, s2, s4, s5, s8; 
     double mean = 0.0f;
     long long time0, time1;
 
-	if (argc != 4)
+	if (argc != 5)
 	{
 		printf("Usage: %s <nx> <ny> <nt>\n", argv[0]);
 		exit(1);

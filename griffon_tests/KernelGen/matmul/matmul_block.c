@@ -56,15 +56,15 @@ void matmul_(int nx, int ny, int nz, double** A, double** B, double** C, int BLO
 
 int main(int argc, char* argv[])
 {
-    int i, j, it, BLOCK_SIZE;
+    int i, j, it;
     double meanA = 0.0f;
     double meanB = 0.0f;
     double meanC = 0.0f;
     long long time0, time1;
 
-	if (argc != 5)
+	if (argc != 6)
 	{
-		printf("Usage: %s <nx> <ny> <ns> <nt>\n", argv[0]);
+		printf("Usage: %s <nx> <ny> <ns> <nt> <b>\n", argv[0]);
 		exit(1);
 	}
 
