@@ -30,6 +30,9 @@ hand:
 
 seq:
 	gcc -O3 -o matmul matmul.c 
+	
+block:
+	gcc -O3 -o matmul_block matmul_block.c
 
 clean:
 	@rm -rf plaincc_matmul.c matmul.c.kerdecl.c matmul worker* matmul_hand

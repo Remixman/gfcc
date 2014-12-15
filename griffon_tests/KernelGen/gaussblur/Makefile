@@ -31,6 +31,9 @@ hand:
 seq:
 	gcc -O3 -o gaussblur gaussblur.c 
 
+block:
+	gcc -O3 -o gaussblur_block gaussblur_block.c
+
 clean:
 	@rm -rf plaincc_gaussblur.c gaussblur.c.kerdecl.c gaussblur worker* gaussblur_hand
 

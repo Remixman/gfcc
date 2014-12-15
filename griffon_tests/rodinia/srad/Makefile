@@ -29,6 +29,9 @@ hand:
 	
 seq:
 	gcc -O3 -o srad main.c -lm
+	
+block:
+	gcc -O3 -o srad_block main_block.c
 
 clean:
 	@rm *.o srad worker* plaincc_main.c main.c.kerdecl.c srad_hand
