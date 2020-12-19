@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Basic mercurium generator
+
+if [ ! -e "mercurium" ];
+then
+# Mercurium default
+
+source /home/remixman/Desktop/mcxx/tests/config/mercurium-libraries
+
+cat <<EOF
+MCXX="/home/remixman/Desktop/mcxx/src/driver/mcxx --output-dir=/home/remixman/Desktop/mcxx/tests --config-dir=/home/remixman/Desktop/mcxx/config --verbose"
+test_CC="\${MCXX} --profile=plaincc"
+test_CXX="\${MCXX} --profile=plaincxx"
+test_FC="\${MCXX} --profile=plainfc"
+test_nolink=yes
+EOF
+else
+    # If current directory has a generator, use it
+    ./mercurium
+fi

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Ignore this test if no STM
+
+if [ -z "" ];
+then
+
+cat  <<EOF
+test_ignore=yes
+EOF
+
+fi
+
+source /home/remixman/Desktop/mcxx/tests/config/mercurium-libraries
+
+cat <<EOF
+MCC="/home/remixman/Desktop/mcxx/src/driver/mcxx --output-dir=/home/remixman/Desktop/mcxx/tests --profile=stmcxx --config-dir=/home/remixman/Desktop/mcxx/config --verbose"
+
+test_CXX="\${MCC}"
+
+test_CXXFLAGS=
+
+test_nolink=yes
+EOF
